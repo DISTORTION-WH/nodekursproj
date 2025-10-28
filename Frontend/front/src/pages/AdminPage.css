@@ -1,0 +1,174 @@
+:root {
+  --bg: #2f3136;
+  --bg-block: #202225;
+  --text-main: #fff;
+  --text-muted: #b9bbbe;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --danger: #e74c3c;
+  --danger-hover: #c0392b;
+  --success: #43b581;
+}
+
+.admin-page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.admin-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.admin-section {
+  background: var(--bg-block);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.admin-subtitle {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+}
+
+.admin-search {
+  padding: 10px;
+  margin-bottom: 15px;
+  border: none;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 300px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  text-align: left;
+}
+
+.admin-btn {
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.admin-btn.edit {
+  background: var(--accent);
+  color: white;
+}
+
+.admin-btn.edit:hover {
+  background: var(--accent-hover);
+}
+
+.admin-btn.delete {
+  background: var(--danger);
+  color: white;
+}
+
+.admin-btn.delete:hover {
+  background: var(--danger-hover);
+}
+
+.admin-btn.save {
+  background: var(--success);
+  color: white;
+}
+
+.admin-btn.cancel {
+  background: var(--danger);
+  color: white;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.edit-form input {
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+}
+
+.admin-chats-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-chat-card {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 10px;
+  flex: 0 0 200px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.admin-chat-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-3px);
+}
+
+.admin-chat-card.active {
+  border: 2px solid var(--accent);
+}
+
+.admin-chat-view {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-chat-messages {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.admin-message {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-message-empty {
+  color: var(--text-muted);
+}
+
+.msg-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.admin-page {
+  overflow-y: auto !important;
+  height: 100vh;
+}

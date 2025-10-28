@@ -1,0 +1,36 @@
+/* Общие сбросы */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  background: #36393f;
+  color: #fff;
+}
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* ← блокируем прокрутку всей страницы */
+  font-family: Arial, sans-serif;
+  background: #36393f;
+  color: #fff;
+}
+
+/* Контейнер приложения */
+.app-container {
+  display: flex;
+  height: calc(100vh - 50px); /* 50px - высота Navbar */
+  margin-top: 50px;           /* пространство под Navbar */
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}

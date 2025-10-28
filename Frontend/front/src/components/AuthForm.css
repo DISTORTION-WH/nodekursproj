@@ -1,0 +1,76 @@
+.auth-form {
+  background: #2f3136;
+  padding: 30px;
+  border-radius: 8px;
+  width: 320px;
+  margin: 70px auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  color: #fff;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  animation: fadeIn 0.4s ease-in-out forwards;
+}
+
+.auth-form h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.auth-form input {
+  width: 100%;
+  display: block;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  border: none;
+  background-color: #40444b;
+  color: #fff;
+  outline: none;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: background-color 0.25s;
+}
+
+.auth-form input:focus {
+  background-color: #4f545c;
+}
+
+.btn.primary {
+  width: 100%;
+  background: #5865f2;
+  color: white;
+  border: none;
+  padding: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.25s, transform 0.25s;
+}
+
+.btn.primary:hover {
+  background: #4752c4;
+  transform: scale(1.05);
+}
+
+.error {
+  background-color: #e81123;
+  padding: 8px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ===================== */
+/* АНИМАЦИИ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

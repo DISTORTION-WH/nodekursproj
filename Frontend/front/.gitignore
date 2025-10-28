@@ -1,0 +1,11 @@
+# Зависимости Frontend
+/node_modules
+
+# Папки сборки
+/dist
+/build
+.next/
+
+# Файлы окружения Frontend
+.env
+.env.local
