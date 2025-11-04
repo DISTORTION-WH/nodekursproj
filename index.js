@@ -18,7 +18,8 @@ const app = express();
 // URL вашего будущего фронтенда на Vercel
 const allowedOrigins = [
   'http://localhost:3000', // Для локальной разработки
-  process.env.FRONTEND_URL  // Сюда Render подставит URL (например, https://my-app.vercel.app)
+  process.env.FRONTEND_URL,  // Это ваш 'https://nodekursproj-front.vercel.app'
+  'https-nodekursproj-front-vercel-app' // 👈 ДОБАВЬТЕ ЭТУ СТРОКУ
 ];
 
 app.use(cors({
@@ -26,6 +27,8 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.error(`CORS ERROR: Origin '${origin}' NOT ALLOWED.`);
+      console.log('Allowed origins are:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   }
