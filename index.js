@@ -12,7 +12,20 @@ const adminRouter = require("./Routes/adminRouter");
 const PORT = process.env.PORT || 5000;
 
 const app = express();
-app.use(cors()); // чтобы фронтенд React мог обращаться к API
+const allowedOrigins = [
+  'http://localhost:3000', // Для локальной разработки
+  process.env.FRONTEND_URL  // Сюда мы добавим URL (например, https://my-app.vercel.app)
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, Postman) или если origin в списке
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/chats", chatRouter);
