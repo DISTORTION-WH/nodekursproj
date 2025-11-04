@@ -19,7 +19,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000', // Для локальной разработки
   process.env.FRONTEND_URL,  // Это ваш 'https://nodekursproj-front.vercel.app'
-  'https://nodekursproj.vercel.app/' // 👈 ДОБАВЬТЕ ЭТУ СТРОКУ
+  'https://nodekursproj.vercel.app' // 👈 ДОБАВЬТЕ ЭТУ СТРОКУ
 ];
 
 app.use(cors({
