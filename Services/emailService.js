@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 async function sendVerificationEmail(to, code) {
   await transporter.sendMail({
-    from: '"MyApp" <no-reply@example.com>',
+    from: '"MyApp" <shaternikgleb05@gmail.com>',
     to,
     subject: "Подтверждение регистрации",
     text: `Ваш код подтверждения: ${code}`,
