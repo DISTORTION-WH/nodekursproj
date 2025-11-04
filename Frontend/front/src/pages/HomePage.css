@@ -16,15 +16,6 @@
   border-left: 1px solid #202225;
 }
 
-.chat-title {
-  padding: 15px 20px;
-  background-color: #2f3136;
-  border-bottom: 1px solid #202225;
-  font-size: 1.2rem;
-  font-weight: 600;
-  animation: fadeIn 0.4s ease-in-out forwards;
-}
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -115,8 +106,10 @@
 .chat-header {
   display: flex;
   align-items: center;
-  padding: 10px;
-  background-color: #2f3136;}
+  padding: 10px 15px; /* Уменьшен padding */
+  background-color: #2f3136;
+  border-bottom: 1px solid #202225;
+}
 
 .chat-avatar {
   width: 40px;
@@ -129,6 +122,7 @@
 .chat-title {
   font-size: 1.2rem;
   margin: 0;
+  font-weight: 600;
 }
 
 
@@ -137,12 +131,11 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  position: relative;
+  gap: 10px; /* Расстояние между кнопками */
 }
 
-.chat-actions button {
-  background-color: #f04747;
+/* Общий стиль для кнопок действий в чате */
+.chat-action-btn {
   border: none;
   color: #fff;
   padding: 6px 12px;
@@ -152,26 +145,127 @@
   font-weight: 600;
   transition: background-color 0.2s, transform 0.2s;
 }
-
-.chat-actions button:hover {
-  background-color: #d93f3f;
+.chat-action-btn:hover {
   transform: scale(1.05);
 }
 
-.delete-options {
-  display: flex;
-  gap: 6px;
-  margin-left: 8px;
-  animation: fadeIn 0.3s ease-in-out;
+/* Кнопка "Пригласить" (зеленая) */
+.chat-action-btn.invite {
+  background-color: #43b581;
+}
+.chat-action-btn.invite:hover {
+  background-color: #3ca374;
 }
 
-.delete-options button {
-  font-size: 0.8rem;
-  padding: 5px 10px;
-  border-radius: 5px;
+/* Кнопка "Участники" (синяя) */
+.chat-action-btn.members {
+  background-color: #5865f2;
+}
+.chat-action-btn.members:hover {
+  background-color: #4752c4;
+}
+
+/* Кнопка "Выйти" (красная) */
+.chat-action-btn.leave {
   background-color: #f04747;
 }
+.chat-action-btn.leave:hover {
+  background-color: #d93f3f;
+}
 
-.delete-options button:hover {
+
+/* --- СТИЛИ МОДАЛЬНОГО ОКНА --- */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.modal-content {
+  background-color: #2f3136;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #40444b;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #b9bbbe;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+.modal-close-btn:hover {
+  color: #fff;
+}
+
+.modal-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #40444b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.modal-btn {
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modal-btn.invite {
+  background-color: #43b581;
+}
+.modal-btn.invite:hover {
+  background-color: #3ca374;
+}
+
+.modal-btn.kick {
+  background-color: #f04747;
+}
+.modal-btn.kick:hover {
   background-color: #d93f3f;
 }
