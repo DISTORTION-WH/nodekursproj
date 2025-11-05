@@ -12,12 +12,13 @@
 
 .admin-page {
   width: 100%;
-  min-height: 100vh;
+  height: 100%; /* 👈 ИЗМЕНЕНО (было min-height: 100vh) */
   background: var(--bg);
   color: var(--text-main);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   padding: 20px;
   box-sizing: border-box;
+  overflow-y: auto; /* 👈 ДОБАВЛЕНО (для прокрутки самой страницы админки) */
 }
 
 .admin-title {
@@ -31,6 +32,7 @@
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 20px;
+  overflow-x: auto; /* 👈 ДОБАВЛЕНО (для горизонтальной прокрутки таблиц) */
 }
 
 .admin-subtitle {
@@ -53,6 +55,7 @@
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 15px;
+  min-width: 600px; /* 👈 ДОБАВЛЕНО (гарантирует, что на мобильных появится прокрутка) */
 }
 
 .admin-table th,
@@ -60,6 +63,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 10px;
   text-align: left;
+  white-space: nowrap; /* 👈 ДОБАВЛЕНО (предотвращает разрыв ячеек) */
 }
 
 .admin-btn {
@@ -168,7 +172,5 @@
   font-size: 0.75rem;
   color: var(--text-muted);
 }
-.admin-page {
-  overflow-y: auto !important;
-  height: 100vh;
-}
+
+/* 👈 УДАЛЕН дублирующийся класс .admin-page */

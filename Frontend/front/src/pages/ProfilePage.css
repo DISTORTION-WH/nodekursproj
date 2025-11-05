@@ -10,13 +10,13 @@
 
 .profile-page {
   width: 100%;
-  min-height: 100vh;
+  height: 100%; /* 👈 ИЗМЕНЕНО (было min-height: 100vh) */
   background: var(--bg);
   color: var(--text-main);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto; /* 👈 ИЗМЕНЕНО (было overflow: hidden) */
   padding: 0;
   box-sizing: border-box;
 }
@@ -29,6 +29,7 @@
   border-bottom: 1px solid rgba(255,255,255,0.08);
   background: var(--bg-block);
   margin: 0;
+  flex-shrink: 0; /* 👈 ДОБАВЛЕНО (заголовок не сжимается) */
 }
 
 .profile-header {
@@ -39,6 +40,7 @@
   padding: 20px 40px;
   background: var(--bg-block);
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0; /* 👈 ДОБАВЛЕНО */
 }
 
 .profile-avatar {
@@ -67,6 +69,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 10px; /* 👈 ДОБАВЛЕНО (отступ) */
 }
 
 .profile-upload-btn {
@@ -113,6 +116,7 @@
   flex-direction: column;
   gap: 6px; /* уменьшено */
   overflow: hidden;
+  flex-shrink: 0; /* 👈 ДОБАВЛЕНО */
 }
 
 .friends-title {
@@ -185,6 +189,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px; /* уменьшено */
+  flex-shrink: 0; /* 👈 ДОБАВЛЕНО */
+  margin-top: 10px; /* 👈 ДОБАВЛЕНО (отступ между блоками) */
 }
 
 .password-title {

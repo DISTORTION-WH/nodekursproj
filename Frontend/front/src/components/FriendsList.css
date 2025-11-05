@@ -9,195 +9,6 @@
   box-sizing: border-box;
 }
 
-/* Новый стиль для заголовка секции (чтобы разместить кнопку "+") */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.section-header h2 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #b9bbbe;
-}
-
-/* Новая кнопка создания группы */
-.create-group-btn {
-  background-color: #43b581;
-  border: none;
-  color: white;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: 1.2rem;
-  font-weight: bold;
-  cursor: pointer;
-  line-height: 22px;
-  text-align: center;
-  transition: background-color 0.2s;
-}
-.create-group-btn:hover {
-  background-color: #3ca374;
-}
-
-
-.friends-section {
-  display: flex;
-  flex-direction: column;
-  max-height: 300px; /* 5 друзей по высоте */
-  overflow-y: auto;
-  gap: 8px;
-  padding-right: 4px;
-  margin-bottom: 10px; /* Добавлен отступ между секциями */
-}
-
-/* Стили для итема группы (такие же, как для друга) */
-.group-item {
-  cursor: pointer;
-  font-weight: 500;
-}
-.group-item:hover {
-   background-color: #4f545c;
-   transform: translateX(2px);
-}
-
-
-.friends-section::-webkit-scrollbar {
-  width: 6px;
-}
-.friends-section::-webkit-scrollbar-thumb {
-  background-color: #202225;
-  border-radius: 3px;
-}
-
-.bottom-sections {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto; /* прижать вниз */
-  gap: 15px;
-}
-
-.incoming-section h3,
-.search-section h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1rem;
-  color: #b9bbbe;
-  font-weight: bold;
-}
-
-.friend-item,
-.incoming-item,
-.search-item {
-  background-color: #40444b;
-  padding: 8px 10px;
-  border-radius: 6px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.2s;
-}
-
-.friend-item:hover,
-.incoming-item:hover,
-.search-item:hover {
-  background-color: #4f545c;
-  transform: translateX(2px);
-}
-
-.friend-item span,
-.incoming-item span,
-.search-item span {
-  font-size: 0.95rem;
-  color: #fff;
-}
-
-.friend-item button,
-.incoming-item button,
-.search-item button {
-  background-color: #5865f2;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.25s, transform 0.25s;
-}
-
-.friend-item button:hover,
-.incoming-item button:hover,
-.search-item button:hover {
-  background-color: #4752c4;
-  transform: scale(1.05);
-}
-
-/* Кнопка "Добавить" */
-.search-item button {
-  background-color: #43b581;
-}
-
-.search-item button:hover {
-  background-color: #3ca374;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-right: 8px;
-}
-
-.search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.search-section input {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 4px;
-  border: none;
-  outline: none;
-  background-color: #40444b;
-  color: #fff;
-  font-size: 0.9rem;
-}
-
-.search-section input:focus {
-  background-color: #4f545c;
-}
-
-.search-section button {
-  align-self: flex-start;
-  background-color: #5865f2;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 4px;
-  color: #fff;
-  font-weight: bold;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-
-.friends-list {
-  width: 280px;
-  height: 100%;
-  background-color: #2f3136;
-  display: flex;
-  flex-direction: column;
-  padding: 15px;
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
 /* ОБНОВЛЕНО: Стили для хедера секции (чтобы разместить кнопки) */
 .section-header {
   display: flex;
@@ -289,6 +100,9 @@
   flex-direction: column;
   margin-top: auto; /* прижать вниз */
   gap: 15px;
+  /* 👈 ДОБАВЛЯЕМ overflow-y: auto, чтобы нижние секции могли сжиматься и скроллиться */
+  overflow-y: auto;
+  padding-bottom: 5px; /* небольшой отступ снизу */
 }
 
 .incoming-section h3,
@@ -397,3 +211,5 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* 👈 УДАЛЕНЫ ВСЕ ДУБЛИРУЮЩИЕСЯ ПРАВИЛА (со строки ~133) */
