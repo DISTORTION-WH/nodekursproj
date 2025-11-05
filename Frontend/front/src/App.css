@@ -1,36 +1,47 @@
-/* Общие сбросы */
-* {
-  box-sizing: border-box;
-}
-
+/* Общие стили для "десктопного" приложения */
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  background: #36393f;
-  color: #fff;
-}
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* ← блокируем прокрутку всей страницы */
   font-family: Arial, sans-serif;
-  background: #36393f;
-  color: #fff;
+  background-color: #333; /* Обновленный фон */
+  color: #eee;
+  overflow: hidden; /* ❗️ ЗАПРЕЩАЕМ ПРОКРУТКУ BODY */
 }
 
-/* Контейнер приложения */
-.app-container {
+/* Универсальный сброс для box-sizing */
+* {
+  box-sizing: border-box;
+}
+
+.App {
   display: flex;
-  height: calc(100vh - 50px); /* 50px - высота Navbar */
-  margin-top: 50px;           /* пространство под Navbar */
+  flex-direction: column; /* Navbar сверху, контент снизу */
+  height: 100vh; /* 100% высоты окна */
+  width: 100vw; /* 100% ширины окна */
+  overflow: hidden; /* ❗️ Контент внутри .App не должен вызывать прокрутку */
+}
+
+/* Контейнер для основного контента (все, что не Navbar) */
+.App > div {
+  flex: 1; /* Занимает все оставшееся место */
+  /* Мы отключаем прокрутку здесь, т.к. страницы (HomePage, AdminPage)
+     будут сами управлять своей внутренней прокруткой */
   overflow: hidden;
 }
 
-.main-content {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
+/* Стили для скроллбаров (чтобы сделать их компактнее) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #2b2b30;
+}
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #66fcf1;
 }
