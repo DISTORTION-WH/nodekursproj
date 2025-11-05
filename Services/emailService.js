@@ -4,6 +4,10 @@ const { Resend } = require("resend");
 // 2. Получаем ключ из переменных окружения (которые вы задали на Render)
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
+// 3. Адрес 'from'. 
+// По умолчанию 'onboarding@resend.dev' для тестов.
+const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'MyApp <onboarding@resend.dev>';
+
 let resend;
 if (RESEND_API_KEY) {
   resend = new Resend(RESEND_API_KEY);
@@ -32,13 +36,8 @@ async function sendVerificationEmail(to, code) {
   }
 
   try {
-    /*
-      ВАЖНО: 'onboarding@resend.dev' - это специальный адрес,
-      который Resend разрешает использовать для тестов (пока вы не верифицировали свой домен).
-      Письма будут приходить с этого адреса.
-    */
     const { data, error } = await resend.emails.send({
-      from: "MyApp <onboarding@resend.dev>",
+      from: EMAIL_FROM_ADDRESS,
       to: [to], // Resend ожидает массив email-адресов
       subject: "Подтверждение регистрации",
       html: `<p>Ваш код подтверждения: <b>${code}</b></p>`,
