@@ -1,94 +1,82 @@
-/* --- Главный контейнер (Левая колонка) --- */
 .friends-list {
   width: 280px;
-  height: 100%; /* Вся высота .home-container */
+  height: 100%;
   background-color: #2f3136;
   display: flex;
   flex-direction: column;
   padding: 15px;
   flex-shrink: 0;
   box-sizing: border-box;
-  overflow: hidden; /* Важно, чтобы сам .friends-list не скроллился */
 }
 
-/* --- Заголовок секции --- */
+/* Новый стиль для заголовка секции (чтобы разместить кнопку "+") */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
-  flex-shrink: 0; /* Не сжиматься */
 }
+
 .section-header h2 {
   margin: 0;
   font-size: 1.1rem;
   color: #b9bbbe;
 }
 
-/* --- Кнопки в заголовке (Join/Create) --- */
-.section-header-actions {
-  display: flex;
-  gap: 6px;
-}
-.group-action-btn {
-  background-color: #40444b;
+/* Новая кнопка создания группы */
+.create-group-btn {
+  background-color: #43b581;
   border: none;
   color: white;
-  width: auto;
+  width: 24px;
   height: 24px;
-  padding: 0 8px;
-  border-radius: 5px;
-  font-size: 0.8rem;
+  border-radius: 50%;
+  font-size: 1.2rem;
   font-weight: bold;
   cursor: pointer;
-  line-height: 24px;
+  line-height: 22px;
   text-align: center;
   transition: background-color 0.2s;
 }
-.group-action-btn:hover {
-  background-color: #4f545c;
-}
-.group-action-btn.create {
-  background-color: #43b581;
-  font-size: 1.2rem;
-  width: 24px;
-  padding: 0;
-}
-.group-action-btn.create:hover {
+.create-group-btn:hover {
   background-color: #3ca374;
 }
 
 
-/* --- ❗️❗️ ИСПРАВЛЕНИЕ: ВЕРХНЯЯ ЧАСТЬ (С ПРОКРУТКОЙ) --- */
-/* Этот блок занимает всё место, выталкивая .bottom-sections вниз */
-.top-scrollable-sections {
-  flex: 1 1 auto; /* Растет и сжимается, занимает всё доступное место */
-  overflow-y: auto; /* ❗️ ГЛАВНАЯ ПРОКРУТКА ВЕРХНЕЙ ЧАСТИ */
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Отступ между "Комнатами" и "Друзьями" */
-  padding-right: 4px; /* Место для скроллбара */
-}
-
-/* ❗️ УБРАНЫ max-height и overflow из .friends-section */
-.rooms-section,
 .friends-section {
   display: flex;
   flex-direction: column;
+  max-height: 300px; /* 5 друзей по высоте */
+  overflow-y: auto;
   gap: 8px;
+  padding-right: 4px;
+  margin-bottom: 10px; /* Добавлен отступ между секциями */
 }
-/* ---------------------------------------------------- */
+
+/* Стили для итема группы (такие же, как для друга) */
+.group-item {
+  cursor: pointer;
+  font-weight: 500;
+}
+.group-item:hover {
+   background-color: #4f545c;
+   transform: translateX(2px);
+}
 
 
-/* --- ❗️❗️ ИСПРАВЛЕНИЕ: НИЖНИЙ БЛОК (ПРИЖАТ К НИЗУ) --- */
+.friends-section::-webkit-scrollbar {
+  width: 6px;
+}
+.friends-section::-webkit-scrollbar-thumb {
+  background-color: #202225;
+  border-radius: 3px;
+}
+
 .bottom-sections {
   display: flex;
   flex-direction: column;
-  margin-top: auto; /* ❗️ Прижимает блок к низу */
-  flex-shrink: 0; /* Не сжиматься, когда контента много */
+  margin-top: auto; /* прижать вниз */
   gap: 15px;
-  padding-top: 10px; /* Отступ сверху */
-  border-top: 1px solid #40444b; /* Разделитель */
 }
 
 .incoming-section h3,
@@ -100,20 +88,6 @@
   font-weight: bold;
 }
 
-/* ❗️❗️ ИСПРАВЛЕНИЕ: Блок с прокруткой для нижних секций */
-.scrollable-list {
-  max-height: 150px; /* Ограничиваем высоту (например, 3-4 элемента) */
-  overflow-y: auto; /* Включаем прокрутку */
-  padding-right: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px; /* Отступ между элементами */
-}
-/* ---------------------------------------------------- */
-
-
-/* --- Общие стили для элементов списка --- */
-.group-item,
 .friend-item,
 .incoming-item,
 .search-item {
@@ -121,13 +95,12 @@
   padding: 8px 10px;
   border-radius: 6px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.2s;
-  flex-shrink: 0; /* Элементы не должны сжиматься */
 }
 
-.group-item:hover,
 .friend-item:hover,
 .incoming-item:hover,
 .search-item:hover {
@@ -135,27 +108,13 @@
   transform: translateX(2px);
 }
 
-.group-item span, /* Добавлен стиль для span у .group-item */
 .friend-item span,
 .incoming-item span,
 .search-item span {
   font-size: 0.95rem;
   color: #fff;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-right: 8px;
-}
-
-/* --- Кнопки (Принять, Добавить, Чат) --- */
 .friend-item button,
 .incoming-item button,
 .search-item button {
@@ -167,27 +126,39 @@
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.25s;
-  margin-left: 5px;
+  transition: background-color 0.25s, transform 0.25s;
 }
+
 .friend-item button:hover,
-.incoming-item button:hover {
+.incoming-item button:hover,
+.search-item button:hover {
   background-color: #4752c4;
+  transform: scale(1.05);
 }
+
 /* Кнопка "Добавить" */
 .search-item button {
   background-color: #43b581;
 }
+
 .search-item button:hover {
   background-color: #3ca374;
 }
 
-/* --- Секция Поиска (Инпут и кнопка "Найти") --- */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 8px;
+}
+
 .search-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .search-section input {
   width: 100%;
   padding: 8px 10px;
@@ -198,9 +169,11 @@
   color: #fff;
   font-size: 0.9rem;
 }
+
 .search-section input:focus {
   background-color: #4f545c;
 }
+
 .search-section button {
   align-self: flex-start;
   background-color: #5865f2;
@@ -212,30 +185,215 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
-.search-section button:hover {
-  background-color: #4752c4;
+
+
+.friends-list {
+  width: 280px;
+  height: 100%;
+  background-color: #2f3136;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
-/* --- Сообщение "Нет ..." --- */
-.fl-empty {
-  padding: 10px;
-  font-size: 0.85rem;
-  color: #8e9297;
+/* ОБНОВЛЕНО: Стили для хедера секции (чтобы разместить кнопки) */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #b9bbbe;
+}
+
+/* НОВЫЙ БЛОК: Стили для кнопок "Join" и "+" */
+.section-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.group-action-btn {
+  background-color: #40444b;
+  border: none;
+  color: white;
+  width: auto; /* Авто-ширина */
+  height: 24px;
+  padding: 0 8px; /* Горизонтальный padding */
+  border-radius: 5px;
+  font-size: 0.8rem; /* Уменьшаем шрифт для "Join" */
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 24px;
   text-align: center;
+  transition: background-color 0.2s;
+}
+.group-action-btn:hover {
+  background-color: #4f545c;
+}
+
+/* Отдельный стиль для кнопки "+" */
+.group-action-btn.create {
+  background-color: #43b581;
+  font-size: 1.2rem;
+  width: 24px; /* Фиксированная ширина для "+" */
+  padding: 0;
+}
+.group-action-btn.create:hover {
+  background-color: #3ca374;
+}
+/* --- КОНЕЦ НОВОГО БЛОКА --- */
+
+
+.friends-section {
+  display: flex;
+  flex-direction: column;
+  max-height: 300px; 
+  overflow-y: auto;
+  gap: 8px;
+  padding-right: 4px;
+  margin-bottom: 10px; /* Добавлен отступ между секциями */
+}
+
+/* Стили для итема группы (такие же, как для друга) */
+.group-item {
+  cursor: pointer;
+  font-weight: 500;
+  background-color: #40444b; /* Добавил фон, как у друга */
+  padding: 8px 10px; /* Добавил padding */
+  border-radius: 6px; /* Добавил border-radius */
+  transition: background-color 0.2s, transform 0.2s;
+  justify-content: flex-start; /* Выравнивание по левому краю */
+}
+.group-item:hover {
+   background-color: #4f545c;
+   transform: translateX(2px);
 }
 
 
-/* --- Стили для скроллбаров --- */
-.top-scrollable-sections::-webkit-scrollbar,
-.scrollable-list::-webkit-scrollbar {
+.friends-section::-webkit-scrollbar {
   width: 6px;
 }
-.top-scrollable-sections::-webkit-scrollbar-thumb,
-.scrollable-list::-webkit-scrollbar-thumb {
+.friends-section::-webkit-scrollbar-thumb {
   background-color: #202225;
   border-radius: 3px;
 }
-.top-scrollable-sections::-webkit-scrollbar-track,
-.scrollable-list::-webkit-scrollbar-track {
-  background: transparent;
+
+.bottom-sections {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto; /* прижать вниз */
+  gap: 15px;
+}
+
+.incoming-section h3,
+.search-section h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: #b9bbbe;
+  font-weight: bold;
+}
+
+.friend-item,
+.incoming-item,
+.search-item {
+  background-color: #40444b;
+  padding: 8px 10px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.friend-item:hover,
+.incoming-item:hover,
+.search-item:hover {
+  background-color: #4f545c;
+  transform: translateX(2px);
+}
+
+.friend-item span,
+.incoming-item span,
+.search-item span {
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.friend-item button,
+.incoming-item button,
+.search-item button {
+  background-color: #5865f2;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.25s, transform 0.25s;
+}
+
+.friend-item button:hover,
+.incoming-item button:hover,
+.search-item button:hover {
+  background-color: #4752c4;
+  transform: scale(1.05);
+}
+
+/* Кнопка "Добавить" */
+.search-item button {
+  background-color: #43b581;
+}
+
+.search-item button:hover {
+  background-color: #3ca374;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 8px;
+}
+
+.search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-section input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: none;
+  outline: none;
+  background-color: #40444b;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.search-section input:focus {
+  background-color: #4f545c;
+}
+
+.search-section button {
+  align-self: flex-start;
+  background-color: #5865f2;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
 }
