@@ -21,12 +21,19 @@ class authController {
   async preRegister(req, res, next) {
     try {
       const errors = validationResult(req);
+      
+      // ❗️❗️❗️ ВОТ ИСПРАВЛЕНИЕ ❗️❗️❗️
       if (!errors.isEmpty()) {
-        const err = new Error("Ошибка при валидации");
+        // Вместо общей ошибки, берем *первое* сообщение от валидатора
+        // Например: "Имя пользователя не может быть пустым"
+        const firstError = errors.array()[0];
+        
+        const err = new Error(firstError.msg); // Используем конкретное сообщение
         err.status = 400;
         err.errors = errors.array();
         return next(err);
       }
+      // ❗️❗️❗️ КОНЕЦ ИСПРАВЛЕНИЯ ❗️❗️❗️
 
       const { username, password, email } = req.body;
       const avatar = req.file;
