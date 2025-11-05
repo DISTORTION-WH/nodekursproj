@@ -1,105 +1,197 @@
-/* Эта страница использует те же классы (.profile-container, .avatar-section, .info-section),
-  что и ProfilePage.css. Мы можем просто скопировать те же стили.
-*/
+.user-profile-page {
+  --bg: #2f3136;
+  --bg-block: #202225;
+  --text-main: #fff;
+  --text-muted: #b9bbbe;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --success: #43b581;
 
-.profile-container {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: #25252a;
-  border-radius: 8px;
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-.avatar-section {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex-basis: 250px;
-  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.avatar-section img {
-  width: 200px;
-  height: 200px;
+/* Заголовок */
+.user-profile-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: left;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg-block);
+  margin: 0;
+}
+
+/* Хедер */
+.user-profile-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 30px;
+  padding: 20px 40px;
+  background: var(--bg-block);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.user-profile-avatar {
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid #66fcf1;
-  margin-bottom: 1rem;
+  border: 3px solid rgba(0,0,0,0.4);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+  transition: transform 0.3s;
 }
 
-.avatar-section button {
-  padding: 0.5rem 1rem;
-  background-color: #66fcf1;
-  color: #1a1a1d;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
+.user-profile-avatar:hover {
+  transform: scale(1.05);
 }
 
-.info-section {
-  flex: 1;
+.user-profile-info {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 4px;
+  font-size: 0.95rem;
+  max-width: 300px;
 }
 
-.info-group {
-  margin-bottom: 1rem;
+/* Друзья */
+.user-profile-friends-section {
+  padding: 20px 40px;
+  background: var(--bg-block);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.info-group h3 {
-  color: #66fcf1;
-  border-bottom: 1px solid #45454b;
-  padding-bottom: 0.5rem;
-  margin-top: 0;
+.user-friends-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.2rem;
 }
 
-.info-group p {
-  font-size: 1.1rem;
+.user-profile-friends-list {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  list-style: none;
+  padding: 10px 0;
+  margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
 }
 
-.info-group button {
-  padding: 0.5rem 1rem;
-  background-color: #4f4f54;
-  color: #c5c6c7;
-  border: none;
-  border-radius: 4px;
+.user-profile-friends-list::-webkit-scrollbar {
+  height: 10px;
+}
+
+.user-profile-friends-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 999px;
+}
+
+.user-profile-friend-card {
+  flex: 0 0 180px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  padding: 12px;
+  border-radius: 10px;
+  transition: 0.2s;
   cursor: pointer;
-  margin-right: 10px;
 }
 
-.info-group button:hover {
-  background-color: #5a5a60;
+.user-profile-friend-card:hover {
+  background: rgba(255,255,255,0.08);
+  transform: translateY(-4px);
 }
 
-/* --- АДАПТИВНАЯ ВЕРСТКА --- */
+.user-profile-friend-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
 
+.user-profile-friend-info {
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-no-friends {
+  color: var(--text-muted);
+  padding: 10px;
+}
+
+/* Кнопки */
+.user-profile-actions {
+  margin: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.user-profile-btn {
+  background: var(--accent);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #fff;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.user-profile-btn:hover {
+  background: var(--accent-hover);
+}
+
+.user-profile-btn.danger {
+  background: #e81123;
+}
+
+.user-profile-btn.danger:hover {
+  background: #c50f1f;
+}
+
+/* Загрузка */
+.user-profile-page-loading {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+/* Адаптив */
 @media (max-width: 768px) {
-  .profile-container {
-    flex-direction: column; /* Складываем в колонку */
-    align-items: center; /* Центрируем */
-    margin: 1rem;
-    padding: 1rem;
+  .user-profile-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
-
-  .avatar-section {
-    flex-basis: auto;
-    width: 100%;
+  .user-profile-avatar {
+    width: 120px;
+    height: 120px;
   }
-
-  .info-section {
-    width: 100%;
+  .user-profile-friend-card {
+    flex: 0 0 150px;
   }
-
-  .info-group {
-    text-align: center;
+  .user-profile-friends-section {
+    padding: 20px;
   }
-
-  .info-group h3 {
-    text-align: left;
+  .user-profile-title {
+    font-size: 1.6rem;
+    padding: 15px 0;
   }
 }

@@ -1,33 +1,36 @@
-/* Общие стили для "десктопного" приложения */
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  background-color: #1a1a1d; /* Темный фон для всего приложения */
-  color: #c5c6c7;
-  overflow: hidden; /* Запрещаем прокрутку body */
-}
-
-/* Универсальный сброс для box-sizing */
+/* Общие сбросы */
 * {
   box-sizing: border-box;
 }
 
-.App {
-  display: flex;
-  flex-direction: column; /* Navbar сверху, контент снизу */
-  height: 100vh; /* 100% высоты окна */
-  width: 100vw; /* 100% ширины окна */
-  overflow: hidden; /* Контент внутри .App не должен вызывать прокрутку */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  background: #36393f;
+  color: #fff;
+}
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* ← блокируем прокрутку всей страницы */
+  font-family: Arial, sans-serif;
+  background: #36393f;
+  color: #fff;
 }
 
-/* Контейнер для основного контента (все, что не Navbar) */
-.App > div {
-  flex: 1; /* Занимает все оставшееся место */
-  /* Мы разрешаем прокрутку здесь для простых страниц (Логин, Профиль),
-    но для сложных страниц (Чат, Админка) мы отключаем 
-    прокрутку .App > div и включаем ее во внутренних блоках.
-  */
-  overflow-y: auto;
+/* Контейнер приложения */
+.app-container {
+  display: flex;
+  height: calc(100vh - 50px); /* 50px - высота Navbar */
+  margin-top: 50px;           /* пространство под Navbar */
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }

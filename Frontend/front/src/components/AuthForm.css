@@ -1,107 +1,76 @@
-.auth-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 2rem 1rem; /* Добавляем отступы для мобильных */
-  /* Мы используем 'flex: 1' из App.css, чтобы занять все место 
-    (100vh - 60px Navbar-a), и 'align-items' центрирует форму.
-  */
-}
-
 .auth-form {
-  background-color: #25252a;
-  padding: 2rem;
+  background: #2f3136;
+  padding: 30px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  width: 100%;
-  max-width: 400px; /* Ограничиваем макс. ширину */
+  width: 320px;
+  margin: 70px auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  color: #fff;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  animation: fadeIn 0.4s ease-in-out forwards;
 }
 
 .auth-form h2 {
   text-align: center;
-  color: #66fcf1;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
+  font-weight: 600;
 }
 
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
+.auth-form input {
+  width: 100%;
   display: block;
-  margin-bottom: 0.5rem;
-  color: #c5c6c7;
-}
-
-.form-group input[type="text"],
-.form-group input[type="password"],
-.form-group input[type="email"],
-.form-group input[type="file"] {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #45454b;
+  padding: 10px;
+  margin-bottom: 15px;
   border-radius: 4px;
-  background-color: #1a1a1d;
-  color: #c5c6c7;
-}
-
-.auth-form button {
-  width: 100%;
-  padding: 0.75rem;
   border: none;
-  border-radius: 4px;
-  background-color: #66fcf1;
-  color: #1a1a1d;
-  font-size: 1rem;
+  background-color: #40444b;
+  color: #fff;
+  outline: none;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: background-color 0.25s;
+}
+
+.auth-form input:focus {
+  background-color: #4f545c;
+}
+
+.btn.primary {
+  width: 100%;
+  background: #5865f2;
+  color: white;
+  border: none;
+  padding: 10px;
   font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.3s;
+  border-radius: 4px;
+  transition: background 0.25s, transform 0.25s;
 }
 
-.auth-form button:hover {
-  background-color: #5be0d4;
-}
-
-.auth-form p {
-  text-align: center;
-  margin-top: 1rem;
-}
-
-.auth-form p a {
-  color: #66fcf1;
-  text-decoration: none;
+.btn.primary:hover {
+  background: #4752c4;
+  transform: scale(1.05);
 }
 
 .error {
-  background-color: #4b1a1d;
-  color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  padding: 0.75rem;
+  background-color: #e81123;
+  padding: 8px;
+  margin-bottom: 10px;
   border-radius: 4px;
+  color: white;
+  font-size: 0.9rem;
   text-align: center;
-  margin-bottom: 1rem;
 }
 
-/* Стили для второго шага регистрации */
-.avatar-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin: 0 auto 1rem auto;
-  display: block;
-  border: 2px solid #66fcf1;
-}
-
-/* --- АДАПТИВНАЯ ВЕРСТКА --- */
-
-@media (max-width: 480px) {
-  .auth-form {
-    padding: 1.5rem; /* Уменьшаем padding на совсем маленьких экранах */
+/* ===================== */
+/* АНИМАЦИИ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-
-  .auth-form h2 {
-    font-size: 1.5rem;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
