@@ -1,18 +1,15 @@
 // --- ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ---
-// (Ловят ошибки, не связанные с Express)
 process.on('uncaughtException', (err, origin) => {
   console.error('❗️ НЕПЕРЕХВАЧЕННАЯ ОШИБКА (UNCAUGHT EXCEPTION):');
   console.error('❗️ Ошибка:', err.message);
   console.error('❗️ Источник:', origin);
   console.error(err.stack);
-  // Приложение в нестабильном состоянии. Лучше завершить.
   process.exit(1); 
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❗️ НЕОБРАБОТАННЫЙ REJECT PROMISE-A (UNHANDLED REJECTION):');
   console.error('❗️ Причина:', reason);
-  // В 'reason' может быть сам объект ошибки
   if (reason instanceof Error) {
     console.error(reason.stack);
   }
@@ -24,8 +21,6 @@ const cors = require("cors");
 const client = require("./databasepg"); // 👈 Убедитесь, что client импортирован
 const authRouter = require("./Routes/authRouter");
 const chatRouter = require("./Routes/chatRouter");
-// const { createRolesTable } = require("./models/Role"); // 👈 Больше не нужно
-// const { createUsersTable } = require("./models/User"); // 👈 Больше не нужно
 const usersRouter = require("./Routes/usersRouter");
 const friendsRouter = require("./Routes/friendsRouter"); 
 const chatDeleteRouter = require("./Routes/chatDeleteRouter");
@@ -36,11 +31,10 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 // --- НАСТРОЙКА CORS ДЛЯ ДЕПЛОЯ ---
-// URL вашего будущего фронтенда на Vercel
 const allowedOrigins = [
   'http://localhost:3000', // Для локальной разработки
   process.env.FRONTEND_URL,  // Это ваш 'https://nodekursproj-front.vercel.app'
-  'https://nodekursproj.vercel.app' // 👈 ДОБАВЬТЕ ЭТУ СТРОКУ
+  'https://nodekursproj.vercel.app' 
 ];
 
 app.use(cors({
@@ -65,24 +59,18 @@ app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/chats", chatDeleteRouter);     
 app.use("/admin", adminRouter);
 
-// --- ❗️ НОВЫЙ ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК EXPRESS ---
-// Этот middleware должен быть *последним* в цепочке app.use(),
-// после всех роутеров. Express 5 автоматически перехватывает
-// ошибки в async-функциях и передает их сюда.
+// --- ❗️ ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК EXPRESS ---
+// Он должен быть *после* всех роутеров
 app.use((err, req, res, next) => {
-  // Логируем ошибку на сервере (в Render)
   console.error("❗️ ОБНАРУЖЕНА ОШИБКА EXPRESS:");
   console.error('❗️ Путь:', req.path);
   console.error('❗️ Ошибка:', err.message);
   console.error(err.stack); // Полный стек для дебага
 
-  // Отправляем безопасный ответ клиенту
-  // Если у ошибки есть статус (например, 404, 403), используем его
   const statusCode = err.status || 500; 
   
-  // Не отправляем 'err.message' клиенту, если это 500, 
-  // чтобы случайно не раскрыть детали реализации.
-  const clientMessage = statusCode === 500 ? "Внутренняя ошибка сервера" : err.message;
+  // Отправляем на фронтенд КОНКРЕТНУЮ ошибку
+  const clientMessage = err.message || "Внутренняя ошибка сервера";
 
   res.status(statusCode).json({ 
     message: clientMessage 
@@ -92,8 +80,8 @@ app.use((err, req, res, next) => {
 
 
 /**
- * Эта функция создаст ВСЕ таблицы из вашего deploy1.sql, если их нет.
- * Она гарантирует, что ваша пустая база на Render будет готова к работе.
+ * Эта функция создаст ВСЕ таблицы, если их нет.
+ * А также ИСПРАВИТ таблицу users, если в ней нет колонки 'email'.
  */
 async function initializeDatabase() {
   try {
@@ -108,7 +96,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'roles' готова.");
     
-    // Добавляем роли, если их нет
      await client.query(`
       INSERT INTO roles (value) 
       VALUES ('USER'), ('ADMIN') 
@@ -117,7 +104,7 @@ async function initializeDatabase() {
     console.log("✅ Роли 'USER' и 'ADMIN' проверены.");
 
 
-    // 2. Таблица Users
+    // 2. Таблица Users (БЕЗ 'email' для обратной совместимости)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -125,11 +112,29 @@ async function initializeDatabase() {
         password VARCHAR(255) NOT NULL,
         role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL,
         avatar_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        email VARCHAR(255) UNIQUE
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
     console.log("✅ Таблица 'users' готова.");
+
+    // ❗️❗️❗️ ВОТ ИСПРАВЛЕНИЕ ❗️❗️❗️
+    // Пытаемся "вылечить" старую таблицу 'users', добавив колонку 'email'.
+    try {
+      await client.query(`
+        ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
+      `);
+      // Эта строка появится в логах Render ОДИН РАЗ
+      console.log("✅ (ИСПРАВЛЕНИЕ) Колонка 'email' успешно ДОБАВЛЕНА в таблицу 'users'.");
+    } catch (e) {
+      if (e.code === '42701') { // 42701 = duplicate_column
+        // Эта строка будет появляться в логах при каждом запуске, ЭТО НОРМАЛЬНО
+        console.log("ℹ️ Колонка 'email' в 'users' уже существует.");
+      } else {
+        throw e; // Пробрасываем другие ошибки (если они есть)
+      }
+    }
+    // ❗️❗️❗️ КОНЕЦ ИСПРАВЛЕНИЯ ❗️❗️❗️
+
 
     // 3. Таблица Chats
     await client.query(`
@@ -194,9 +199,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'registration_codes' готова.");
 
-    // (Таблица pending_users из deploy1.sql не включена, 
-    // так как вы используете 'registration_codes' в authController.js)
-
     console.log("--- Инициализация базы данных завершена ---");
 
   } catch (e) {
@@ -207,7 +209,7 @@ async function initializeDatabase() {
 
 async function start() {
   try {
-    // СНАЧАЛА создаём таблицы
+    // СНАЧАЛА создаём/исправляем таблицы
     await initializeDatabase();
 
     app.listen(PORT, () => {
