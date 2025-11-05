@@ -1,65 +1,64 @@
-@font-face {
-  font-family: 'MyFont';
-  src: url('../../public/blrrpix.strict.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 .navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  background-color: #202225;
-  color: white;
-  padding: 0 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 1000;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.navbar .logo {
-  font-size: 2.5rem;
-  letter-spacing: 3px;
-  color: #fff;
-  font-family: 'MyFont', sans-serif;
-}
-
-.navbar div {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.navbar .btn {
+  padding: 0 20px;
+  height: 60px; /* Фиксированная высота */
+  flex-shrink: 0; /* Запрещаем сжиматься */
+  background-color: #1f1f23;
+  border-bottom: 2px solid #66fcf1;
   color: white;
-  font-weight: 500;
+}
+
+.navbar h1 {
+  color: #66fcf1;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-links a,
+.nav-links button {
+  color: #c5c6c7;
   text-decoration: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  transition: background-color 0.25s, transform 0.25s;
-}
-
-.navbar .btn:hover {
-  background-color: #2f3136;
-  transform: scale(1.05);
-}
-
-.avatar-dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-/* Аватар */
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
+  font-size: 1rem;
+  background: none;
+  border: none;
   cursor: pointer;
+  padding: 5px 10px;
+  transition: color 0.2s, background-color 0.2s;
 }
 
+.nav-links a:hover,
+.nav-links button:hover {
+  color: #66fcf1;
+}
+
+.nav-links a.active {
+  color: #66fcf1;
+  border-bottom: 2px solid #66fcf1;
+}
+
+/* --- АДАПТИВНАЯ ВЕРСТКА --- */
+
+@media (max-width: 600px) {
+  .navbar {
+    flex-direction: column; /* Складываем в колонку */
+    height: auto; /* Высота авто */
+    padding: 10px;
+  }
+
+  .nav-links {
+    margin-top: 10px;
+    width: 100%;
+    justify-content: center; /* Центрируем ссылки */
+  }
+
+  .navbar h1 {
+    font-size: 1.2rem;
+  }
+}
