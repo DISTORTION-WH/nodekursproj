@@ -2,21 +2,22 @@ const Router = require("express");
 const router = new Router();
 const client = require("../databasepg");
 const authMiddleware = require("../middleware/authMiddleware");
-const crypto = require("crypto"); // 👈 ДОБАВЬТЕ ЭТО
+const crypto = require("crypto");
 
 router.use(authMiddleware);
 
 // --- НОВЫЙ МАРШРУТ: Получить всех участников чата ---
-/**
- * @route GET /chats/:id/users
- * @desc Получить список всех участников чата
- * @params :id - ID чата
- */
-router.get("/:id/users", async (req, res) => {
+router.get("/:id/users", async (req, res, next) => {
   const chatId = req.params.id;
   const requesterId = req.user.id;
 
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400; // Bad Request
+      throw err;
+    }
+    
     // 1. Проверяем, состоит ли запрашивающий в этом чате
     const memberCheck = await client.query(
       `SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
@@ -24,7 +25,10 @@ router.get("/:id/users", async (req, res) => {
     );
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ message: "Вы не являетесь участником этого чата" });
+      // Используем ошибку 403 (Forbidden)
+      const err = new Error("Вы не являетесь участником этого чата");
+      err.status = 403;
+      throw err;
     }
 
     // 2. Если состоит, получаем всех участников
@@ -38,22 +42,23 @@ router.get("/:id/users", async (req, res) => {
 
     res.json(membersRes.rows);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при получении участников чата" });
+    console.error(`❗️ Ошибка в GET /chats/${chatId}/users:`, e.message, e.stack);
+    next(e); // Передаем ошибку в глобальный обработчик
   }
 });
 
 // --- НОВЫЙ МАРШРУТ: Получить/создать код приглашения ---
-/**
- * @route POST /chats/:id/invite-code
- * @desc Участник чата получает или генерирует новый код приглашения
- * @params :id - ID чата
- */
-router.post("/:id/invite-code", async (req, res) => {
+router.post("/:id/invite-code", async (req, res, next) => {
   const chatId = req.params.id;
   const userId = req.user.id;
 
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400;
+      throw err;
+    }
+
     // 1. Проверить, что пользователь состоит в чате
     const memberCheck = await client.query(
       `SELECT c.is_group, c.invite_code FROM chat_users cu
@@ -63,14 +68,18 @@ router.post("/:id/invite-code", async (req, res) => {
     );
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ message: "Вы не являетесь участником этого чата" });
+      const err = new Error("Вы не являетесь участником этого чата");
+      err.status = 403;
+      throw err;
     }
     
     const chat = memberCheck.rows[0];
 
     // 2. Проверить, что это групповой чат
     if (!chat.is_group) {
-       return res.status(400).json({ message: "Нельзя создать приглашение для личного чата" });
+       const err = new Error("Нельзя создать приглашение для личного чата");
+       err.status = 400;
+       throw err;
     }
 
     // 3. Если код уже есть, вернуть его
@@ -81,7 +90,7 @@ router.post("/:id/invite-code", async (req, res) => {
     // 4. Если кода нет, сгенерировать, сохранить и вернуть
     let newCode = null;
     let attempts = 0;
-    while (newCode === null && attempts < 5) { // 5 попыток на случай коллизии
+    while (newCode === null && attempts < 5) {
       try {
         const code = crypto.randomBytes(4).toString('hex'); // 8 hex-символов
         await client.query(
@@ -91,38 +100,41 @@ router.post("/:id/invite-code", async (req, res) => {
         newCode = code;
       } catch (e) {
         // Ошибка unique constraint (коллизия)
-        console.warn("Invite code collision, retrying...");
-        attempts++;
+        if (e.code === '23505') {
+            console.warn("Invite code collision, retrying...");
+            attempts++;
+        } else {
+            throw e; // Пробрасываем другую ошибку БД
+        }
       }
     }
     
     if (!newCode) {
-       return res.status(500).json({ message: "Не удалось сгенерировать код приглашения" });
+       const err = new Error("Не удалось сгенерировать код приглашения после нескольких попыток");
+       err.status = 500;
+       throw err;
     }
 
     res.status(201).json({ inviteCode: newCode });
 
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера" });
+    console.error(`❗️ Ошибка в POST /chats/${chatId}/invite-code:`, e.message, e.stack);
+    next(e);
   }
 });
 
 // --- НОВЫЙ МАРШРУТ: Присоединиться к чату по коду ---
-/**
- * @route POST /chats/join
- * @desc Присоединиться к групповому чату по коду
- * @body { inviteCode: string }
- */
-router.post("/join", async (req, res) => {
+router.post("/join", async (req, res, next) => {
     const { inviteCode } = req.body;
     const userId = req.user.id;
 
-    if (!inviteCode) {
-        return res.status(400).json({ message: "Код приглашения не предоставлен" });
-    }
-
     try {
+        if (!inviteCode || typeof inviteCode !== 'string' || inviteCode.trim() === "") {
+            const err = new Error("Код приглашения не предоставлен");
+            err.status = 400;
+            throw err;
+        }
+
         // 1. Найти чат по коду
         const chatRes = await client.query(
             `SELECT id, name, is_group, creator_id FROM chats WHERE invite_code = $1 AND is_group = true`,
@@ -130,7 +142,9 @@ router.post("/join", async (req, res) => {
         );
 
         if (chatRes.rows.length === 0) {
-            return res.status(404).json({ message: "Неверный код приглашения" });
+            const err = new Error("Неверный код приглашения");
+            err.status = 404;
+            throw err;
         }
         
         const chat = chatRes.rows[0];
@@ -143,42 +157,41 @@ router.post("/join", async (req, res) => {
             [chatId, userId]
         );
         if (alreadyExists.rows.length > 0) {
-            return res.status(400).json({ message: "Вы уже состоите в этом чате" });
+            const err = new Error("Вы уже состоите в этом чате");
+            err.status = 400;
+            throw err;
         }
 
         // 3. Добавить пользователя в чат. 
-        // Пригласившим (invited_by_user_id) указываем создателя чата.
         await client.query(
             `INSERT INTO chat_users (chat_id, user_id, invited_by_user_id) VALUES ($1, $2, $3)`,
             [chatId, userId, creatorId]
         );
 
-        // 4. Вернуть данные чата, чтобы фронтенд мог его открыть
+        // 4. Вернуть данные чата
         res.status(201).json(chat);
 
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ message: "Ошибка сервера при входе в чат" });
+        console.error("❗️ Ошибка в POST /chats/join:", e.message, e.stack);
+        next(e);
     }
 });
 
 
-// --- МАРШРУТЫ УПРАВЛЕНИЯ ГРУППОЙ (из прошлого шага) ---
+// --- МАРШРУТЫ УПРАВЛЕНИЯ ГРУППОЙ ---
 
-/**
- * @route POST /chats/group
- * @desc Создать новую групповую комнату (чат)
- * @body { name: string }
- */
-router.post("/group", async (req, res) => {
+// Создать новую групповую комнату
+router.post("/group", async (req, res, next) => {
   const { name } = req.body;
   const creatorId = req.user.id;
 
-  if (!name || name.trim() === "") {
-    return res.status(400).json({ message: "Название комнаты не может быть пустым" });
-  }
-
   try {
+    if (!name || typeof name !== 'string' || name.trim() === "") {
+      const err = new Error("Название комнаты не может быть пустым");
+      err.status = 400;
+      throw err;
+    }
+
     const chatRes = await client.query(
       `INSERT INTO chats (name, is_group, creator_id) VALUES ($1, true, $2) RETURNING *`,
       [name, creatorId]
@@ -192,33 +205,38 @@ router.post("/group", async (req, res) => {
 
     res.status(201).json(newChat);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка при создании комнаты" });
+    console.error("❗️ Ошибка в POST /chats/group:", e.message, e.stack);
+    next(e);
   }
 });
 
-/**
- * @route POST /chats/:id/invite
- * @desc Пригласить друга в комнату
- * @params :id - ID чата
- * @body { friendId: number } - ID пользователя, которого приглашают
- */
-router.post("/:id/invite", async (req, res) => {
+// Пригласить друга в комнату
+router.post("/:id/invite", async (req, res, next) => {
   const chatId = req.params.id;
   const inviterId = req.user.id;
   const { friendId } = req.body; 
 
-  if (!friendId) {
-    return res.status(400).json({ message: "Не указан ID пользователя для приглашения" });
-  }
-
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400;
+      throw err;
+    }
+    
+    if (isNaN(parseInt(friendId, 10))) {
+      const err = new Error("Не указан ID пользователя для приглашения");
+      err.status = 400;
+      throw err;
+    }
+
     const memberCheck = await client.query(
       `SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
       [chatId, inviterId]
     );
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ message: "Вы не являетесь участником этого чата" });
+      const err = new Error("Вы не являетесь участником этого чата");
+      err.status = 403;
+      throw err;
     }
     
     const alreadyExists = await client.query(
@@ -226,7 +244,9 @@ router.post("/:id/invite", async (req, res) => {
       [chatId, friendId]
     );
     if (alreadyExists.rows.length > 0) {
-      return res.status(400).json({ message: "Пользователь уже в чате" });
+      const err = new Error("Пользователь уже в чате");
+      err.status = 400;
+      throw err;
     }
 
     await client.query(
@@ -236,33 +256,38 @@ router.post("/:id/invite", async (req, res) => {
 
     res.json({ message: "Пользователь добавлен в комнату" });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка при приглашении" });
+    console.error(`❗️ Ошибка в POST /chats/${chatId}/invite:`, e.message, e.stack);
+    next(e);
   }
 });
 
-/**
- * @route POST /chats/:id/kick
- * @desc Удалить/кикнуть пользователя из комнаты (или выйти самому)
- * @params :id - ID чата
- * @body { userIdToKick: number } - ID пользователя, которого удаляют
- */
-router.post("/:id/kick", async (req, res) => {
+// Удалить/кикнуть пользователя из комнаты
+router.post("/:id/kick", async (req, res, next) => {
   const chatId = req.params.id;
-  const kickerId = req.user.id; // Тот, кто удаляет
-  const { userIdToKick } = req.body; // Тот, кого удаляют
-
-  if (!userIdToKick) {
-    return res.status(400).json({ message: "Не указан ID пользователя для удаления" });
-  }
+  const kickerId = req.user.id; 
+  const { userIdToKick } = req.body; 
 
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400;
+      throw err;
+    }
+    
+    if (isNaN(parseInt(userIdToKick, 10))) {
+      const err = new Error("Не указан ID пользователя для удаления");
+      err.status = 400;
+      throw err;
+    }
+
     const chatRes = await client.query(
       `SELECT creator_id FROM chats WHERE id = $1`,
       [chatId]
     );
     if (chatRes.rows.length === 0) {
-      return res.status(404).json({ message: "Чат не найден" });
+      const err = new Error("Чат не найден");
+      err.status = 404;
+      throw err;
     }
     const isCreator = chatRes.rows[0].creator_id === kickerId;
 
@@ -271,7 +296,9 @@ router.post("/:id/kick", async (req, res) => {
       [chatId, userIdToKick]
     );
     if (memberRes.rows.length === 0) {
-      return res.status(404).json({ message: "Пользователь не найден в этом чате" });
+      const err = new Error("Пользователь не найден в этом чате");
+      err.status = 404;
+      throw err;
     }
     const wasInvitedByKicker = memberRes.rows[0].invited_by_user_id === kickerId;
     
@@ -293,20 +320,22 @@ router.post("/:id/kick", async (req, res) => {
         return res.json({ message: "Пользователь удален из комнаты" });
 
     } else {
-        return res.status(403).json({ message: "У вас нет прав на удаление этого пользователя" });
+        const err = new Error("У вас нет прав на удаление этого пользователя");
+        err.status = 403;
+        throw err;
     }
 
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера" });
+    console.error(`❗️ Ошибка в POST /chats/${chatId}/kick:`, e.message, e.stack);
+    next(e);
   }
 });
 
 
-// --- СТАРЫЕ МАРШРУТЫ (без изменений) ---
+// --- СТАРЫЕ МАРШРУТЫ (С ОБРАБОТКОЙ ОШИБОК) ---
 
 // Получить все чаты пользователя
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
   const userId = req.user.id;
   try {
     const result = await client.query(
@@ -318,17 +347,23 @@ router.get("/", async (req, res) => {
     );
     res.json(result.rows);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при получении чатов" });
+    console.error("❗️ Ошибка в GET /chats:", e.message, e.stack);
+    next(e);
   }
 });
 
 // Получить сообщения чата
-router.get("/:id/messages", async (req, res) => {
+router.get("/:id/messages", async (req, res, next) => {
   const chatId = req.params.id;
   const userId = req.user.id;
 
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400;
+      throw err;
+    }
+    
     const result = await client.query(
       `SELECT m.id, m.text, m.created_at, u.id as sender_id, u.username as sender_name
        FROM messages m
@@ -340,49 +375,73 @@ router.get("/:id/messages", async (req, res) => {
     );
     res.json(result.rows);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при получении сообщений" });
+    console.error(`❗️ Ошибка в GET /chats/${chatId}/messages:`, e.message, e.stack);
+    next(e);
   }
 });
 
 // Отправить сообщение
-router.post("/:id/messages", async (req, res) => {
+router.post("/:id/messages", async (req, res, next) => {
   const chatId = req.params.id;
   const senderId = req.user.id;
   const { text } = req.body;
 
   try {
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400;
+      throw err;
+    }
+    
+    if (!text || typeof text !== 'string' || text.trim() === "") {
+        const err = new Error("Текст сообщения не может быть пустым");
+        err.status = 400;
+        throw err;
+    }
+
     const chatExists = await client.query(
       "SELECT id FROM chats WHERE id = $1",
       [chatId]
     );
     if (chatExists.rows.length === 0) {
-      return res.status(400).json({ message: "Чат не найден" });
+      const err = new Error("Чат не найден");
+      err.status = 404;
+      throw err;
     }
 
-    // Возвращаем сообщение в том же формате, что и GET /:id/messages
     const result = await client.query(
       `INSERT INTO messages (chat_id, sender_id, text) VALUES ($1, $2, $3) RETURNING id, text, created_at, sender_id`,
       [chatId, senderId, text]
     );
     
-    // Дополняем информацией о пользователе
     const newMessage = result.rows[0];
-    newMessage.sender_name = req.user.username; // req.user берется из authMiddleware
+    newMessage.sender_name = req.user.username; 
 
     res.json(newMessage);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при отправке сообщения" });
+    console.error(`❗️ Ошибка в POST /chats/${chatId}/messages:`, e.message, e.stack);
+    next(e);
   }
 });
 
-// Создать или получить приватный чат между двумя пользователями
-router.post("/private", async (req, res) => {
+// Создать или получить приватный чат
+router.post("/private", async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
 
   try {
+    if (isNaN(parseInt(friendId, 10))) {
+      const err = new Error("Неверный ID друга");
+      err.status = 400;
+      throw err;
+    }
+    
+    if (userId === friendId) {
+       const err = new Error("Нельзя создать чат с самим собой");
+       err.status = 400;
+       throw err;
+    }
+
     const existingChat = await client.query(
       `SELECT c.id
        FROM chats c
@@ -398,12 +457,11 @@ router.post("/private", async (req, res) => {
 
     const newChat = await client.query(
       `INSERT INTO chats (name, is_group, creator_id) VALUES ('', false, $1) RETURNING id`,
-      [userId] // Указываем создателя
+      [userId]
     );
 
     const chatId = newChat.rows[0].id;
 
-    // Добавляем участников, указывая, кто пригласил
     await client.query(
       `INSERT INTO chat_users (chat_id, user_id, invited_by_user_id) VALUES ($1, $2, $2), ($1, $3, $2)`,
       [chatId, userId, friendId]
@@ -411,8 +469,8 @@ router.post("/private", async (req, res) => {
 
     res.json({ id: chatId });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при создании чата" });
+    console.error("❗️ Ошибка в POST /chats/private:", e.message, e.stack);
+    next(e);
   }
 });
 

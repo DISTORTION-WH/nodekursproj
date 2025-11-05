@@ -11,12 +11,20 @@ router.use(authMiddleware);
  * - если allForEveryone=true -> удаляем все сообщения чата
  * - если allForEveryone=false -> удаляем только у текущего пользователя
  */
-router.post("/:id/messages/delete", async (req, res) => {
+// 1. Добавлен 'next' в параметры
+router.post("/:id/messages/delete", async (req, res, next) => {
   const chatId = req.params.id;
   const userId = req.user.id;
   const { allForEveryone } = req.body;
 
   try {
+    // 2. Добавлена валидация ID чата
+    if (isNaN(parseInt(chatId, 10))) {
+      const err = new Error("Неверный ID чата");
+      err.status = 400; // Bad Request
+      throw err;
+    }
+
     if (allForEveryone) {
       // Удаляем все сообщения для всех участников
       await client.query(
@@ -36,8 +44,9 @@ router.post("/:id/messages/delete", async (req, res) => {
 
     res.json({ message: "Сообщения удалены" });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера при удалении сообщений" });
+    // 3. Блок catch теперь логирует и передает ошибку дальше
+    console.error(`❗️ Ошибка в POST /${chatId}/messages/delete:`, e.message, e.stack);
+    next(e); // Передаем ошибку в глобальный обработчик
   }
 });
 

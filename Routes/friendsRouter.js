@@ -5,7 +5,7 @@ const client = require("../databasepg");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Получить список друзей
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   try {
     const result = await client.query(
@@ -19,28 +19,52 @@ router.get("/", authMiddleware, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    console.error("❗️ Ошибка в GET /friends:", err.message, err.stack);
+    next(err); // Передаем ошибку в глобальный обработчик
   }
 });
 
 // Отправить запрос в друзья
-router.post("/request", authMiddleware, async (req, res) => {
+router.post("/request", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
-  await client.query(
-    `INSERT INTO friends (user_id, friend_id, status)
-     VALUES ($1, $2, 'pending')`,
-    [userId, friendId]
-  );
-  res.json({ message: "Запрос на дружбу отправлен" });
+
+  try {
+    if (isNaN(parseInt(friendId, 10))) {
+      const err = new Error("Неверный ID друга");
+      err.status = 400; // Bad Request
+      throw err;
+    }
+
+    await client.query(
+      `INSERT INTO friends (user_id, friend_id, status)
+       VALUES ($1, $2, 'pending')`,
+      [userId, friendId]
+    );
+    res.json({ message: "Запрос на дружбу отправлен" });
+  } catch (err) {
+    console.error("❗️ Ошибка в POST /friends/request:", err.message, err.stack);
+    // Обработка ошибки "duplicate key" (если уже дружат или запрос отправлен)
+    if (err.code === '23505') { // 23505 = unique_violation
+        err.status = 409; // 409 Conflict
+        err.message = "Запрос уже отправлен или вы уже друзья.";
+    }
+    next(err);
+  }
 });
 
 // Принять запрос
-router.post("/accept", authMiddleware, async (req, res) => {
+router.post("/accept", authMiddleware, async (req, res, next) => {
   const userId = req.user.id; // тот, кто принимает
   const { friendId } = req.body; // id того, кто отправил запрос
+  
   try {
+    if (isNaN(parseInt(friendId, 10))) {
+      const err = new Error("Неверный ID друга");
+      err.status = 400; // Bad Request
+      throw err;
+    }
+    
     await client.query(
       `UPDATE friends
        SET status='accepted'
@@ -49,26 +73,38 @@ router.post("/accept", authMiddleware, async (req, res) => {
     );
     res.json({ message: "Запрос принят, теперь вы друзья" });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера" });
+    console.error("❗️ Ошибка в POST /friends/accept:", e.message, e.stack);
+    next(e);
   }
 });
 
 // Удалить друга
-router.post("/remove", authMiddleware, async (req, res) => {
+router.post("/remove", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
-  await client.query(
-    `DELETE FROM friends
-     WHERE (user_id=$1 AND friend_id=$2)
-        OR (user_id=$2 AND friend_id=$1)`,
-    [userId, friendId]
-  );
-  res.json({ message: "Друг удалён" });
+
+  try {
+    if (isNaN(parseInt(friendId, 10))) {
+      const err = new Error("Неверный ID друга");
+      err.status = 400; // Bad Request
+      throw err;
+    }
+
+    await client.query(
+      `DELETE FROM friends
+       WHERE (user_id=$1 AND friend_id=$2)
+          OR (user_id=$2 AND friend_id=$1)`,
+      [userId, friendId]
+    );
+    res.json({ message: "Друг удалён" });
+  } catch (err) {
+     console.error("❗️ Ошибка в POST /friends/remove:", err.message, err.stack);
+     next(err);
+  }
 });
 
 // Получить все входящие запросы
-router.get("/incoming", authMiddleware, async (req, res) => {
+router.get("/incoming", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   try {
     const result = await client.query(
@@ -82,8 +118,8 @@ router.get("/incoming", authMiddleware, async (req, res) => {
     );
     res.json(result.rows);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера" });
+    console.error("❗️ Ошибка в GET /friends/incoming:", e.message, e.stack);
+    next(e);
   }
 });
 

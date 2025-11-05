@@ -1,3 +1,24 @@
+// --- ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ---
+// (Ловят ошибки, не связанные с Express)
+process.on('uncaughtException', (err, origin) => {
+  console.error('❗️ НЕПЕРЕХВАЧЕННАЯ ОШИБКА (UNCAUGHT EXCEPTION):');
+  console.error('❗️ Ошибка:', err.message);
+  console.error('❗️ Источник:', origin);
+  console.error(err.stack);
+  // Приложение в нестабильном состоянии. Лучше завершить.
+  process.exit(1); 
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❗️ НЕОБРАБОТАННЫЙ REJECT PROMISE-A (UNHANDLED REJECTION):');
+  console.error('❗️ Причина:', reason);
+  // В 'reason' может быть сам объект ошибки
+  if (reason instanceof Error) {
+    console.error(reason.stack);
+  }
+});
+// --- КОНЕЦ ГЛОБАЛЬНЫХ ОБРАБОТЧИКОВ ---
+
 const express = require("express");
 const cors = require("cors");
 const client = require("./databasepg"); // 👈 Убедитесь, что client импортирован
@@ -43,6 +64,32 @@ app.use("/users", usersRouter);
 app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/chats", chatDeleteRouter);     
 app.use("/admin", adminRouter);
+
+// --- ❗️ НОВЫЙ ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК EXPRESS ---
+// Этот middleware должен быть *последним* в цепочке app.use(),
+// после всех роутеров. Express 5 автоматически перехватывает
+// ошибки в async-функциях и передает их сюда.
+app.use((err, req, res, next) => {
+  // Логируем ошибку на сервере (в Render)
+  console.error("❗️ ОБНАРУЖЕНА ОШИБКА EXPRESS:");
+  console.error('❗️ Путь:', req.path);
+  console.error('❗️ Ошибка:', err.message);
+  console.error(err.stack); // Полный стек для дебага
+
+  // Отправляем безопасный ответ клиенту
+  // Если у ошибки есть статус (например, 404, 403), используем его
+  const statusCode = err.status || 500; 
+  
+  // Не отправляем 'err.message' клиенту, если это 500, 
+  // чтобы случайно не раскрыть детали реализации.
+  const clientMessage = statusCode === 500 ? "Внутренняя ошибка сервера" : err.message;
+
+  res.status(statusCode).json({ 
+    message: clientMessage 
+  });
+});
+// --- КОНЕЦ ОБРАБОТЧИКА ОШИБОК EXPRESS ---
+
 
 /**
  * Эта функция создаст ВСЕ таблицы из вашего deploy1.sql, если их нет.

@@ -18,7 +18,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Поиск пользователей (не друзья)
-router.get("/", authMiddleware, async (req, res) => {
+// Добавляем 'next' для передачи ошибок
+router.get("/", authMiddleware, async (req, res, next) => {
   try {
     const search = req.query.search || "";
     const userId = req.user.id;
@@ -32,30 +33,72 @@ router.get("/", authMiddleware, async (req, res) => {
     );
     res.json(filtered);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Ошибка сервера" });
+    // Логируем ошибку и передаем ее в глобальный обработчик
+    console.error("❗️ Ошибка в GET /users (поиск):", e.message, e.stack);
+    next(e); // Передаем ошибку в Express
   }
 });
 
 // Данные текущего пользователя
-router.get("/me", authMiddleware, userController.getProfile);
+// Контроллеры уже имеют try...catch, но мы добавляем 'next'
+router.get("/me", authMiddleware, (req, res, next) => {
+  // Мы оборачиваем вызов контроллера, чтобы поймать ошибки,
+  // которые могут возникнуть *внутри* него, если он не async
+  try {
+    userController.getProfile(req, res, next);
+  } catch(e) {
+    console.error("❗️ Синхронная ошибка в GET /me:", e.message, e.stack);
+    next(e);
+  }
+});
 
 // Смена аватара
-router.put("/avatar", authMiddleware, upload.single("avatar"), userController.updateAvatar);
+// Добавляем 'next'
+router.put("/avatar", authMiddleware, upload.single("avatar"), (req, res, next) => {
+  try {
+    userController.updateAvatar(req, res, next);
+  } catch(e) {
+    console.error("❗️ Синхронная ошибка в PUT /avatar:", e.message, e.stack);
+    next(e);
+  }
+});
 
 // Смена пароля
-router.put("/password", authMiddleware, userController.changePassword);
+// Добавляем 'next'
+router.put("/password", authMiddleware, (req, res, next) => {
+  try {
+    userController.changePassword(req, res, next);
+  } catch(e) {
+    console.error("❗️ Синхронная ошибка в PUT /password:", e.message, e.stack);
+    next(e);
+  }
+});
 
 // Получение профиля пользователя по id
-router.get("/:id", authMiddleware, async (req, res) => {
+// Добавляем 'next'
+router.get("/:id", authMiddleware, async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id, 10);
+    // Проверяем, является ли userId числом
+    if (isNaN(userId)) {
+       // Создаем ошибку 400 (Bad Request)
+       const err = new Error("Неверный ID пользователя");
+       err.status = 400;
+       throw err;
+    }
+    
     const user = await userService.getUserById(userId);
-    if (!user) return res.status(404).json({ message: "Пользователь не найден" });
+    if (!user) {
+       // Создаем ошибку 404 (Not Found)
+       const err = new Error("Пользователь не найден");
+       err.status = 404;
+       throw err;
+    }
     res.json(user);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Ошибка сервера при получении профиля" });
+    // Логируем ошибку и передаем ее в глобальный обработчик
+    console.error(`❗️ Ошибка в GET /users/${req.params.id}:`, err.message, err.stack);
+    next(err); // Передаем ошибку в Express
   }
 });
 

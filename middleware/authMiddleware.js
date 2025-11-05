@@ -2,31 +2,49 @@ const jwt = require("jsonwebtoken");
 const { secret } = require("../config");
 
 module.exports = async function (req, res, next) {
-  if (req.method === "OPTIONS") return next();
+  if (req.method === "OPTIONS") {
+    return next();
+  }
 
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(403).json({ message: "Нет токена" });
+    if (!authHeader) {
+      const err = new Error("Нет токена");
+      err.status = 403; // Forbidden
+      return next(err);
+    }
 
     const [type, token] = authHeader.split(" ");
-    if (type !== "Bearer" || !token) return res.status(403).json({ message: "Неверный формат токена" });
+    if (type !== "Bearer" || !token) {
+      const err = new Error("Неверный формат токена");
+      err.status = 403; // Forbidden
+      return next(err);
+    }
 
     try {
-      // Проверка accessToken
+      // 1. Проверка accessToken
       const decoded = jwt.verify(token, secret);
       req.user = decoded;
-      return next();
+      return next(); // Все в порядке, токен валиден
+    
     } catch (e) {
-      // Если токен истёк
+      // 2. Обработка ошибки accessToken (например, истек срок)
+      
       if (e.name === "TokenExpiredError") {
+        // 2а. AccessToken истёк, проверяем refreshToken
         const refreshToken = req.headers["x-refresh-token"];
-        if (!refreshToken) return res.status(401).json({ message: "Токен истёк, нужен refreshToken" });
+        
+        if (!refreshToken) {
+          const err = new Error("Токен истёк, нужен refreshToken");
+          err.status = 401; // Unauthorized
+          return next(err);
+        }
 
-        // Проверяем refreshToken
-        jwt.verify(refreshToken, secret, (err, userData) => {
-          if (err) return res.status(403).json({ message: "Refresh токен недействителен" });
+        // 2б. Проверяем refreshToken
+        try {
+          const userData = jwt.verify(refreshToken, secret);
 
-          // Генерация нового accessToken
+          // Refresh токен валиден, генерируем новый accessToken
           const newAccessToken = jwt.sign(
             { id: userData.id, role: userData.role },
             secret,
@@ -36,14 +54,27 @@ module.exports = async function (req, res, next) {
           // Возвращаем новый токен в заголовках и продолжаем
           res.setHeader("x-access-token", newAccessToken);
           req.user = userData;
-          next();
-        });
+          return next();
+
+        } catch (refreshError) {
+          // 2в. RefreshToken оказался недействительным (истек или подделан)
+          console.warn(`[AuthMiddleware] Ошибка Refresh-токена: ${refreshError.message}`);
+          const err = new Error("Refresh токен недействителен");
+          err.status = 403; // Forbidden
+          return next(err);
+        }
+
       } else {
-        return res.status(403).json({ message: "Пользователь не авторизован" });
+        // 3. AccessToken невалиден по другой причине (н-р, неверная подпись)
+        console.warn(`[AuthMiddleware] Ошибка Access-токена: ${e.message}`);
+        const err = new Error("Пользователь не авторизован (токен невалиден)");
+        err.status = 403; // Forbidden
+        return next(err);
       }
     }
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: "Ошибка сервера в authMiddleware" });
+    // 4. Общая ошибка (например, ошибка в коде самого middleware)
+    console.error("❗️ Критическая ошибка в authMiddleware:", e.message, e.stack);
+    next(e); // Передаем в глобальный обработчик (который вернет 500)
   }
 };
