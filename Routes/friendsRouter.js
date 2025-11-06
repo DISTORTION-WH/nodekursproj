@@ -32,7 +32,7 @@ router.post("/request", authMiddleware, async (req, res, next) => {
   try {
     if (isNaN(parseInt(friendId, 10))) {
       const err = new Error("Неверный ID друга");
-      err.status = 400; // Bad Request
+      err.status = 400; 
       throw err;
     }
 
@@ -42,18 +42,17 @@ router.post("/request", authMiddleware, async (req, res, next) => {
       [userId, friendId]
     );
 
-    // --- 🆕 SOCKET.IO УВЕДОМЛЕНИЕ ---
+    // Уведомление получателю
     const io = req.app.get('io');
     io.to(`user_${friendId}`).emit('new_friend_request', {
         fromUserId: userId,
         message: "Вам пришел новый запрос в друзья!"
     });
-    // --------------------------------
 
     res.json({ message: "Запрос на дружбу отправлен" });
   } catch (err) {
     console.error("❗️ Ошибка в POST /friends/request:", err.message, err.stack);
-    if (err.code === '23505') { // unique_violation
+    if (err.code === '23505') { 
         err.status = 409; 
         err.message = "Запрос уже отправлен или вы уже друзья.";
     }
@@ -63,8 +62,8 @@ router.post("/request", authMiddleware, async (req, res, next) => {
 
 // Принять запрос
 router.post("/accept", authMiddleware, async (req, res, next) => {
-  const userId = req.user.id; 
-  const { friendId } = req.body; 
+  const userId = req.user.id; // Тот, КТО принимает (текущий пользователь)
+  const { friendId } = req.body; // Тот, ЧЕЙ запрос принимают (отправитель)
   
   try {
     if (isNaN(parseInt(friendId, 10))) {
@@ -79,6 +78,16 @@ router.post("/accept", authMiddleware, async (req, res, next) => {
        WHERE user_id=$1 AND friend_id=$2 AND status='pending'`,
       [friendId, userId]
     );
+
+    // --- 🆕 SOCKET.IO: Уведомляем отправителя, что его запрос приняли ---
+    const io = req.app.get('io');
+    // Отправляем тому, кто ИЗНАЧАЛЬНО подал заявку (friendId в данном контексте)
+    io.to(`user_${friendId}`).emit('friend_request_accepted', {
+        byUserId: userId,
+        message: "Ваш запрос в друзья принят!"
+    });
+    // --------------------------------------------------------------------
+
     res.json({ message: "Запрос принят, теперь вы друзья" });
   } catch (e) {
     console.error("❗️ Ошибка в POST /friends/accept:", e.message, e.stack);
@@ -104,6 +113,14 @@ router.post("/remove", authMiddleware, async (req, res, next) => {
           OR (user_id=$2 AND friend_id=$1)`,
       [userId, friendId]
     );
+
+    // --- 🆕 SOCKET.IO: Уведомляем бывшего друга, что его удалили ---
+    const io = req.app.get('io');
+    io.to(`user_${friendId}`).emit('friend_removed', {
+        byUserId: userId
+    });
+    // ---------------------------------------------------------------
+
     res.json({ message: "Друг удалён" });
   } catch (err) {
      console.error("❗️ Ошибка в POST /friends/remove:", err.message, err.stack);

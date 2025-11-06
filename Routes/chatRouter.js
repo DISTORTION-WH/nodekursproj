@@ -154,6 +154,11 @@ router.post("/join", async (req, res, next) => {
             [chatId, userId, creatorId]
         );
 
+        // --- 🆕 SOCKET.IO: Уведомляем других участников, что кто-то вошел ---
+        const io = req.app.get('io');
+        io.to(`chat_${chatId}`).emit('chat_member_updated', { chatId, action: 'joined', userId });
+        // ---------------------------------------------------------------------
+
         res.status(201).json(chat);
 
     } catch (e) {
@@ -235,6 +240,14 @@ router.post("/:id/invite", async (req, res, next) => {
       [chatId, friendId, inviterId]
     );
 
+    // --- 🆕 SOCKET.IO: Уведомляем приглашенного и чат ---
+    const io = req.app.get('io');
+    // 1. Личное уведомление приглашенному, чтобы чат появился в списке
+    io.to(`user_${friendId}`).emit('added_to_chat', { chatId });
+    // 2. Уведомление в комнату чата, чтобы обновить список участников у тех, кто онлайн
+    io.to(`chat_${chatId}`).emit('chat_member_updated', { chatId, action: 'invited', userId: friendId });
+    // ----------------------------------------------------
+
     res.json({ message: "Пользователь добавлен в комнату" });
   } catch (e) {
     console.error(`❗️ Ошибка в POST /chats/${chatId}/invite:`, e.message, e.stack);
@@ -285,19 +298,21 @@ router.post("/:id/kick", async (req, res, next) => {
     const canKick = isCreator || wasInvitedByKicker;
     const isLeaving = kickerId === userIdToKick; 
 
-    if (isLeaving) {
+    if (isLeaving || canKick) {
         await client.query(
             `DELETE FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
             [chatId, userIdToKick]
         );
-        return res.json({ message: "Вы вышли из комнаты" });
 
-    } else if (canKick) {
-        await client.query(
-            `DELETE FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
-            [chatId, userIdToKick]
-        );
-        return res.json({ message: "Пользователь удален из комнаты" });
+        // --- 🆕 SOCKET.IO: Уведомляем об исключении/выходе ---
+        const io = req.app.get('io');
+        // 1. Личное уведомление тому, кого кикнули (или кто вышел), чтобы чат пропал
+        io.to(`user_${userIdToKick}`).emit('removed_from_chat', { chatId });
+        // 2. Уведомление в комнату чата для обновления списка участников
+        io.to(`chat_${chatId}`).emit('chat_member_updated', { chatId, action: 'kicked/left', userId: userIdToKick });
+        // ------------------------------------------------------
+
+        return res.json({ message: isLeaving ? "Вы вышли из комнаты" : "Пользователь удален из комнаты" });
 
     } else {
         const err = new Error("У вас нет прав на удаление этого пользователя");
@@ -391,10 +406,8 @@ router.post("/:id/messages", async (req, res, next) => {
     const newMessage = result.rows[0];
     newMessage.sender_name = req.user.username; 
 
-    // --- 🆕 SOCKET.IO: Отправка сообщения в комнату чата ---
     const io = req.app.get('io');
     io.to(`chat_${chatId}`).emit('new_message', newMessage);
-    // ------------------------------------------------------
 
     res.json(newMessage);
   } catch (e) {

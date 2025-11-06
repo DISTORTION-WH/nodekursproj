@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FriendsList from "../components/FriendsList";
-import { io } from "socket.io-client"; // 🆕 Импорт клиента Socket.IO
+import { io } from "socket.io-client"; 
 import "./HomePage.css"; 
+
+// Глобальный сокет (или тот же, что во FriendsList, если использовать Context, но пока сделаем отдельный для чата)
+let chatSocket;
 
 export default function HomePage({ currentUser }) {
   const [activeChat, setActiveChat] = useState(null);
@@ -33,43 +36,77 @@ export default function HomePage({ currentUser }) {
     }
   }, [location.state]);
 
-  // ----------------- Загрузка сообщений и подключение к сокету -----------------
+  // --- Глобальный слушатель для личных событий (кик из чата) ---
+  useEffect(() => {
+      if (currentUser && currentUser.id) {
+          const personalSocket = io(axios.defaults.baseURL);
+          personalSocket.on("connect", () => {
+              personalSocket.emit('join_user_room', currentUser.id);
+          });
+
+          // Если нас кикнули, и мы в этом чате -> выходим на главную
+          personalSocket.on('removed_from_chat', (data) => {
+              if (activeChat && Number(activeChat.id) === Number(data.chatId)) {
+                  alert("Вас исключили из этого чата");
+                  setActiveChat(null);
+              }
+          });
+
+          return () => personalSocket.disconnect();
+      }
+  }, [currentUser, activeChat]);
+
+
+  // ----------------- Активный чат -----------------
   useEffect(() => {
-    if (!activeChat) return;
+    if (!activeChat?.id) return;
     
     setShowDeleteOptions(false);
     setModalView(null);
 
-    // 1. Первоначальная загрузка истории сообщений
+    // Загрузка истории
     axios
       .get(`/chats/${activeChat.id}/messages`, config)
       .then((res) => setMessages(res.data))
       .catch(console.error);
 
-    // 2. 🆕 Подключение к веб-сокету для новых сообщений
-    const socket = io(axios.defaults.baseURL);
+    // Подключение к сокету ЧАТА
+    chatSocket = io(axios.defaults.baseURL);
     
-    socket.on("connect", () => {
-        console.log(`🔌 Connected to socket for chat ${activeChat.id}`);
-        // Входим в комнату этого чата, чтобы получать сообщения только для него
-        socket.emit("join_chat", activeChat.id);
+    chatSocket.on("connect", () => {
+        chatSocket.emit("join_chat", activeChat.id);
     });
 
-    socket.on("new_message", (msg) => {
-        console.log("💬 New message received via socket:", msg);
-        // Убедимся, что сообщение для текущего открытого чата (на всякий случай)
+    // Новое сообщение
+    chatSocket.on("new_message", (msg) => {
         if (Number(msg.chat_id) === Number(activeChat.id)) {
              setMessages((prev) => [...prev, msg]);
         }
     });
 
-    // Отключаемся при смене чата или размонтировании
+    // История очищена
+    chatSocket.on("messages_cleared", (data) => {
+        if (Number(data.chatId) === Number(activeChat.id)) {
+            setMessages([]);
+        }
+    });
+
+    // Обновление участников (кто-то вошел, вышел, кикнут)
+    chatSocket.on("chat_member_updated", (data) => {
+        if (Number(data.chatId) === Number(activeChat.id)) {
+             // Перезагружаем список участников, если открыто модальное окно
+             axios.get(`/chats/${activeChat.id}/users`, config)
+                .then(res => setChatMembers(res.data))
+                .catch(console.error);
+        }
+    });
+
     return () => {
-      socket.disconnect();
+      if (chatSocket) chatSocket.disconnect();
     };
-    // Убрали интервал (поллинг)
   }, [activeChat]);
 
+  // Загрузка участников при открытии чата (если группа)
   useEffect(() => {
     if (activeChat && activeChat.is_group) {
       axios.get(`/chats/${activeChat.id}/users`, config) 
@@ -99,10 +136,7 @@ export default function HomePage({ currentUser }) {
         { text: newMessage },
         config
       )
-      .then((res) => {
-        // Сообщение добавится через сокет, но можно добавить и тут для оптимистичного UI.
-        // Если сервер быстро отвечает, сокет может прийти раньше, поэтому лучше полагаться на сокет
-        // или проверять дубликаты по ID. В данном простом случае можно оставить как есть.
+      .then(() => {
         setNewMessage("");
       })
       .catch(console.error);
@@ -121,7 +155,9 @@ export default function HomePage({ currentUser }) {
         { allForEveryone },
         config
       );
-      setMessages([]);
+      if (!allForEveryone) {
+           setMessages([]); // Если только у себя, чистим локально сразу
+      }
       setShowDeleteOptions(false);
     } catch (err) {
       console.error(err);
@@ -158,8 +194,7 @@ export default function HomePage({ currentUser }) {
         { friendId },
         config
       );
-      const res = await axios.get(`/chats/${activeChat.id}/users`, config); 
-      setChatMembers(res.data);
+      // Список участников обновится через сокет, но можно и принудительно закрыть модалку
       closeModal();
     } catch (err) {
       console.error("Ошибка приглашения:", err);
@@ -184,10 +219,9 @@ export default function HomePage({ currentUser }) {
       
       if (isLeaving) {
         setActiveChat(null);
-        window.location.reload(); 
-      } else {
-        setChatMembers(prev => prev.filter(m => m.id !== userIdToKick));
-      }
+        // Не перезагружаем страницу целиком, FriendsList сам обновится через сокет 'removed_from_chat'
+      } 
+      // Если кикнули другого, список участников обновится через сокет 'chat_member_updated'
 
     } catch (err) {
       console.error("Ошибка:", err);
