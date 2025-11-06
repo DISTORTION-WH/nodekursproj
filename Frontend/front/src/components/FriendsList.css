@@ -1,230 +1,136 @@
 .friends-list {
   width: 280px;
-  height: 100%;
+  min-width: 250px;
   background-color: #2f3136;
   display: flex;
   flex-direction: column;
-  padding: 15px;
-  flex-shrink: 0;
-  box-sizing: border-box;
+  border-right: 1px solid #202225;
+  overflow-y: auto; /* Скролл только по вертикали */
+  height: 100%;
+  flex-shrink: 0;   /* Список друзей не должен сжиматься */
 }
 
-/* --- Хедер секции (Комнаты, Друзья) --- */
+/* Кастомный скроллбар для списка друзей */
+.friends-list::-webkit-scrollbar { width: 6px; }
+.friends-list::-webkit-scrollbar-track { background: transparent; }
+.friends-list::-webkit-scrollbar-thumb { background-color: #202225; border-radius: 3px; }
+
+.friends-section, .bottom-sections {
+  padding: 15px;
+  border-bottom: 1px solid #202225;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-  flex-shrink: 0; /* 👈 ДОБАВЛЕНО (важно для кнопок) */
+  margin-bottom: 10px;
+  color: #b9bbbe;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  font-weight: bold;
 }
 
 .section-header h2 {
   margin: 0;
-  font-size: 1.1rem;
-  color: #b9bbbe;
-  white-space: nowrap; /* 👈 ДОБАВЛЕНО */
-  flex-shrink: 0; /* 👈 ДОБАВЛЕНО */
-}
-
-.section-header-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0; /* 👈 ДОБАВЛЕНО */
+  font-size: inherit;
 }
 
 .group-action-btn {
-  background-color: #40444b;
+  background: none;
   border: none;
-  color: white;
-  width: auto;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 5px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  cursor: pointer;
-  line-height: 24px;
-  text-align: center;
-  transition: background-color 0.2s;
-}
-.group-action-btn:hover {
-  background-color: #4f545c;
-}
-
-.group-action-btn.create {
-  background-color: #43b581;
-  font-size: 1.2rem;
-  width: 24px;
-  padding: 0;
-}
-.group-action-btn.create:hover {
-  background-color: #3ca374;
-}
-
-/* --- Секции (Комнаты, Друзья) --- */
-.friends-section {
-  display: flex;
-  flex-direction: column;
-  max-height: 300px; 
-  overflow-y: auto;
-  gap: 8px;
-  padding-right: 4px;
-  margin-bottom: 10px;
-  flex-shrink: 0; /* 👈 ДОБАВЛЕНО (секции не должны сжиматься) */
-}
-
-/* --- Нижние секции (Запросы, Поиск) --- */
-.bottom-sections {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto; /* прижать вниз */
-  gap: 15px;
-  overflow: hidden; /* 👈 ИЗМЕНЕНО (внутренние блоки будут скроллиться сами) */
-  padding-bottom: 5px; 
-}
-
-.incoming-section {
-  max-height: 200px; /* 👈 ДОБАВЛЕНО (Ограничение высоты для скролла) */
-  overflow-y: auto; /* 👈 ДОБАВЛЕНО */
-  padding-right: 4px; /* 👈 ДОБАВЛЕНО */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto; /* 👈 ДОБАВЛЕНО (на случай длинного поиска) */
-  padding-right: 4px;
-}
-
-
-.incoming-section h3,
-.search-section h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1rem;
   color: #b9bbbe;
-  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
+.group-action-btn:hover { background-color: #40444b; color: #fff; }
+.group-action-btn.create { font-size: 1.2rem; line-height: 1; padding: 0 6px; }
 
-/* --- Стили скроллбара (для всех секций) --- */
-.friends-section::-webkit-scrollbar,
-.incoming-section::-webkit-scrollbar,
-.search-section::-webkit-scrollbar {
-  width: 6px;
-}
-.friends-section::-webkit-scrollbar-thumb,
-.incoming-section::-webkit-scrollbar-thumb,
-.search-section::-webkit-scrollbar-thumb {
-  background-color: #202225;
-  border-radius: 3px;
-}
-
-
-/* --- Общие стили для элементов списка --- */
-.friend-item,
-.incoming-item,
-.search-item,
-.group-item {
-  background-color: #40444b;
-  padding: 8px 10px;
-  border-radius: 6px;
+.friend-item {
   display: flex;
   align-items: center;
+  padding: 8px 10px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.2s;
+  transition: background-color 0.2s;
+  color: #8e9297;
+  margin-bottom: 2px;
 }
-
-.group-item {
-  justify-content: flex-start;
-  font-weight: 500;
-}
-
-.friend-item,
-.incoming-item,
-.search-item {
-  justify-content: space-between;
-}
-
-
-.friend-item:hover,
-.incoming-item:hover,
-.search-item:hover,
-.group-item:hover {
-  background-color: #4f545c;
-  transform: translateX(2px);
-}
-
-.friend-item span,
-.incoming-item span,
-.search-item span {
-  font-size: 0.95rem;
-  color: #fff;
-}
-
-.friend-item button,
-.incoming-item button,
-.search-item button {
-  background-color: #5865f2;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.25s, transform 0.25s;
-}
-
-.friend-item button:hover,
-.incoming-item button:hover,
-.search-item button:hover {
-  background-color: #4752c4;
-  transform: scale(1.05);
-}
-
-.search-item button {
-  background-color: #43b581;
-}
-
-.search-item button:hover {
-  background-color: #3ca374;
-}
+.friend-item:hover { background-color: #40444b; color: #fff; }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
+  margin-right: 10px;
   object-fit: cover;
-  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.friend-item span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Длинные имена будут обрезаться с троеточием */
+  margin-right: 5px;
+}
+
+.friend-item button {
+  background-color: #40444b;
+  border: none;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0; /* Скрываем кнопку чата по умолчанию */
+  transition: opacity 0.2s;
+}
+.friend-item:hover button { opacity: 1; } /* Показываем при наведении */
+
+.incoming-item, .search-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.9rem;
+}
+.incoming-item span, .search-item span {
+  flex: 1;
+  margin: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.incoming-item button, .search-item button {
+  padding: 4px 8px;
+  background-color: #3ba55d;
+  border: none;
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
 }
 
 .search-section input {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 4px;
+  padding: 8px;
+  background-color: #202225;
   border: none;
+  border-radius: 4px;
+  color: #dcddde;
+  margin-bottom: 8px;
   outline: none;
-  background-color: #40444b;
-  color: #fff;
-  font-size: 0.9rem;
 }
-
-.search-section input:focus {
-  background-color: #4f545c;
-}
-
-.search-section button {
-  align-self: flex-start;
+.search-section > button {
+  width: 100%;
+  padding: 8px;
   background-color: #5865f2;
   border: none;
-  padding: 8px 14px;
   border-radius: 4px;
-  color: #fff;
-  font-weight: bold;
-  font-size: 0.85rem;
+  color: white;
   cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 10px;
 }

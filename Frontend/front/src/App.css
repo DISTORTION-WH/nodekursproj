@@ -1,36 +1,54 @@
-/* Общие сбросы */
+/* --- Глобальные сбросы для предотвращения внешних скроллов --- */
 * {
   box-sizing: border-box;
 }
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  background: #36393f;
-  color: #fff;
-}
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* ← блокируем прокрутку всей страницы */
-  font-family: Arial, sans-serif;
-  background: #36393f;
+  overflow: hidden; /* ⛔️ Блокирует прокрутку всей страницы */
+  font-family: "Segoe UI", 'Roboto', sans-serif;
+  background-color: #36393f;
   color: #fff;
 }
 
-/* Контейнер приложения */
-.app-container {
+#root {
+  height: 100%;
   display: flex;
-  height: calc(100vh - 50px); /* 50px - высота Navbar */
-  margin-top: 50px;           /* пространство под Navbar */
-  overflow: hidden;
+  flex-direction: column;
 }
 
-.main-content {
-  flex: 1;
+/* Главный контейнер приложения */
+.app-container {
   display: flex;
-  overflow: hidden;
+  flex: 1;
+  overflow: hidden;    /* ⛔️ Скрывает все, что вылезает за пределы */
+  position: relative;
+  height: 100%;        /* Занимает всю доступную высоту */
+  padding-top: 60px;   /* Отступ для навбара, если он fixed. Если нет - уберите */
+}
+
+/* Если у вас Navbar имеет position: fixed или absolute, то padding-top нужен.
+   Если Navbar просто первый элемент во flex-контейнере #root, то padding-top не нужен.
+   Адаптируйте значение 60px под реальную высоту вашего Navbar. */
+
+/* Анимация загрузки */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+.loader {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #7289da;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
