@@ -1,10 +1,8 @@
-// Routes/friendsRouter.js
 const Router = require("express");
 const router = new Router();
 const client = require("../databasepg");
 const authMiddleware = require("../middleware/authMiddleware");
 
-// Получить список друзей
 router.get("/", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   try {
@@ -18,40 +16,21 @@ router.get("/", authMiddleware, async (req, res, next) => {
       [userId]
     );
     res.json(result.rows);
-  } catch (err) {
-    console.error("❗️ Ошибка в GET /friends:", err.message, err.stack);
-    next(err); 
-  }
+  } catch (err) { next(err); }
 });
 
-// Отправить запрос в друзья
 router.post("/request", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
-
   try {
-    if (isNaN(parseInt(friendId, 10))) {
-      const err = new Error("Неверный ID друга");
-      err.status = 400; 
-      throw err;
-    }
-
     await client.query(
-      `INSERT INTO friends (user_id, friend_id, status)
-       VALUES ($1, $2, 'pending')`,
+      `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'pending')`,
       [userId, friendId]
     );
-
-    // Уведомление получателю
-    const io = req.app.get('io');
-    io.to(`user_${friendId}`).emit('new_friend_request', {
-        fromUserId: userId,
-        message: "Вам пришел новый запрос в друзья!"
-    });
-
-    res.json({ message: "Запрос на дружбу отправлен" });
+    // 🔔 Уведомляем получателя о новом запросе
+    req.app.get('io').to(`user_${friendId}`).emit('new_friend_request');
+    res.json({ message: "Запрос отправлен" });
   } catch (err) {
-    console.error("❗️ Ошибка в POST /friends/request:", err.message, err.stack);
     if (err.code === '23505') { 
         err.status = 409; 
         err.message = "Запрос уже отправлен или вы уже друзья.";
@@ -60,92 +39,47 @@ router.post("/request", authMiddleware, async (req, res, next) => {
   }
 });
 
-// Принять запрос
 router.post("/accept", authMiddleware, async (req, res, next) => {
-  const userId = req.user.id; // Тот, КТО принимает (текущий пользователь)
-  const { friendId } = req.body; // Тот, ЧЕЙ запрос принимают (отправитель)
-  
+  const userId = req.user.id; 
+  const { friendId } = req.body; 
   try {
-    if (isNaN(parseInt(friendId, 10))) {
-      const err = new Error("Неверный ID друга");
-      err.status = 400; 
-      throw err;
-    }
-    
     await client.query(
-      `UPDATE friends
-       SET status='accepted'
+      `UPDATE friends SET status='accepted'
        WHERE user_id=$1 AND friend_id=$2 AND status='pending'`,
       [friendId, userId]
     );
-
-    // --- 🆕 SOCKET.IO: Уведомляем отправителя, что его запрос приняли ---
-    const io = req.app.get('io');
-    // Отправляем тому, кто ИЗНАЧАЛЬНО подал заявку (friendId в данном контексте)
-    io.to(`user_${friendId}`).emit('friend_request_accepted', {
-        byUserId: userId,
-        message: "Ваш запрос в друзья принят!"
-    });
-    // --------------------------------------------------------------------
-
-    res.json({ message: "Запрос принят, теперь вы друзья" });
-  } catch (e) {
-    console.error("❗️ Ошибка в POST /friends/accept:", e.message, e.stack);
-    next(e);
-  }
+    // 🔔 Уведомляем отправителя запроса (friendId), что userId его принял
+    req.app.get('io').to(`user_${friendId}`).emit('friend_request_accepted');
+    res.json({ message: "Запрос принят" });
+  } catch (e) { next(e); }
 });
 
-// Удалить друга
 router.post("/remove", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
-
   try {
-    if (isNaN(parseInt(friendId, 10))) {
-      const err = new Error("Неверный ID друга");
-      err.status = 400; 
-      throw err;
-    }
-
     await client.query(
       `DELETE FROM friends
-       WHERE (user_id=$1 AND friend_id=$2)
-          OR (user_id=$2 AND friend_id=$1)`,
+       WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)`,
       [userId, friendId]
     );
-
-    // --- 🆕 SOCKET.IO: Уведомляем бывшего друга, что его удалили ---
-    const io = req.app.get('io');
-    io.to(`user_${friendId}`).emit('friend_removed', {
-        byUserId: userId
-    });
-    // ---------------------------------------------------------------
-
+    // 🔔 Уведомляем бывшего друга об удалении
+    req.app.get('io').to(`user_${friendId}`).emit('friend_removed', { byUserId: userId });
     res.json({ message: "Друг удалён" });
-  } catch (err) {
-     console.error("❗️ Ошибка в POST /friends/remove:", err.message, err.stack);
-     next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-// Получить все входящие запросы
 router.get("/incoming", authMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   try {
     const result = await client.query(
-      `SELECT f.user_id as requester_id,
-              u.username as requester_name,
-              u.avatar_url as requester_avatar
-       FROM friends f
-       JOIN users u ON u.id = f.user_id
+      `SELECT f.user_id as requester_id, u.username as requester_name, u.avatar_url as requester_avatar
+       FROM friends f JOIN users u ON u.id = f.user_id
        WHERE f.friend_id = $1 AND f.status = 'pending'`,
       [userId]
     );
     res.json(result.rows);
-  } catch (e) {
-    console.error("❗️ Ошибка в GET /friends/incoming:", e.message, e.stack);
-    next(e);
-  }
+  } catch (e) { next(e); }
 });
 
 module.exports = router;
