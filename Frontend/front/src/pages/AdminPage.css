@@ -8,17 +8,18 @@
   --danger: #e74c3c;
   --danger-hover: #c0392b;
   --success: #43b581;
+  --warn: #f1c40f;
 }
 
 .admin-page {
   width: 100%;
-  height: 100%; /* 👈 ИЗМЕНЕНО (было min-height: 100vh) */
+  height: 100%;
   background: var(--bg);
   color: var(--text-main);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   padding: 20px;
   box-sizing: border-box;
-  overflow-y: auto; /* 👈 ДОБАВЛЕНО (для прокрутки самой страницы админки) */
+  overflow-y: auto;
 }
 
 .admin-title {
@@ -27,12 +28,36 @@
   margin-bottom: 20px;
 }
 
+/* 🆕 Вкладки */
+.admin-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+  
+.admin-tabs button {
+    background: var(--bg-block);
+    color: var(--text-muted);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.admin-tabs button:hover,
+.admin-tabs button.active {
+    background: var(--accent);
+    color: #fff;
+}
+
 .admin-section {
   background: var(--bg-block);
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 20px;
-  overflow-x: auto; /* 👈 ДОБАВЛЕНО (для горизонтальной прокрутки таблиц) */
 }
 
 .admin-subtitle {
@@ -55,15 +80,21 @@
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 15px;
-  min-width: 600px; /* 👈 ДОБАВЛЕНО (гарантирует, что на мобильных появится прокрутка) */
+  min-width: 600px;
 }
 
 .admin-table th,
 .admin-table td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px;
+  padding: 12px 10px;
   text-align: left;
-  white-space: nowrap; /* 👈 ДОБАВЛЕНО (предотвращает разрыв ячеек) */
+  vertical-align: top;
+}
+
+.admin-table th {
+    background: rgba(0,0,0,0.2);
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 .admin-btn {
@@ -73,35 +104,15 @@
   cursor: pointer;
   margin-right: 6px;
   font-weight: 600;
+  font-size: 0.9rem;
 }
 
-.admin-btn.edit {
-  background: var(--accent);
-  color: white;
-}
-
-.admin-btn.edit:hover {
-  background: var(--accent-hover);
-}
-
-.admin-btn.delete {
-  background: var(--danger);
-  color: white;
-}
-
-.admin-btn.delete:hover {
-  background: var(--danger-hover);
-}
-
-.admin-btn.save {
-  background: var(--success);
-  color: white;
-}
-
-.admin-btn.cancel {
-  background: var(--danger);
-  color: white;
-}
+.admin-btn.edit { background: var(--accent); color: white; }
+.admin-btn.edit:hover { background: var(--accent-hover); }
+.admin-btn.delete { background: var(--danger); color: white; }
+.admin-btn.delete:hover { background: var(--danger-hover); }
+.admin-btn.save { background: var(--success); color: white; }
+.admin-btn.cancel { background: var(--danger); color: white; }
 
 .edit-form {
   display: flex;
@@ -110,6 +121,7 @@
   background: rgba(255, 255, 255, 0.05);
   padding: 15px;
   border-radius: 8px;
+  margin-top: 20px;
 }
 
 .edit-form input {
@@ -128,11 +140,15 @@
 
 .admin-chat-card {
   background: rgba(255, 255, 255, 0.05);
-  padding: 12px;
+  padding: 15px;
   border-radius: 10px;
-  flex: 0 0 200px;
+  flex: 1 1 200px; /* Адаптивная ширина */
+  max-width: 300px;
   cursor: pointer;
   transition: 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .admin-chat-card:hover {
@@ -144,33 +160,105 @@
   border: 2px solid var(--accent);
 }
 
+.admin-chat-card .delete-chat {
+    margin-top: 10px;
+    align-self: flex-start;
+    background: var(--danger);
+    color: white;
+    padding: 5px 8px;
+    font-size: 0.8rem;
+}
+
 .admin-chat-view {
   margin-top: 20px;
   padding: 15px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+  max-height: 500px;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-chat-messages {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 300px;
   overflow-y: auto;
+  flex: 1;
 }
 
 .admin-message {
-  padding: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+.admin-message:last-child { border-bottom: none; }
 
 .admin-message-empty {
   color: var(--text-muted);
+  padding: 20px;
+  text-align: center;
 }
 
 .msg-time {
   font-size: 0.75rem;
   color: var(--text-muted);
+  margin-top: 4px;
 }
 
-/* 👈 УДАЛЕН дублирующийся класс .admin-page */
+/* 🆕 Статистика */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+  
+.stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.stat-card h4 {
+    margin: 0 0 15px 0;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.stat-card p {
+    margin: 0;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+}
+
+.stat-card.error p {
+    color: var(--danger);
+}
+
+/* 🆕 Логи */
+.log-row.error { background: rgba(231, 76, 60, 0.15); }
+.log-row.warn { background: rgba(241, 196, 15, 0.15); }
+
+.log-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.log-badge.error { background: var(--danger); color: white; }
+.log-badge.warn { background: var(--warn); color: #000; }
+.log-badge.info { background: var(--accent); color: white; }
+
+.logs-table pre {
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.3);
+    padding: 8px;
+    border-radius: 6px;
+    color: #e0e0e0;
+}

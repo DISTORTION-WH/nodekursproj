@@ -1,18 +1,16 @@
 // --- ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ---
+const logger = require("./Services/logService"); // 👈 ДОБАВЛЕНО
+
 process.on('uncaughtException', (err, origin) => {
-  console.error('❗️ НЕПЕРЕХВАЧЕННАЯ ОШИБКА (UNCAUGHT EXCEPTION):');
-  console.error('❗️ Ошибка:', err.message);
-  console.error('❗️ Источник:', origin);
-  console.error(err.stack);
-  process.exit(1); 
+  // 👈 ИЗМЕНЕНО на использование logger
+  logger.error(`UNCAUGHT EXCEPTION at ${origin}`, err).finally(() => {
+     process.exit(1); 
+  });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❗️ НЕОБРАБОТАННЫЙ REJECT PROMISE-A (UNHANDLED REJECTION):');
-  console.error('❗️ Причина:', reason);
-  if (reason instanceof Error) {
-    console.error(reason.stack);
-  }
+  // 👈 ИЗМЕНЕНО на использование logger
+  logger.error('UNHANDLED REJECTION', reason instanceof Error ? reason : { reason });
 });
 // --- КОНЕЦ ГЛОБАЛЬНЫХ ОБРАБОТЧИКОВ ---
 
@@ -95,9 +93,11 @@ app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/chats", chatDeleteRouter);     
 app.use("/admin", adminRouter);
 
+// Middleware обработки ошибок
 app.use((err, req, res, next) => {
-  console.error("❗️ EXPRESS ERROR:", err.message);
-  console.error(err.stack); 
+  // 👈 ИЗМЕНЕНО: Логируем ошибку в БД
+  logger.error(`EXPRESS ERROR: ${req.method} ${req.originalUrl} - ${err.message}`, err);
+  
   res.status(err.status || 500).json({ message: err.message || "Server Error" });
 });
 
@@ -125,4 +125,4 @@ async function start() {
   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
-start();
+start();  

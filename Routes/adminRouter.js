@@ -11,9 +11,13 @@ router.get("/users", adminController.getAllUsers);
 router.put("/users/:id", adminController.updateUser);
 router.delete("/users/:id", adminController.deleteUser);
 router.get("/users/search", adminController.searchUsers);
-router.delete("/chats/:id", adminController.deleteChat);
 
 // Чаты
 router.get("/chats", adminController.getAllChats);
+router.delete("/chats/:id", adminController.deleteChat);
+
+// 🆕 Статистика и логи
+router.get("/stats", adminController.getStats);
+router.get("/logs", adminController.getLogs);
 
 module.exports = router;
