@@ -2,19 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FriendsList from "../components/FriendsList";
-import "./HomePage.css"; // Убедитесь, что стили модального окна добавлены в этот файл
+import { io } from "socket.io-client"; // 🆕 Импорт клиента Socket.IO
+import "./HomePage.css"; 
 
 export default function HomePage({ currentUser }) {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   
-  // Состояние для модального окна групп
-  const [modalView, setModalView] = useState(null); // 'members' | 'invite' | null
+  const [modalView, setModalView] = useState(null); 
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
   
-  // 👈 ВОЗВРАЩАЕМ СОСТОЯНИЕ ДЛЯ УДАЛЕНИЯ
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
 
   const messagesContainerRef = useRef(null);
@@ -23,54 +22,65 @@ export default function HomePage({ currentUser }) {
   const token = localStorage.getItem("token");
   const config = { headers: { Authorization: "Bearer " + token } };
 
-  // ----------------- Если navigate передал chatId -----------------
   useEffect(() => {
     if (location.state?.openChatId) {
       setActiveChat({
         id: location.state.openChatId,
         username: location.state.friend?.username,
         avatar_url: location.state.friend?.avatar_url,
-        is_group: false // Приватный чат из UserProfilePage
+        is_group: false 
       });
     }
   }, [location.state]);
 
-  // ----------------- Загрузка сообщений -----------------
+  // ----------------- Загрузка сообщений и подключение к сокету -----------------
   useEffect(() => {
     if (!activeChat) return;
     
-    // Сбрасываем опции при смене чата
     setShowDeleteOptions(false);
     setModalView(null);
 
-    const fetchMessages = () => {
-      axios
-//         .get(`http://localhost:5000/chats/${activeChat.id}/messages`, config) // 👈 БЫЛО
-        .get(`/chats/${activeChat.id}/messages`, config) // 👈 СТАЛО
-        .then((res) => setMessages(res.data))
-        .catch(console.error);
-    };
+    // 1. Первоначальная загрузка истории сообщений
+    axios
+      .get(`/chats/${activeChat.id}/messages`, config)
+      .then((res) => setMessages(res.data))
+      .catch(console.error);
 
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 2000);
-    return () => clearInterval(interval);
+    // 2. 🆕 Подключение к веб-сокету для новых сообщений
+    const socket = io(axios.defaults.baseURL);
+    
+    socket.on("connect", () => {
+        console.log(`🔌 Connected to socket for chat ${activeChat.id}`);
+        // Входим в комнату этого чата, чтобы получать сообщения только для него
+        socket.emit("join_chat", activeChat.id);
+    });
+
+    socket.on("new_message", (msg) => {
+        console.log("💬 New message received via socket:", msg);
+        // Убедимся, что сообщение для текущего открытого чата (на всякий случай)
+        if (Number(msg.chat_id) === Number(activeChat.id)) {
+             setMessages((prev) => [...prev, msg]);
+        }
+    });
+
+    // Отключаемся при смене чата или размонтировании
+    return () => {
+      socket.disconnect();
+    };
+    // Убрали интервал (поллинг)
   }, [activeChat]);
 
-  // ----------------- Загрузка участников (для групп) -----------------
   useEffect(() => {
     if (activeChat && activeChat.is_group) {
-      // Используем новый эндпоинт
-//       axios.get(`http://localhost:5000/chats/${activeChat.id}/users`, config) // 👈 БЫЛО
-      axios.get(`/chats/${activeChat.id}/users`, config) // 👈 СТАЛО
+      axios.get(`/chats/${activeChat.id}/users`, config) 
         .then(res => setChatMembers(res.data))
         .catch(console.error);
     } else {
-      setChatMembers([]); // Очищаем, если это не группа
+      setChatMembers([]); 
     }
   }, [activeChat]);
 
 
-  // ----------------- Автопрокрутка вниз -----------------
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -80,26 +90,24 @@ export default function HomePage({ currentUser }) {
     }
   }, [messages]);
 
-  // ----------------- Отправка сообщения -----------------
   const sendMessage = () => {
     if (!newMessage.trim() || !activeChat?.id) return;
 
     axios
       .post(
-//         `http://localhost:5000/chats/${activeChat.id}/messages`, // 👈 БЫЛО
-        `/chats/${activeChat.id}/messages`, // 👈 СТАЛО
+        `/chats/${activeChat.id}/messages`, 
         { text: newMessage },
         config
       )
       .then((res) => {
-        // Бэкенд теперь возвращает готовое сообщение
-        setMessages((prev) => [...prev, res.data]);
+        // Сообщение добавится через сокет, но можно добавить и тут для оптимистичного UI.
+        // Если сервер быстро отвечает, сокет может прийти раньше, поэтому лучше полагаться на сокет
+        // или проверять дубликаты по ID. В данном простом случае можно оставить как есть.
         setNewMessage("");
       })
       .catch(console.error);
   };
   
-  // 👈 ВОЗВРАЩАЕМ ФУНКЦИЮ УДАЛЕНИЯ СООБЩЕНИЙ
   const deleteMessages = async (allForEveryone) => {
     if (!activeChat?.id) return;
     const confirmMsg = allForEveryone
@@ -109,8 +117,7 @@ export default function HomePage({ currentUser }) {
 
     try {
       await axios.post(
-//         `http://localhost:5000/chats/${activeChat.id}/messages/delete`, // 👈 БЫЛО
-        `/chats/${activeChat.id}/messages/delete`, // 👈 СТАЛО
+        `/chats/${activeChat.id}/messages/delete`, 
         { allForEveryone },
         config
       );
@@ -122,19 +129,13 @@ export default function HomePage({ currentUser }) {
     }
   };
 
-
-  // --- Хендлеры для управления группой ---
-
-  // 1. Открыть модальное окно участников
   const openMembersModal = () => {
     setModalView('members');
   };
 
-  // 2. Открыть модальное окно приглашения
   const openInviteModal = async () => {
     try {
-//       const res = await axios.get("http://localhost:5000/friends", config); // 👈 БЫЛО
-      const res = await axios.get("/friends", config); // 👈 СТАЛО
+      const res = await axios.get("/friends", config); 
       const friends = res.data;
       const memberIds = new Set(chatMembers.map(m => m.id));
       const friendsToInvite = friends.filter(f => !memberIds.has(f.id));
@@ -145,26 +146,20 @@ export default function HomePage({ currentUser }) {
     }
   };
   
-  // 3. Закрыть модальное окно
   const closeModal = () => {
     setModalView(null);
     setFriendsForInvite([]);
   };
 
-  // 4. Пригласить друга
   const handleInvite = async (friendId) => {
     try {
       await axios.post(
-//         `http://localhost:5000/chats/${activeChat.id}/invite`, // 👈 БЫЛО
-        `/chats/${activeChat.id}/invite`, // 👈 СТАЛО
+        `/chats/${activeChat.id}/invite`, 
         { friendId },
         config
       );
-      // Обновляем список участников
-//       const res = await axios.get(`http://localhost:5000/chats/${activeChat.id}/users`, config); // 👈 БЫЛО
-      const res = await axios.get(`/chats/${activeChat.id}/users`, config); // 👈 СТАЛО
+      const res = await axios.get(`/chats/${activeChat.id}/users`, config); 
       setChatMembers(res.data);
-      // Закрываем модалку
       closeModal();
     } catch (err) {
       console.error("Ошибка приглашения:", err);
@@ -172,7 +167,6 @@ export default function HomePage({ currentUser }) {
     }
   };
 
-  // 5. Кикнуть участника (или выйти из группы)
   const handleKick = async (userIdToKick) => {
     const isLeaving = currentUser.id === userIdToKick;
     const confirmMsg = isLeaving
@@ -183,18 +177,15 @@ export default function HomePage({ currentUser }) {
 
     try {
       await axios.post(
-//         `http://localhost:5000/chats/${activeChat.id}/kick`, // 👈 БЫЛО
-        `/chats/${activeChat.id}/kick`, // 👈 СТАЛО
+        `/chats/${activeChat.id}/kick`, 
         { userIdToKick },
         config
       );
       
       if (isLeaving) {
         setActiveChat(null);
-        // Перезагружаем страницу, чтобы обновить список чатов
         window.location.reload(); 
       } else {
-        // Обновляем список участников в модальном окне
         setChatMembers(prev => prev.filter(m => m.id !== userIdToKick));
       }
 
@@ -204,13 +195,11 @@ export default function HomePage({ currentUser }) {
     }
   };
 
-  // 6. Получить/создать код приглашения
   const handleGetInviteCode = async () => {
     try {
       const res = await axios.post(
-//         `http://localhost:5000/chats/${activeChat.id}/invite-code`, // 👈 БЫЛО
-        `/chats/${activeChat.id}/invite-code`, // 👈 СТАЛО
-        {}, // Пустое тело
+        `/chats/${activeChat.id}/invite-code`, 
+        {}, 
         config
       );
       
@@ -222,7 +211,6 @@ export default function HomePage({ currentUser }) {
     }
   };
 
-  // ----------------- Элементы сообщений -----------------
   const messageElements = messages.map((msg) =>
     React.createElement(
       "div",
@@ -239,7 +227,6 @@ export default function HomePage({ currentUser }) {
     )
   );
   
-  // --- Рендер Модального Окна ---
   const renderModal = () => {
     if (!modalView) return null;
 
@@ -260,7 +247,6 @@ export default function HomePage({ currentUser }) {
           ))
         : React.createElement("p", null, "Все ваши друзья уже в чате.");
     } else {
-      // Вид "Участники"
       listElements = chatMembers.map(member => {
         const isCreator = activeChat.creator_id === member.id;
         const canKick = (activeChat.creator_id === currentUser.id && member.id !== currentUser.id) || 
@@ -305,7 +291,6 @@ export default function HomePage({ currentUser }) {
     );
   };
   
-  // --- Рендер Главного Компонента ---
   return React.createElement(
     "div",
     { className: "home-page" },
@@ -321,14 +306,10 @@ export default function HomePage({ currentUser }) {
         ? React.createElement(
             React.Fragment,
             null,
-            // ----------------- Заголовок чата -----------------
             React.createElement(
               "div",
               { className: "chat-header" },
               !activeChat.is_group && React.createElement("img", {
-                // src: activeChat.avatar_url
-                //   ? "http://localhost:5000" + activeChat.avatar_url
-                //   : "/default-avatar.png",
                 src: activeChat.avatar_url
                  ? axios.defaults.baseURL + activeChat.avatar_url
                  : "/default-avatar.png",
@@ -341,12 +322,10 @@ export default function HomePage({ currentUser }) {
                 activeChat.username || activeChat.name
               ),
               
-              // 👈 ОБНОВЛЕННЫЙ БЛОК КНОПОК ДЕЙСТВИЙ
               React.createElement(
                 "div",
                 { className: "chat-actions" },
                 
-                // --- Логика для ГРУПП ---
                 activeChat.is_group && React.createElement(
                   React.Fragment,
                   null,
@@ -367,33 +346,32 @@ export default function HomePage({ currentUser }) {
                   )
                 ),
                 
-                // --- Логика для ЛИЧНЫХ ЧАТОВ (возвращаем удаление) ---
                 !activeChat.is_group && React.createElement(
                   React.Fragment,
                   null,
                   !showDeleteOptions &&
                     React.createElement(
                       "button",
-                      { onClick: () => setShowDeleteOptions(true), className: "chat-action-btn leave" }, // Используем стиль 'leave' (красный)
+                      { onClick: () => setShowDeleteOptions(true), className: "chat-action-btn leave" }, 
                       "Очистить чат"
                     ),
                   showDeleteOptions &&
                     React.createElement(
                       "div",
-                      { className: "delete-options" }, // Стили для этого в HomePage.css
+                      { className: "delete-options" }, 
                       React.createElement(
                         "button",
-                        { onClick: () => deleteMessages(false), className: "chat-action-btn members" }, // Синий
+                        { onClick: () => deleteMessages(false), className: "chat-action-btn members" }, 
                         "У себя"
                       ),
                       React.createElement(
                         "button",
-                        { onClick: () => deleteMessages(true), className: "chat-action-btn leave" }, // Красный
+                        { onClick: () => deleteMessages(true), className: "chat-action-btn leave" }, 
                         "У всех"
                       ),
                      React.createElement(
                         "button",
-                        { onClick: () => setShowDeleteOptions(false), className: "chat-action-btn" }, // Обычный
+                        { onClick: () => setShowDeleteOptions(false), className: "chat-action-btn" }, 
                         "Отмена"
                       )
                     )
@@ -401,14 +379,12 @@ export default function HomePage({ currentUser }) {
               )
             ),
 
-            // ----------------- Сообщения -----------------
             React.createElement(
               "div",
               { className: "chat-messages", ref: messagesContainerRef },
               ...messageElements
             ),
 
-            // ----------------- Ввод сообщения -----------------
             React.createElement(
               "div",
               { className: "chat-input" },
@@ -425,7 +401,6 @@ export default function HomePage({ currentUser }) {
               )
             ),
             
-            // ----------------- Модальное окно -----------------
             renderModal()
           )
         : React.createElement(

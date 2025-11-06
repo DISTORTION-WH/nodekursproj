@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./FriendsList.css";
-// Этот компонент теперь принимает currentUser, чтобы знать ID для создания групп
+import { io } from "socket.io-client"; // 🆕 Импорт клиента Socket.IO
+
 export default function FriendsList({ setActiveChat, currentUser }) {
  const [friends, setFriends] = useState([]);
- const [groupChats, setGroupChats] = useState([]); // Новое состояние для групп
+ const [groupChats, setGroupChats] = useState([]); 
  const [search, setSearch] = useState("");
  const [searchResults, setSearchResults] = useState([]);
  const [incomingRequests, setIncomingRequests] = useState([]);
@@ -14,41 +15,53 @@ export default function FriendsList({ setActiveChat, currentUser }) {
  const token = localStorage.getItem("token");
  const config = { headers: { Authorization: "Bearer " + token } };
 
- // Функция для загрузки всех данных
  const fetchData = () => {
-  // Загружаем друзей
-  axios.get("/friends", config) // 👈 ИЗМЕНЕНО
+  axios.get("/friends", config) 
    .then(res => setFriends(res.data))
    .catch(console.error);
 
-  // Загружаем входящие запросы
-  axios.get("/friends/incoming", config) // 👈 ИЗМЕНЕНО
+  axios.get("/friends/incoming", config) 
    .then(res => setIncomingRequests(res.data))
    .catch(console.error);
 
-  // Загружаем все чаты пользователя (и приватные, и группы)
-  axios.get("/chats", config) // 👈 ИЗМЕНЕНО
+  axios.get("/chats", config) 
    .then(res => {
-    // Фильтруем по типу чата
     setGroupChats(res.data.filter(chat => chat.is_group));
    })
    .catch(console.error);
  };
 
- // Загружаем данные при первом рендере
+ // 🆕 Эффект для загрузки данных и подключения к веб-сокетам
  useEffect(() => {
-  fetchData();
- }, []);
+  fetchData(); 
+
+  if (currentUser && currentUser.id) {
+      const socket = io(axios.defaults.baseURL);
+
+      socket.on("connect", () => {
+          socket.emit('join_user_room', currentUser.id);
+      });
+
+      socket.on('new_friend_request', (data) => {
+          console.log("🔔 Получен новый запрос в друзья!", data);
+          fetchData(); 
+      });
+
+      return () => {
+          socket.disconnect();
+      };
+  }
+ }, [currentUser]);
 
  const handleSearch = () => {
   if (!search.trim()) return;
-  axios.get(`/users?search=${encodeURIComponent(search)}`, config) // 👈 ИЗМЕНЕНО
+  axios.get(`/users?search=${encodeURIComponent(search)}`, config) 
    .then(res => setSearchResults(res.data))
    .catch(console.error);
  };
 
  const sendFriendRequest = (friendId) => {
-  axios.post("/friends/request", { friendId }, config) // 👈 ИЗМЕНЕНО
+  axios.post("/friends/request", { friendId }, config) 
    .then(res => {
     alert(res.data.message);
     setSearch("");
@@ -58,59 +71,55 @@ export default function FriendsList({ setActiveChat, currentUser }) {
  };
 
  const acceptRequest = (friendId) => {
-  axios.post("/friends/accept", { friendId }, config) // 👈 ИЗМЕНЕНО
+  axios.post("/friends/accept", { friendId }, config) 
    .then(res => {
     alert(res.data.message);
-    fetchData(); // Перезагружаем все данные
+    fetchData(); 
    })
    .catch(console.error);
  };
 
- // Открытие приватного чата
  const openChat = async (friend) => {
   try {
    const res = await axios.post(
-    "/chats/private", // 👈 ИЗМЕНЕНО
+    "/chats/private", 
     { friendId: friend.id },
     config
    );
    setActiveChat({
     id: res.data.id,
-    username: friend.username, // Для хедера чата
-    avatar_url: friend.avatar_url, // Для хедера чата
-    is_group: false // Явно указываем, что это не группа
+    username: friend.username, 
+    avatar_url: friend.avatar_url, 
+    is_group: false 
    });
   } catch (err) {
    console.error(err);
   }
  };
  
- // Открытие группового чата
  const openGroupChat = (chat) => {
   setActiveChat({
    id: chat.id,
-   name: chat.name, // У групп есть 'name'
+   name: chat.name, 
    is_group: true,
-   creator_id: chat.creator_id // Передаем ID создателя
+   creator_id: chat.creator_id 
   });
  };
 
- // Новая функция: Присоединиться к комнате по коду
  const joinByCode = async () => {
   const code = prompt("Введите код приглашения:");
   if (!code || !code.trim()) return;
 
   try {
    const res = await axios.post(
-    "/chats/join", // 👈 ИЗМЕНЕНО
+    "/chats/join", 
     { inviteCode: code },
     config
    );
    
-   const newChat = res.data; // Бэкенд возвращает данные чата
+   const newChat = res.data; 
    alert(`Вы присоединились к комнате: ${newChat.name || newChat.id}`);
    
-   // Обновляем список групп и сразу открываем этот чат
    setGroupChats(prev => [...prev, newChat]);
    setActiveChat({
     id: newChat.id,
@@ -125,23 +134,20 @@ export default function FriendsList({ setActiveChat, currentUser }) {
   }
  };
 
- // Новая функция: Создание группового чата
  const createGroupChat = async () => {
   const name = prompt("Введите название новой комнаты:");
   if (!name || !name.trim()) return;
   
   try {
    const res = await axios.post(
-    "/chats/group", // 👈 ИЗМЕНЕНО
+    "/chats/group", 
     { name }, 
     config
    );
    const newChat = res.data;
    
-   // Добавляем новый чат в список
    setGroupChats(prev => [...prev, newChat]);
    
-   // Сразу открываем созданный чат
    setActiveChat({
     id: newChat.id,
     name: newChat.name,
@@ -154,14 +160,10 @@ export default function FriendsList({ setActiveChat, currentUser }) {
   }
  };
 
-
  const openProfile = (friend) => {
   navigate(`/profile/${friend.id}`);
  };
 
- // --- Рендер списков ---
-
- // Рендер списка ГРУПП
  const groupChatsEls = groupChats.map(chat =>
   <div
    key={chat.id}
@@ -172,7 +174,6 @@ export default function FriendsList({ setActiveChat, currentUser }) {
   </div>
  );
 
- // Рендер списка ДРУЗЕЙ (для ЛС)
  const friendsEls = friends.map(friend =>
   <div
    key={friend.id}
@@ -181,7 +182,6 @@ export default function FriendsList({ setActiveChat, currentUser }) {
    style={{ cursor: "pointer" }}
   >
    <img
-    //src={friend.avatar_url ? "http://localhost:5000" + friend.avatar_url : "/default-avatar.png"} локалхост
     src={friend.avatar_url ? axios.defaults.baseURL + friend.avatar_url : "/default-avatar.png"}
     alt="avatar"
     className="avatar"
@@ -207,7 +207,6 @@ export default function FriendsList({ setActiveChat, currentUser }) {
   : incomingRequests.map(req =>
    <div key={req.requester_id} className="incoming-item">
     <img
-     //src={req.requester_avatar ? "http://localhost:5000" + req.requester_avatar : "/default-avatar.png"} локалхост
      src={req.requester_avatar ? axios.defaults.baseURL + req.requester_avatar : "/default-avatar.png"}
      alt="avatar"
      className="avatar"
@@ -221,7 +220,6 @@ export default function FriendsList({ setActiveChat, currentUser }) {
  const searchEls = searchResults.map(user =>
   <div key={user.id} className="search-item">
    <img
-    //src={user.avatar_url ? "http://localhost:5000" + user.avatar_url : "/default-avatar.png"} локалхост
     src={user.avatar_url ? axios.defaults.baseURL + user.avatar_url : "/default-avatar.png"}
     alt="avatar"
     className="avatar"
@@ -235,11 +233,9 @@ export default function FriendsList({ setActiveChat, currentUser }) {
  return (
   <div className="friends-list">
    
-   {/* Секция Групповых чатов */}
    <div className="friends-section">
     <div className="section-header">
      <h2>Комнаты</h2>
-     {/* ОБНОВЛЕННЫЙ БЛОК КНОПОК */}
      <div className="section-header-actions"> 
       <button 
        onClick={joinByCode} 
@@ -260,7 +256,6 @@ export default function FriendsList({ setActiveChat, currentUser }) {
     {groupChats.length > 0 ? groupChatsEls : <p>Нет комнат</p>}
    </div>
    
-   {/* Секция Друзей (ЛС) */}
    <div className="friends-section">
     <div className="section-header">
      <h2>Друзья</h2>

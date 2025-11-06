@@ -18,13 +18,16 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const express = require("express");
 const cors = require("cors");
-const client = require("./databasepg"); // 👈 Убедитесь, что client импортирован
+const client = require("./databasepg"); 
 const authRouter = require("./Routes/authRouter");
 const chatRouter = require("./Routes/chatRouter");
 const usersRouter = require("./Routes/usersRouter");
 const friendsRouter = require("./Routes/friendsRouter"); 
 const chatDeleteRouter = require("./Routes/chatDeleteRouter");
 const adminRouter = require("./Routes/adminRouter");
+// --- 🆕 НОВЫЕ ИМПОРТЫ ДЛЯ SOCKET.IO ---
+const http = require('http');
+const { Server } = require("socket.io");
 
 const PORT = process.env.PORT || 5000;
 
@@ -37,6 +40,47 @@ const allowedOrigins = [
   'https://nodekursproj.vercel.app' 
 ];
 
+// --- 🆕 СОЗДАНИЕ HTTP СЕРВЕРА И SOCKET.IO ---
+const server = http.createServer(app); // Оборачиваем app
+const io = new Server(server, {
+  cors: {
+    // Используем те же настройки CORS, что и для Express
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ["GET", "POST"]
+  }
+});
+
+// Сохраняем io в app, чтобы использовать в роутерах
+app.set('io', io);
+
+// Логика подключения веб-сокетов
+io.on('connection', (socket) => {
+  console.log('🔌 A user connected via WebSocket:', socket.id);
+
+  // Клиент отправляет это событие, чтобы получать личные уведомления (например, запросы в друзья)
+  socket.on('join_user_room', (userId) => {
+      socket.join(`user_${userId}`);
+      console.log(`👤 User ${userId} joined room user_${userId}`);
+  });
+
+  // Клиент отправляет это событие, когда открывает конкретный чат, чтобы получать сообщения
+  socket.on('join_chat', (chatId) => {
+      socket.join(`chat_${chatId}`);
+      console.log(`💬 Socket ${socket.id} joined chat_${chatId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 User disconnected:', socket.id);
+  });
+});
+// --- 🆕 КОНЕЦ НАСТРОЙКИ SOCKET.IO ---
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -48,7 +92,6 @@ app.use(cors({
     }
   }
 }));
-// --- КОНЕЦ НАСТРОЙКИ CORS ---
 
 app.use(express.json());
 app.use("/auth", authRouter);
@@ -60,16 +103,13 @@ app.use("/chats", chatDeleteRouter);
 app.use("/admin", adminRouter);
 
 // --- ❗️ ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК EXPRESS ---
-// Он должен быть *после* всех роутеров
 app.use((err, req, res, next) => {
   console.error("❗️ ОБНАРУЖЕНА ОШИБКА EXPRESS:");
   console.error('❗️ Путь:', req.path);
   console.error('❗️ Ошибка:', err.message);
-  console.error(err.stack); // Полный стек для дебага
+  console.error(err.stack); 
 
   const statusCode = err.status || 500; 
-  
-  // Отправляем на фронтенд КОНКРЕТНУЮ ошибку
   const clientMessage = err.message || "Внутренняя ошибка сервера";
 
   res.status(statusCode).json({ 
@@ -79,15 +119,10 @@ app.use((err, req, res, next) => {
 // --- КОНЕЦ ОБРАБОТЧИКА ОШИБОК EXPRESS ---
 
 
-/**
- * Эта функция создаст ВСЕ таблицы, если их нет.
- * А также ИСПРАВИТ таблицу users, если в ней нет колонки 'email'.
- */
 async function initializeDatabase() {
   try {
     console.log("Инициализация базы данных...");
 
-    // 1. Таблица Roles
     await client.query(`
       CREATE TABLE IF NOT EXISTS roles (
         id SERIAL PRIMARY KEY,
@@ -103,8 +138,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Роли 'USER' и 'ADMIN' проверены.");
 
-
-    // 2. Таблица Users (БЕЗ 'email' для обратной совместимости)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -117,26 +150,19 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'users' готова.");
 
-    // ❗️❗️❗️ ВОТ ИСПРАВЛЕНИЕ ❗️❗️❗️
-    // Пытаемся "вылечить" старую таблицу 'users', добавив колонку 'email'.
     try {
       await client.query(`
         ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
       `);
-      // Эта строка появится в логах Render ОДИН РАЗ
       console.log("✅ (ИСПРАВЛЕНИЕ) Колонка 'email' успешно ДОБАВЛЕНА в таблицу 'users'.");
     } catch (e) {
-      if (e.code === '42701') { // 42701 = duplicate_column
-        // Эта строка будет появляться в логах при каждом запуске, ЭТО НОРМАЛЬНО
+      if (e.code === '42701') { 
         console.log("ℹ️ Колонка 'email' в 'users' уже существует.");
       } else {
-        throw e; // Пробрасываем другие ошибки (если они есть)
+        throw e; 
       }
     }
-    // ❗️❗️❗️ КОНЕЦ ИСПРАВЛЕНИЯ ❗️❗️❗️
 
-
-    // 3. Таблица Chats
     await client.query(`
       CREATE TABLE IF NOT EXISTS chats (
         id SERIAL PRIMARY KEY,
@@ -149,7 +175,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'chats' готова.");
 
-    // 4. Таблица Chat_Users
     await client.query(`
       CREATE TABLE IF NOT EXISTS chat_users (
         id SERIAL PRIMARY KEY,
@@ -160,7 +185,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'chat_users' готова.");
 
-    // 5. Таблица Messages
     await client.query(`
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
@@ -173,7 +197,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'messages' готова.");
 
-    // 6. Таблица Friends
     await client.query(`
       CREATE TABLE IF NOT EXISTS friends (
         id SERIAL PRIMARY KEY,
@@ -186,7 +209,6 @@ async function initializeDatabase() {
     `);
     console.log("✅ Таблица 'friends' готова.");
     
-    // 7. Таблица Registration_Codes
     await client.query(`
       CREATE TABLE IF NOT EXISTS registration_codes (
           email VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -203,16 +225,16 @@ async function initializeDatabase() {
 
   } catch (e) {
     console.error("❗️ Ошибка при инициализации базы данных:", e);
-    process.exit(1); // Выходим, если не удалось создать таблицы
+    process.exit(1); 
   }
 }
 
 async function start() {
   try {
-    // СНАЧАЛА создаём/исправляем таблицы
     await initializeDatabase();
 
-    app.listen(PORT, () => {
+    // 🆕 ИСПОЛЬЗУЕМ server.listen ВМЕСТО app.listen
+    server.listen(PORT, () => {
       console.log("🚀 Server started on port " + PORT);
     });
   } catch (e) {

@@ -20,7 +20,7 @@ router.get("/", authMiddleware, async (req, res, next) => {
     res.json(result.rows);
   } catch (err) {
     console.error("❗️ Ошибка в GET /friends:", err.message, err.stack);
-    next(err); // Передаем ошибку в глобальный обработчик
+    next(err); 
   }
 });
 
@@ -41,12 +41,20 @@ router.post("/request", authMiddleware, async (req, res, next) => {
        VALUES ($1, $2, 'pending')`,
       [userId, friendId]
     );
+
+    // --- 🆕 SOCKET.IO УВЕДОМЛЕНИЕ ---
+    const io = req.app.get('io');
+    io.to(`user_${friendId}`).emit('new_friend_request', {
+        fromUserId: userId,
+        message: "Вам пришел новый запрос в друзья!"
+    });
+    // --------------------------------
+
     res.json({ message: "Запрос на дружбу отправлен" });
   } catch (err) {
     console.error("❗️ Ошибка в POST /friends/request:", err.message, err.stack);
-    // Обработка ошибки "duplicate key" (если уже дружат или запрос отправлен)
-    if (err.code === '23505') { // 23505 = unique_violation
-        err.status = 409; // 409 Conflict
+    if (err.code === '23505') { // unique_violation
+        err.status = 409; 
         err.message = "Запрос уже отправлен или вы уже друзья.";
     }
     next(err);
@@ -55,13 +63,13 @@ router.post("/request", authMiddleware, async (req, res, next) => {
 
 // Принять запрос
 router.post("/accept", authMiddleware, async (req, res, next) => {
-  const userId = req.user.id; // тот, кто принимает
-  const { friendId } = req.body; // id того, кто отправил запрос
+  const userId = req.user.id; 
+  const { friendId } = req.body; 
   
   try {
     if (isNaN(parseInt(friendId, 10))) {
       const err = new Error("Неверный ID друга");
-      err.status = 400; // Bad Request
+      err.status = 400; 
       throw err;
     }
     
@@ -86,7 +94,7 @@ router.post("/remove", authMiddleware, async (req, res, next) => {
   try {
     if (isNaN(parseInt(friendId, 10))) {
       const err = new Error("Неверный ID друга");
-      err.status = 400; // Bad Request
+      err.status = 400; 
       throw err;
     }
 

@@ -6,7 +6,6 @@ const crypto = require("crypto");
 
 router.use(authMiddleware);
 
-// --- НОВЫЙ МАРШРУТ: Получить всех участников чата ---
 router.get("/:id/users", async (req, res, next) => {
   const chatId = req.params.id;
   const requesterId = req.user.id;
@@ -14,24 +13,21 @@ router.get("/:id/users", async (req, res, next) => {
   try {
     if (isNaN(parseInt(chatId, 10))) {
       const err = new Error("Неверный ID чата");
-      err.status = 400; // Bad Request
+      err.status = 400; 
       throw err;
     }
     
-    // 1. Проверяем, состоит ли запрашивающий в этом чате
     const memberCheck = await client.query(
       `SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
       [chatId, requesterId]
     );
 
     if (memberCheck.rows.length === 0) {
-      // Используем ошибку 403 (Forbidden)
       const err = new Error("Вы не являетесь участником этого чата");
       err.status = 403;
       throw err;
     }
 
-    // 2. Если состоит, получаем всех участников
     const membersRes = await client.query(
       `SELECT u.id, u.username, u.avatar_url, cu.invited_by_user_id
        FROM users u
@@ -43,11 +39,10 @@ router.get("/:id/users", async (req, res, next) => {
     res.json(membersRes.rows);
   } catch (e) {
     console.error(`❗️ Ошибка в GET /chats/${chatId}/users:`, e.message, e.stack);
-    next(e); // Передаем ошибку в глобальный обработчик
+    next(e); 
   }
 });
 
-// --- НОВЫЙ МАРШРУТ: Получить/создать код приглашения ---
 router.post("/:id/invite-code", async (req, res, next) => {
   const chatId = req.params.id;
   const userId = req.user.id;
@@ -59,7 +54,6 @@ router.post("/:id/invite-code", async (req, res, next) => {
       throw err;
     }
 
-    // 1. Проверить, что пользователь состоит в чате
     const memberCheck = await client.query(
       `SELECT c.is_group, c.invite_code FROM chat_users cu
        JOIN chats c ON cu.chat_id = c.id
@@ -75,36 +69,32 @@ router.post("/:id/invite-code", async (req, res, next) => {
     
     const chat = memberCheck.rows[0];
 
-    // 2. Проверить, что это групповой чат
     if (!chat.is_group) {
        const err = new Error("Нельзя создать приглашение для личного чата");
        err.status = 400;
        throw err;
     }
 
-    // 3. Если код уже есть, вернуть его
     if (chat.invite_code) {
       return res.json({ inviteCode: chat.invite_code });
     }
 
-    // 4. Если кода нет, сгенерировать, сохранить и вернуть
     let newCode = null;
     let attempts = 0;
     while (newCode === null && attempts < 5) {
       try {
-        const code = crypto.randomBytes(4).toString('hex'); // 8 hex-символов
+        const code = crypto.randomBytes(4).toString('hex'); 
         await client.query(
           `UPDATE chats SET invite_code = $1 WHERE id = $2`,
           [code, chatId]
         );
         newCode = code;
       } catch (e) {
-        // Ошибка unique constraint (коллизия)
         if (e.code === '23505') {
             console.warn("Invite code collision, retrying...");
             attempts++;
         } else {
-            throw e; // Пробрасываем другую ошибку БД
+            throw e; 
         }
       }
     }
@@ -123,7 +113,6 @@ router.post("/:id/invite-code", async (req, res, next) => {
   }
 });
 
-// --- НОВЫЙ МАРШРУТ: Присоединиться к чату по коду ---
 router.post("/join", async (req, res, next) => {
     const { inviteCode } = req.body;
     const userId = req.user.id;
@@ -135,7 +124,6 @@ router.post("/join", async (req, res, next) => {
             throw err;
         }
 
-        // 1. Найти чат по коду
         const chatRes = await client.query(
             `SELECT id, name, is_group, creator_id FROM chats WHERE invite_code = $1 AND is_group = true`,
             [inviteCode]
@@ -149,9 +137,8 @@ router.post("/join", async (req, res, next) => {
         
         const chat = chatRes.rows[0];
         const chatId = chat.id;
-        const creatorId = chat.creator_id; // Используем создателя как "пригласившего"
+        const creatorId = chat.creator_id; 
 
-        // 2. Проверить, не состоит ли пользователь уже в чате
         const alreadyExists = await client.query(
             `SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2`,
             [chatId, userId]
@@ -162,13 +149,11 @@ router.post("/join", async (req, res, next) => {
             throw err;
         }
 
-        // 3. Добавить пользователя в чат. 
         await client.query(
             `INSERT INTO chat_users (chat_id, user_id, invited_by_user_id) VALUES ($1, $2, $3)`,
             [chatId, userId, creatorId]
         );
 
-        // 4. Вернуть данные чата
         res.status(201).json(chat);
 
     } catch (e) {
@@ -178,9 +163,6 @@ router.post("/join", async (req, res, next) => {
 });
 
 
-// --- МАРШРУТЫ УПРАВЛЕНИЯ ГРУППОЙ ---
-
-// Создать новую групповую комнату
 router.post("/group", async (req, res, next) => {
   const { name } = req.body;
   const creatorId = req.user.id;
@@ -210,7 +192,6 @@ router.post("/group", async (req, res, next) => {
   }
 });
 
-// Пригласить друга в комнату
 router.post("/:id/invite", async (req, res, next) => {
   const chatId = req.params.id;
   const inviterId = req.user.id;
@@ -261,7 +242,6 @@ router.post("/:id/invite", async (req, res, next) => {
   }
 });
 
-// Удалить/кикнуть пользователя из комнаты
 router.post("/:id/kick", async (req, res, next) => {
   const chatId = req.params.id;
   const kickerId = req.user.id; 
@@ -331,10 +311,6 @@ router.post("/:id/kick", async (req, res, next) => {
   }
 });
 
-
-// --- СТАРЫЕ МАРШРУТЫ (С ОБРАБОТКОЙ ОШИБОК) ---
-
-// Получить все чаты пользователя
 router.get("/", async (req, res, next) => {
   const userId = req.user.id;
   try {
@@ -352,7 +328,6 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// Получить сообщения чата
 router.get("/:id/messages", async (req, res, next) => {
   const chatId = req.params.id;
   const userId = req.user.id;
@@ -365,7 +340,7 @@ router.get("/:id/messages", async (req, res, next) => {
     }
     
     const result = await client.query(
-      `SELECT m.id, m.text, m.created_at, u.id as sender_id, u.username as sender_name
+      `SELECT m.id, m.text, m.created_at, m.chat_id, u.id as sender_id, u.username as sender_name
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.chat_id = $1
@@ -380,7 +355,6 @@ router.get("/:id/messages", async (req, res, next) => {
   }
 });
 
-// Отправить сообщение
 router.post("/:id/messages", async (req, res, next) => {
   const chatId = req.params.id;
   const senderId = req.user.id;
@@ -410,12 +384,17 @@ router.post("/:id/messages", async (req, res, next) => {
     }
 
     const result = await client.query(
-      `INSERT INTO messages (chat_id, sender_id, text) VALUES ($1, $2, $3) RETURNING id, text, created_at, sender_id`,
+      `INSERT INTO messages (chat_id, sender_id, text) VALUES ($1, $2, $3) RETURNING id, text, created_at, sender_id, chat_id`,
       [chatId, senderId, text]
     );
     
     const newMessage = result.rows[0];
     newMessage.sender_name = req.user.username; 
+
+    // --- 🆕 SOCKET.IO: Отправка сообщения в комнату чата ---
+    const io = req.app.get('io');
+    io.to(`chat_${chatId}`).emit('new_message', newMessage);
+    // ------------------------------------------------------
 
     res.json(newMessage);
   } catch (e) {
@@ -424,7 +403,6 @@ router.post("/:id/messages", async (req, res, next) => {
   }
 });
 
-// Создать или получить приватный чат
 router.post("/private", async (req, res, next) => {
   const userId = req.user.id;
   const { friendId } = req.body;
@@ -452,7 +430,7 @@ router.post("/private", async (req, res, next) => {
     );
 
     if (existingChat.rows.length > 0) {
-      return res.json(existingChat.rows[0]); // возвращаем id существующего чата
+      return res.json(existingChat.rows[0]); 
     }
 
     const newChat = await client.query(
