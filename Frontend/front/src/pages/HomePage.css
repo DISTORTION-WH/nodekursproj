@@ -184,12 +184,16 @@
   --epr-category-label-bg-color: #2f3136 !important; 
   --epr-category-label-text-color: #b9bbbe !important; 
   --epr-category-icon-color: #b9bbbe !important;
-  --epr-category-icon-active-color: #5865f2 !important; /* 👈 Активная категория (была желтой) */
+  --epr-category-icon-active-color: #5865f2 !important;
   --epr-category-icon-hover-color: #fff !important;
   
   /* --- СКРОЛЛБАР --- */
   --epr-scrollbar-thumb-color: #202225 !important;
   --epr-scrollbar-track-color: #36393f !important;
+
+  /* --- 🔽 ВОТ ИСПРАВЛЕНИЕ 🔽 --- */
+  /* Убираем кнопку выбора тона кожи */
+  --epr-skin-tone-picker-display: none !important;
 }
 
 /* *
