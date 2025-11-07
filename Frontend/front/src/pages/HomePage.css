@@ -282,9 +282,9 @@
 *
 */
 
-/* 🔽 ДОБАВЛЕНО: Кнопка "Назад" */
+/* 🔽 Кнопка "Назад" */
 .chat-back-btn {
-  display: none; /* Скрыта по умолчанию */
+  display: none; 
   background: none;
   border: none;
   cursor: pointer;
@@ -296,7 +296,7 @@
 .chat-back-btn:hover {
   background-color: rgba(255,255,255,0.1);
 }
-/* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */
+
 
 
 @media (max-width: 768px) {
@@ -308,10 +308,9 @@
   }
 
   .chat-placeholder {
-    display: none; /* Скрываем "Выберите чат" на мобильных */
+    display: none; 
   }
 
-  /* 🔽 ИЗМЕНЕНО: .chat-section */
   .chat-section {
     width: 100%;
     height: 100%;
@@ -321,18 +320,16 @@
     flex-shrink: 0;
     transition: transform 0.3s ease-in-out;
     transform: translateX(0);
-    min-width: 0; /* 👈 ИСПРАВЛЕНИЕ: Сброс min-width с десктопа */
-    flex: none; /* 👈 ИСПРАВЛЕНИЕ: Сброс flex: 1 с десктопа */
+    min-width: 0; 
+    flex: none; 
   }
 
-  /* 🔽 ИЗМЕНЕНО: Логика "выезжания" */
   .home-page.chat-open .friends-list {
     transform: translateX(-100%);
   }
   .home-page.chat-open .chat-section {
     transform: translateX(-100%);
   }
-  /* 🔼 КОНЕЦ ИЗМЕНЕНИЯ */
 
 
   .chat-back-btn {
@@ -360,9 +357,32 @@
     gap: 5px;
   }
 
+  /* 🔽 ИЗМЕНЕНИЯ ДЛЯ .chat-input 🔽 */
   .chat-input {
     padding: 10px;
+    align-items: center; /* 👈 ДОБАВЛЕНО: Выровнять элементы по центру */
   }
+
+  .chat-input input {
+    min-width: 0; /* 👈 ДОБАВЛЕНО: Разрешить инпуту сжиматься */
+    margin-left: 5px; /* 👈 ИЗМЕНЕНО: Уменьшен отступ */
+    margin-right: 5px; /* 👈 ИЗМЕНЕНО: Уменьшен отступ */
+    font-size: 0.95rem;
+    padding: 10px 12px;
+  }
+  
+  .chat-input button {
+    padding: 10px 15px; /* 👈 ИЗМЕНЕНО: Уменьшен padding */
+    flex-shrink: 0; /* 👈 ДОБАВЛЕНО: Запретить кнопке сжиматься */
+  }
+  
+  .emoji-btn {
+    padding: 0 8px; /* 👈 ИЗМЕНЕНО: Уменьшен padding */
+    font-size: 1.4rem;
+    flex-shrink: 0; /* 👈 ДОБАВЛЕНО: Запретить кнопке сжиматься */
+  }
+  /* 🔼 КОНЕЦ ИЗМЕНЕНИЙ 🔼 */
+
 
   .emoji-picker-container {
     width: 95%;
