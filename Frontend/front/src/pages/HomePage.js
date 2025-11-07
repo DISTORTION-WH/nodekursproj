@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FriendsList from "../components/FriendsList";
 import { io } from "socket.io-client"; 
+import EmojiPicker from 'emoji-picker-react'; // 👈 ДОБАВЛЕНО
 import "./HomePage.css"; 
 
 let chatSocket;
@@ -15,6 +16,7 @@ export default function HomePage({ currentUser }) {
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // 👈 ДОБАВЛЕНО
   const messagesEndRef = useRef(null);
   const location = useLocation();
   const token = localStorage.getItem("token");
@@ -54,6 +56,7 @@ export default function HomePage({ currentUser }) {
     if (!activeChat?.id) return;
     setShowDeleteOptions(false);
     setModalView(null);
+    setShowEmojiPicker(false); // 👈 ДОБАВЛЕНО (скрывать при смене чата)
 
     // Загрузка истории
     axios.get(`/chats/${activeChat.id}/messages`, config)
@@ -115,6 +118,11 @@ export default function HomePage({ currentUser }) {
       .catch(console.error);
   };
   
+  // 👈 ДОБАВЛЕНО: Обработчик клика по смайлику
+  const onEmojiClick = (emojiData) => {
+    setNewMessage(prevMessage => prevMessage + emojiData.emoji);
+  };
+
   const deleteMessages = async (allForEveryone) => {
     if (!activeChat?.id) return;
     if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?")) return;
@@ -239,15 +247,38 @@ export default function HomePage({ currentUser }) {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* 👇 БЛОК ИЗМЕНЕН 👇 */}
             <div className="chat-input">
+              {showEmojiPicker && (
+                <div className="emoji-picker-container">
+                  <EmojiPicker 
+                    onEmojiClick={onEmojiClick} 
+                    theme="dark"
+                    lazyLoadEmojis={true}
+                    pickerStyle={{ width: '100%' }}
+                  />
+                </div>
+              )}
+              <button 
+                className="emoji-btn" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEmojiPicker(!showEmojiPicker);
+                }}
+              >
+                😀
+              </button>
               <input 
                 value={newMessage} 
                 onChange={(e) => setNewMessage(e.target.value)} 
                 placeholder="Написать сообщение..." 
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()} 
+                onClick={() => setShowEmojiPicker(false)} // 👈 Скрывать пикер при клике на инпут
               />
               <button onClick={sendMessage}>Go</button>
             </div>
+            {/* 👆 БЛОК ИЗМЕНЕН 👆 */}
+
             {renderModal()}
           </>
         ) : (

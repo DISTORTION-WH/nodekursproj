@@ -104,6 +104,7 @@
   background-color: #36393f;
   border-top: 1px solid #202225;
   flex-shrink: 0;       /* ⛔️ Запрещаем сжиматься */
+  position: relative; /* 👈 ДОБАВЛЕНО */
 }
 
 .chat-input input {
@@ -116,6 +117,7 @@
   font-size: 1rem;
   outline: none;
   margin-right: 10px;
+  margin-left: 10px; /* 👈 ДОБАВЛЕНО */
 }
 
 .chat-input button {
@@ -129,6 +131,50 @@
   transition: background-color 0.2s;
 }
 .chat-input button:hover { background-color: #4752c4; }
+
+/* *
+* 👇 БЛОК ДОБАВЛЕН 👇
+*
+*/
+
+/* Кнопка смайликов */
+.emoji-btn {
+  padding: 0 12px;
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  color: #b9bbbe;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-btn:hover {
+  color: #fff;
+}
+
+/* Контейнер для пикера */
+.emoji-picker-container {
+  position: absolute;
+  bottom: 80px; /* (высота .chat-input + отступ) */
+  left: 15px;
+  z-index: 10;
+  width: 350px; /* Фиксированная ширина для пикера */
+}
+
+/* Стилизация самого пикера (из библиотеки) */
+.emoji-picker-container .emoji-picker-react {
+  width: 100% !important;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  border: 1px solid #202225 !important;
+}
+
+/* *
+* 👆 БЛОК ДОБАВЛЕН 👆
+*
+*/
 
 /* Кнопки действий */
 .chat-action-btn {
