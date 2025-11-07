@@ -250,9 +250,9 @@ export default function HomePage({ currentUser }) {
                 <div className="emoji-picker-container">
                   <EmojiPicker 
                     onEmojiClick={onEmojiClick} 
-                    theme={Theme.DARK}  {/* 👈 ИЗМЕНЕНО */}
+                    theme={Theme.DARK}  
                     lazyLoadEmojis={true}
-                    style={{ width: '100%' }} {/* 👈 ИЗМЕНЕНО (prop 'style' вместо 'pickerStyle') */}
+                    style={{ width: '100%' }} 
                   />
                 </div>
               )}
