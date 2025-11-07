@@ -7,7 +7,7 @@ export default function LoginPage({ setIsAuth, setRole, setCurrentUser }) {
       type="login"
       setIsAuth={setIsAuth}
       setRole={setRole}
-      setCurrentUser={setCurrentUser} // добавлено
+      setCurrentUser={setCurrentUser}
     />
   );
 }

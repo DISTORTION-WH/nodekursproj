@@ -19,13 +19,12 @@
   overflow-y: auto; 
   padding: 0;
   box-sizing: border-box;
-  gap: 10px; /* 👈 ДОБАВЛЕНО: (для отступов между блоками) */
-  padding-bottom: 10px; /* 👈 ДОБАВЛЕНО: (чтобы последний блок не прилипал) */
+  gap: 10px;
+  padding-bottom: 10px; 
 }
 
-/* 🔽 ИЗМЕНЕНО: Убрал padding, чтобы секции были во всю ширину */
 .profile-card {
-  display: contents; /* Позволяет .profile-page 'gap' управлять отступами */
+  display: contents; 
 }
 
 .profile-title {
@@ -33,7 +32,6 @@
   font-weight: 700;
   text-align: left;
   padding: 20px;
-  /* border-bottom: 1px solid rgba(255,255,255,0.08); */ /* 👈 УДАЛЕНО */
   background: var(--bg-block);
   margin: 0;
   flex-shrink: 0; 
@@ -46,7 +44,6 @@
   gap: 30px;
   padding: 20px 40px;
   background: var(--bg-block);
-  /* border-bottom: 1px solid rgba(255,255,255,0.08); */ /* 👈 УДАЛЕНО */
   flex-shrink: 0;
 }
 
@@ -76,7 +73,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px; /* 👈 ДОБАВЛЕНО */
+  margin-top: 10px;
 }
 
 .profile-upload-btn {
@@ -115,7 +112,6 @@
   background-color: #c50f1f;
 }
 
-/* Горизонтальная лента друзей */
 .profile-friends-section {
   padding: 10px 40px;
   background: var(--bg-block);
@@ -189,7 +185,6 @@
   padding: 10px;
 }
 
-/* Смена пароля */
 .profile-password-section {
   padding: 20px 40px;
   background: var(--bg-block);
@@ -197,7 +192,6 @@
   flex-direction: column;
   gap: 6px; 
   flex-shrink: 0; 
-  /* margin-top: 10px; */ /* 👈 УДАЛЕНО */
 }
 
 .password-title {
@@ -228,7 +222,6 @@
   margin-top: 8px;
 }
 
-/* Смена пароля кнопка */
 .password-btn {
   background: var(--accent);
   border: none;
@@ -250,24 +243,17 @@
   font-weight: 600;
 }
 
-/* *
-*
-* ================== 
-* ИЗМЕНЕН АДАПТИВ 
-* ================== 
-* (Улучшение вида на мобильных)
-*
-*/
+
 
 @media (max-width: 768px) {
   .profile-header {
     flex-direction: column;
     align-items: flex-start;
-    padding: 20px; /* 👈 ИЗМЕНЕНО */
+    padding: 20px;
   }
   .profile-avatar {
-    width: 100px; /* 👈 ИЗМЕНЕНО */
-    height: 100px; /* 👈 ИЗМЕНЕНО */
+    width: 100px;
+    height: 100px; 
   }
   .profile-friend-card {
     flex: 0 0 150px;
@@ -275,14 +261,13 @@
   .profile-password-section,
   .profile-friends-section {
     padding: 20px;
-    border-radius: 0; /* 👈 ДОБАВЛЕНО */
+    border-radius: 0; 
   }
   .profile-title {
     font-size: 1.6rem;
-    padding: 15px 20px; /* 👈 ИЗМЕНЕНО */
+    padding: 15px 20px;
   }
 
-  /* 🔽 ДОБАВЛЕНЫ СТИЛИ 🔽 */
   .password-input {
     max-width: 100%;
     width: 100%;
@@ -308,5 +293,5 @@
   .upload-actions {
     width: 100%;
   }
-  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 */
+
 }

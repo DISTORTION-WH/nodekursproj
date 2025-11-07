@@ -1,4 +1,3 @@
-/* Общие сбросы */
 * {
   box-sizing: border-box;
 }
@@ -14,17 +13,16 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* ← блокируем прокрутку всей страницы */
+  overflow: hidden; 
   font-family: Arial, sans-serif;
   background: #36393f;
   color: #fff;
 }
 
-/* Контейнер приложения */
 .app-container {
   display: flex;
-  height: calc(100vh - 50px); /* 50px - высота Navbar */
-  margin-top: 50px;           /* пространство под Navbar */
+  height: calc(100vh - 50px); 
+  margin-top: 50px;           
   overflow: hidden;
 }
 

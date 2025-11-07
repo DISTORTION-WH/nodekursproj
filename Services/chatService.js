@@ -38,24 +38,36 @@ async function getAllChats() {
     return chats;
   } catch (err) {
     console.error(`[ChatService] Ошибка getAllChats:`, err.message, err.stack);
-    throw err; 
+    throw err;
   }
 }
 
 async function deleteMessagesByChat(chatId) {
   try {
-    return await client.query(`DELETE FROM messages WHERE chat_id = $1`, [chatId]);
+    return await client.query(`DELETE FROM messages WHERE chat_id = $1`, [
+      chatId,
+    ]);
   } catch (err) {
-    console.error(`[ChatService] Ошибка deleteMessagesByChat (${chatId}):`, err.message, err.stack);
+    console.error(
+      `[ChatService] Ошибка deleteMessagesByChat (${chatId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
 
 async function deleteChatUsers(chatId) {
   try {
-    return await client.query(`DELETE FROM chat_users WHERE chat_id = $1`, [chatId]);
+    return await client.query(`DELETE FROM chat_users WHERE chat_id = $1`, [
+      chatId,
+    ]);
   } catch (err) {
-    console.error(`[ChatService] Ошибка deleteChatUsers (${chatId}):`, err.message, err.stack);
+    console.error(
+      `[ChatService] Ошибка deleteChatUsers (${chatId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -64,7 +76,11 @@ async function deleteChat(chatId) {
   try {
     return await client.query(`DELETE FROM chats WHERE id = $1`, [chatId]);
   } catch (err) {
-    console.error(`[ChatService] Ошибка deleteChat (${chatId}):`, err.message, err.stack);
+    console.error(
+      `[ChatService] Ошибка deleteChat (${chatId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -73,5 +89,5 @@ module.exports = {
   getAllChats,
   deleteMessagesByChat,
   deleteChatUsers,
-  deleteChat
+  deleteChat,
 };

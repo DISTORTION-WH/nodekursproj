@@ -20,10 +20,10 @@ class authController {
   async preRegister(req, res, next) {
     try {
       const errors = validationResult(req);
-      
+
       if (!errors.isEmpty()) {
         const firstError = errors.array()[0];
-        
+
         const err = new Error(firstError.msg);
         err.status = 400;
         err.errors = errors.array();
@@ -42,23 +42,35 @@ class authController {
 
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
-      const code = Math.floor(100000 + Math.random() * 900000).toString(); 
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
       const avatarUrl = avatar ? `/uploads/avatars/${avatar.filename}` : null;
 
       const pending = await userService.getRegistrationCode(email);
       if (pending) {
-        await userService.saveRegistrationCode(email, username, hashedPassword, avatarUrl, code);
-        
-      
-        return res.json({ message: "Код подтверждения отправлен повторно на email" });
+        await userService.saveRegistrationCode(
+          email,
+          username,
+          hashedPassword,
+          avatarUrl,
+          code
+        );
+
+        return res.json({
+          message: "Код подтверждения отправлен повторно на email",
+        });
       }
 
-      await userService.saveRegistrationCode(email, username, hashedPassword, avatarUrl, code);
-      
-    
+      await userService.saveRegistrationCode(
+        email,
+        username,
+        hashedPassword,
+        avatarUrl,
+        code
+      );
+
       res.json({ message: "Код подтверждения отправлен на email" });
     } catch (e) {
-      console.error("!!! ОШИБКА В PRE-REGISTER:", e.message, e.stack); 
+      console.error("!!! ОШИБКА В PRE-REGISTER:", e.message, e.stack);
       next(e);
     }
   }
@@ -74,8 +86,6 @@ class authController {
         return next(err);
       }
 
-  
-
       const role = await roleService.findRoleByValue("USER");
       if (!role) {
         const err = new Error("Роль 'USER' не найдена в базе данных");
@@ -85,7 +95,7 @@ class authController {
 
       const newUser = await userService.createUser(
         tempData.username,
-        tempData.password, 
+        tempData.password,
         role.id,
         tempData.avatar_url,
         tempData.email
@@ -107,7 +117,6 @@ class authController {
           role: role.value,
         },
       });
-
     } catch (e) {
       console.error("!!! ОШИБКА В CONFIRM-REGISTRATION:", e.message, e.stack);
       next(e);

@@ -2,7 +2,8 @@ const { Resend } = require("resend");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'MyApp <onboarding@resend.dev>';
+const EMAIL_FROM_ADDRESS =
+  process.env.EMAIL_FROM_ADDRESS || "MyApp <onboarding@resend.dev>";
 
 let resend;
 if (RESEND_API_KEY) {
@@ -16,7 +17,6 @@ if (RESEND_API_KEY) {
   );
 }
 
-
 async function sendVerificationEmail(to, code) {
   if (!resend) {
     console.error(
@@ -28,7 +28,7 @@ async function sendVerificationEmail(to, code) {
   try {
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM_ADDRESS,
-      to: [to], 
+      to: [to],
       subject: "Подтверждение регистрации",
       html: `<p>Ваш код подтверждения: <b>${code}</b></p>`,
       text: `Ваш код подтверждения: ${code}`,
@@ -39,12 +39,13 @@ async function sendVerificationEmail(to, code) {
       throw new Error(error.message || "Ошибка при отправке email");
     }
 
-    console.log(`Email успешно отправлен на ${to} (через Resend), ID: ${data.id}`);
-    return data; 
-
+    console.log(
+      `Email успешно отправлен на ${to} (через Resend), ID: ${data.id}`
+    );
+    return data;
   } catch (e) {
     console.error("Критическая ошибка в sendVerificationEmail:", e.message);
-    throw e; 
+    throw e;
   }
 }
 

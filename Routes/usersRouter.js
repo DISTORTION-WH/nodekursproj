@@ -23,7 +23,7 @@ router.get("/", authMiddleware, async (req, res, next) => {
 
     const result = await userService.getAllUsers();
     const filtered = result.filter(
-      u =>
+      (u) =>
         u.username.toLowerCase().includes(search.toLowerCase()) &&
         u.id !== userId
     );
@@ -37,25 +37,30 @@ router.get("/", authMiddleware, async (req, res, next) => {
 router.get("/me", authMiddleware, (req, res, next) => {
   try {
     userController.getProfile(req, res, next);
-  } catch(e) {
+  } catch (e) {
     console.error("❗️ Синхронная ошибка в GET /me:", e.message, e.stack);
     next(e);
   }
 });
 
-router.put("/avatar", authMiddleware, upload.single("avatar"), (req, res, next) => {
-  try {
-    userController.updateAvatar(req, res, next);
-  } catch(e) {
-    console.error("❗️ Синхронная ошибка в PUT /avatar:", e.message, e.stack);
-    next(e);
+router.put(
+  "/avatar",
+  authMiddleware,
+  upload.single("avatar"),
+  (req, res, next) => {
+    try {
+      userController.updateAvatar(req, res, next);
+    } catch (e) {
+      console.error("❗️ Синхронная ошибка в PUT /avatar:", e.message, e.stack);
+      next(e);
+    }
   }
-});
+);
 
 router.put("/password", authMiddleware, (req, res, next) => {
   try {
     userController.changePassword(req, res, next);
-  } catch(e) {
+  } catch (e) {
     console.error("❗️ Синхронная ошибка в PUT /password:", e.message, e.stack);
     next(e);
   }
@@ -65,21 +70,25 @@ router.get("/:id", authMiddleware, async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id, 10);
     if (isNaN(userId)) {
-       const err = new Error("Неверный ID пользователя");
-       err.status = 400;
-       throw err;
+      const err = new Error("Неверный ID пользователя");
+      err.status = 400;
+      throw err;
     }
-    
+
     const user = await userService.getUserById(userId);
     if (!user) {
-       const err = new Error("Пользователь не найден");
-       err.status = 404;
-       throw err;
+      const err = new Error("Пользователь не найден");
+      err.status = 404;
+      throw err;
     }
     res.json(user);
   } catch (err) {
-    console.error(`❗️ Ошибка в GET /users/${req.params.id}:`, err.message, err.stack);
-    next(err); 
+    console.error(
+      `❗️ Ошибка в GET /users/${req.params.id}:`,
+      err.message,
+      err.stack
+    );
+    next(err);
   }
 });
 

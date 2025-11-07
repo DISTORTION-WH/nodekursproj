@@ -9,13 +9,22 @@ async function findUserByUsername(username) {
     );
     return result.rows[0];
   } catch (err) {
-    console.error(`[UserService] Ошибка findUserByUsername (${username}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка findUserByUsername (${username}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
 
-
-async function createUser(username, password, roleId, avatarUrl = null, email = null) {
+async function createUser(
+  username,
+  password,
+  roleId,
+  avatarUrl = null,
+  email = null
+) {
   try {
     let hashed = password;
     if (!hashed || typeof hashed !== "string") {
@@ -36,7 +45,11 @@ async function createUser(username, password, roleId, avatarUrl = null, email = 
 
     return result.rows[0];
   } catch (err) {
-    console.error(`[UserService] Ошибка createUser (${username}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка createUser (${username}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -54,7 +67,6 @@ async function getAllUsers() {
     throw err;
   }
 }
-
 
 async function getUserById(id) {
   try {
@@ -83,32 +95,46 @@ async function getUserById(id) {
     user.friends = friendsResult.rows || [];
     return user;
   } catch (err) {
-    console.error(`[UserService] Ошибка getUserById (${id}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка getUserById (${id}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
 
-
 async function changeUserPassword(userId, oldPassword, newPassword) {
   try {
-    const userRes = await client.query("SELECT password FROM users WHERE id = $1", [userId]);
+    const userRes = await client.query(
+      "SELECT password FROM users WHERE id = $1",
+      [userId]
+    );
     if (userRes.rows.length === 0) throw new Error("Пользователь не найден");
 
     const isValid = await bcrypt.compare(oldPassword, userRes.rows[0].password);
     if (!isValid) throw new Error("Старый пароль неверный");
 
     const hashedNew = await bcrypt.hash(newPassword, 10);
-    await client.query("UPDATE users SET password = $1 WHERE id = $2", [hashedNew, userId]);
+    await client.query("UPDATE users SET password = $1 WHERE id = $2", [
+      hashedNew,
+      userId,
+    ]);
   } catch (err) {
-    console.error(`[UserService] Ошибка changeUserPassword (${userId}):`, err.message);
+    console.error(
+      `[UserService] Ошибка changeUserPassword (${userId}):`,
+      err.message
+    );
     throw err;
   }
 }
 
-
 async function updateUserAvatar(userId, avatarUrl) {
   try {
-    await client.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [avatarUrl, userId]);
+    await client.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [
+      avatarUrl,
+      userId,
+    ]);
 
     const res = await client.query(
       `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email
@@ -117,13 +143,22 @@ async function updateUserAvatar(userId, avatarUrl) {
     );
     return res.rows[0];
   } catch (err) {
-    console.error(`[UserService] Ошибка updateUserAvatar (${userId}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка updateUserAvatar (${userId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
 
-
-async function saveRegistrationCode(email, username, password, avatarUrl, code) {
+async function saveRegistrationCode(
+  email,
+  username,
+  password,
+  avatarUrl,
+  code
+) {
   try {
     await client.query(
       `INSERT INTO registration_codes (email, username, password, avatar_url, code)
@@ -133,7 +168,11 @@ async function saveRegistrationCode(email, username, password, avatarUrl, code) 
       [email, username, password, avatarUrl, code]
     );
   } catch (err) {
-    console.error(`[UserService] Ошибка saveRegistrationCode (${email}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка saveRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -146,16 +185,26 @@ async function getRegistrationCode(email) {
     );
     return res.rows[0];
   } catch (err) {
-    console.error(`[UserService] Ошибка getRegistrationCode (${email}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка getRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
 
 async function deleteRegistrationCode(email) {
   try {
-    await client.query("DELETE FROM registration_codes WHERE email = $1", [email]);
+    await client.query("DELETE FROM registration_codes WHERE email = $1", [
+      email,
+    ]);
   } catch (err) {
-    console.error(`[UserService] Ошибка deleteRegistrationCode (${email}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка deleteRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -173,7 +222,11 @@ async function updateUser(userId, { username, roleId, email }) {
     );
     return res.rows[0];
   } catch (err) {
-    console.error(`[UserService] Ошибка updateUser (${userId}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка updateUser (${userId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -182,7 +235,11 @@ async function deleteUser(userId) {
   try {
     await client.query("DELETE FROM users WHERE id = $1", [userId]);
   } catch (err) {
-    console.error(`[UserService] Ошибка deleteUser (${userId}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка deleteUser (${userId}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -198,7 +255,11 @@ async function searchUsers(query) {
     );
     return res.rows;
   } catch (err) {
-    console.error(`[UserService] Ошибка searchUsers (${query}):`, err.message, err.stack);
+    console.error(
+      `[UserService] Ошибка searchUsers (${query}):`,
+      err.message,
+      err.stack
+    );
     throw err;
   }
 }
@@ -215,5 +276,5 @@ module.exports = {
   changeUserPassword,
   updateUser,
   deleteUser,
-  searchUsers
+  searchUsers,
 };

@@ -13,8 +13,10 @@ router.post("/:id/messages/delete", async (req, res, next) => {
   try {
     if (allForEveryone) {
       await client.query("DELETE FROM messages WHERE chat_id = $1", [chatId]);
-      // 🔔 Уведомляем всех в чате, что сообщения удалены
-      req.app.get('io').to(`chat_${chatId}`).emit('messages_cleared', { chatId });
+      req.app
+        .get("io")
+        .to(`chat_${chatId}`)
+        .emit("messages_cleared", { chatId });
     } else {
       await client.query(
         `UPDATE messages SET deleted_for = array_append(deleted_for, $1)
@@ -23,7 +25,9 @@ router.post("/:id/messages/delete", async (req, res, next) => {
       );
     }
     res.json({ message: "Сообщения удалены" });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

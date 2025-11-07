@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import {jwtDecode} from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import "../components/AuthForm.css";
 
@@ -41,7 +41,10 @@ export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
     setError("");
 
     try {
-      await axios.post("/auth/confirm-registration", { email, code: verificationCode });
+      await axios.post("/auth/confirm-registration", {
+        email,
+        code: verificationCode,
+      });
 
       const resLogin = await axios.post("/auth/login", { username, password });
       const token = resLogin.data.accessToken;
@@ -65,22 +68,57 @@ export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
   };
 
   return (
-    <form className="auth-form" onSubmit={step === 1 ? handlePreRegister : handleConfirm}>
+    <form
+      className="auth-form"
+      onSubmit={step === 1 ? handlePreRegister : handleConfirm}
+    >
       <h2>{step === 1 ? "Регистрация" : "Подтверждение email"}</h2>
       {error && <div className="error">{error}</div>}
 
       {step === 1 ? (
         <>
-          <input type="text" placeholder="Имя пользователя" value={username} onChange={(e) => setUsername(e.target.value)} required />
-          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <input type="file" accept="image/*" onChange={(e) => setAvatar(e.target.files[0])} />
-          <button type="submit" className="btn primary">Зарегистрироваться</button>
+          <input
+            type="text"
+            placeholder="Имя пользователя"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setAvatar(e.target.files[0])}
+          />
+          <button type="submit" className="btn primary">
+            Зарегистрироваться
+          </button>
         </>
       ) : (
         <>
-          <input type="text" placeholder="Введите код подтверждения" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} required />
-          <button type="submit" className="btn primary">Подтвердить</button>
+          <input
+            type="text"
+            placeholder="Введите код подтверждения"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            required
+          />
+          <button type="submit" className="btn primary">
+            Подтвердить
+          </button>
         </>
       )}
     </form>

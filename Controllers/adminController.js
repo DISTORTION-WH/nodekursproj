@@ -1,6 +1,6 @@
 const userService = require("../Services/userService");
 const client = require("../databasepg");
-const logService = require("../Services/logService"); 
+const logService = require("../Services/logService");
 
 class AdminController {
   async getAllUsers(req, res, next) {
@@ -16,7 +16,11 @@ class AdminController {
     try {
       const { id } = req.params;
       const { username, roleId, email } = req.body;
-      const updated = await userService.updateUser(id, { username, roleId, email });
+      const updated = await userService.updateUser(id, {
+        username,
+        roleId,
+        email,
+      });
       res.json(updated);
     } catch (e) {
       next(e);
@@ -55,7 +59,6 @@ class AdminController {
 
   async getAllChats(req, res, next) {
     try {
-   
       const chats = await client.query("SELECT * FROM chats");
       res.json(chats.rows);
     } catch (e) {
@@ -69,7 +72,7 @@ class AdminController {
         client.query("SELECT COUNT(*) FROM users"),
         client.query("SELECT COUNT(*) FROM chats"),
         client.query("SELECT COUNT(*) FROM messages"),
-        client.query("SELECT COUNT(*) FROM app_logs")
+        client.query("SELECT COUNT(*) FROM app_logs"),
       ]);
 
       res.json({

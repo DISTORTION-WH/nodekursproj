@@ -16,23 +16,20 @@
   flex-direction: column;
   overflow-y: auto; 
   box-sizing: border-box;
-  gap: 10px; /* 👈 ДОБАВЛЕНО */
-  padding-bottom: 10px; /* 👈 ДОБАВЛЕНО */
+  gap: 10px; 
+  padding-bottom: 10px; 
 }
 
-/* Заголовок */
 .user-profile-title {
   font-size: 1.5rem;
   font-weight: 700;
   text-align: left;
   padding: 20px;
-  /* border-bottom: 1px solid rgba(255,255,255,0.08); */ /* 👈 УДАЛЕНО */
   background: var(--bg-block);
   margin: 0;
   flex-shrink: 0; 
 }
 
-/* Хедер */
 .user-profile-header {
   display: flex;
   flex-wrap: wrap;
@@ -40,7 +37,6 @@
   gap: 30px;
   padding: 20px 40px;
   background: var(--bg-block);
-  /* border-bottom: 1px solid rgba(255,255,255,0.08); */ /* 👈 УДАЛЕНО */
   flex-shrink: 0; 
 }
 
@@ -66,7 +62,6 @@
   max-width: 300px;
 }
 
-/* Друзья */
 .user-profile-friends-section {
   padding: 20px 40px;
   background: var(--bg-block);
@@ -140,9 +135,8 @@
   padding: 10px;
 }
 
-/* Кнопки */
 .user-profile-actions {
-  margin: 10px 40px 0 40px; /* 👈 ИЗМЕНЕНО */
+  margin: 10px 40px 0 40px; 
   display: flex;
   gap: 12px;
   justify-content: flex-start;
@@ -172,7 +166,6 @@
   background: #c50f1f;
 }
 
-/* Загрузка */
 .user-profile-page-loading {
   text-align: center;
   margin-top: 40px;
@@ -180,50 +173,40 @@
   color: var(--text-muted);
 }
 
-/* *
-*
-* ================== 
-* ИЗМЕНЕН АДАПТИВ 
-* ================== 
-* (Улучшение вида на мобильных)
-*
-*/
 
-/* Адаптив */
+
 @media (max-width: 768px) {
   .user-profile-header {
     flex-direction: column;
     align-items: flex-start;
-    padding: 20px; /* 👈 ИЗМЕНЕНО */
+    padding: 20px; 
   }
   .user-profile-avatar {
-    width: 100px; /* 👈 ИЗМЕНЕНО */
-    height: 100px; /* 👈 ИЗМЕНЕНО */
+    width: 100px;
+    height: 100px; 
   }
   .user-profile-friend-card {
     flex: 0 0 150px;
   }
   .user-profile-friends-section {
     padding: 20px;
-    border-radius: 0; /* 👈 ДОБАВЛЕНО */
+    border-radius: 0;
   }
   .user-profile-title {
     font-size: 1.6rem;
-    padding: 15px 20px; /* 👈 ИЗМЕНЕНО */
+    padding: 15px 20px; 
   }
   .user-profile-actions {
-     margin: 0; /* 👈 ИЗМЕНЕНО */
-     padding: 0 20px 20px 20px; /* 👈 ДОБАВЛЕНО */
-     flex-direction: column; /* 👈 ДОБАВЛЕНО */
-     align-items: stretch; /* 👈 ДОБАВЛЕНО */
+     margin: 0; 
+     padding: 0 20px 20px 20px; 
+     flex-direction: column;
+     align-items: stretch; 
   }
 
-  /* 🔽 ДОБАВЛЕНО 🔽 */
   .user-profile-btn {
     width: 100%;
     padding: 12px;
     font-size: 1rem;
     text-align: center;
   }
-  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 */
 }
