@@ -277,9 +277,8 @@
 /* *
 *
 * ================== 
-* ИЗМЕНЕН АДАПТИВ 
+* ИСПРАВЛЕН АДАПТИВ 
 * ================== 
-* (Для создания "мобильного" вида с переключением экранов)
 *
 */
 
@@ -302,65 +301,53 @@
 
 @media (max-width: 768px) {
   .home-page {
-    /* Меняем flex-direction на row, чтобы панели "выезжали" */
     flex-direction: row;
     position: relative;
-    overflow: hidden; /* Критически важно для "выезжания" */
-    height: 100%; /* Занимаем всю высоту main-content */
+    overflow: hidden; 
+    height: 100%; 
   }
 
   .chat-placeholder {
     display: none; /* Скрываем "Выберите чат" на мобильных */
   }
 
-  /* 🔽 ИЗМЕНЕНО: Стили FriendsList на мобильных */
-  .friends-list {
-    width: 100%;
-    height: 100%;
-    flex-shrink: 0;
-    border-right: none;
-    transition: transform 0.3s ease-in-out;
-    transform: translateX(0);
-  }
-
-  /* 🔽 ИЗМЕНЕНО: Стили ChatSection на мобильных */
+  /* 🔽 ИЗМЕНЕНО: .chat-section */
   .chat-section {
     width: 100%;
     height: 100%;
     position: absolute;
     top: 0;
-    left: 100%; /* Изначально чат "за экраном" справа */
+    left: 100%; 
     flex-shrink: 0;
     transition: transform 0.3s ease-in-out;
     transform: translateX(0);
+    min-width: 0; /* 👈 ИСПРАВЛЕНИЕ: Сброс min-width с десктопа */
+    flex: none; /* 👈 ИСПРАВЛЕНИЕ: Сброс flex: 1 с десктопа */
   }
 
-  /* 🔽 ДОБАВЛЕНО: Логика "выезжания" */
+  /* 🔽 ИЗМЕНЕНО: Логика "выезжания" */
   .home-page.chat-open .friends-list {
-    /* Уезжает влево */
     transform: translateX(-100%);
   }
   .home-page.chat-open .chat-section {
-    /* Встает на место */
     transform: translateX(-100%);
   }
-  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */
+  /* 🔼 КОНЕЦ ИЗМЕНЕНИЯ */
 
 
-  /* 🔽 ДОБАВЛЕНО: Показываем кнопку "Назад" */
   .chat-back-btn {
     display: block; 
   }
 
   .chat-header {
-    flex-wrap: nowrap; /* Запрещаем перенос кнопок в заголовке */
+    flex-wrap: nowrap; 
     height: 60px; 
-    padding: 0 10px 0 5px; /* Уменьшаем отступы */
+    padding: 0 10px 0 5px; 
   }
 
   .chat-actions {
     margin-left: auto;
-    width: auto; /* Кнопки не должны занимать 100% */
+    width: auto; 
     gap: 5px;
   }
 
@@ -380,10 +367,9 @@
   .emoji-picker-container {
     width: 95%;
     left: 2.5%;
-    bottom: 70px; /* Чуть ниже, т.к. инпут стал меньше */
+    bottom: 70px; 
   }
 
-  /* Модальное окно */
   .modal-content {
     max-width: 95%;
     width: 95%;
