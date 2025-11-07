@@ -7,9 +7,6 @@ class LogService {
   }
 
   async info(message, meta = {}) {
-    // Можно раскомментировать запись INFO в БД, если нужно,
-    // но чтобы не засорять БД, часто пишут только важные info или ошибки.
-    // await this._saveLog("INFO", message, meta);
     console.log(" [LOG-INFO]", message);
   }
 
@@ -20,7 +17,6 @@ class LogService {
 
   async _saveLog(level, message, meta) {
     try {
-      // Преобразуем Error объект в обычный объект для сохранения в JSONB
       let metaToSave = meta;
       if (meta instanceof Error) {
         metaToSave = { stack: meta.stack, message: meta.message };
@@ -31,12 +27,10 @@ class LogService {
         [level, message, JSON.stringify(metaToSave)]
       );
     } catch (err) {
-      // Если не удалось записать лог в БД, пишем в консоль, чтобы не зациклить ошибку
       console.error("FAILED TO SAVE LOG TO DB:", err);
     }
   }
 
-  // Метод для получения логов (используется в контроллере)
   async getRecentLogs(limit = 100) {
     const res = await client.query(
       "SELECT * FROM app_logs ORDER BY created_at DESC LIMIT $1",

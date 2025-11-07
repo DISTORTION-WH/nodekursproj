@@ -65,11 +65,11 @@
 
 @media (max-width: 768px) {
   .navbar {
-    padding: 0 10px; /* Уменьшаем боковые отступы */
+    padding: 0 10px;
   }
 
   .navbar .logo {
-    font-size: 2rem; /* Уменьшаем логотип */
+    font-size: 2rem; 
     letter-spacing: 2px;
   }
 

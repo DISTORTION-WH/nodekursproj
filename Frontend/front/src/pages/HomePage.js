@@ -222,7 +222,6 @@ export default function HomePage({ currentUser }) {
     );
   };
 
-  // 🔽 ИЗМЕНЕНО: Добавлен класс 'chat-open'
   return (
     <div className={`home-page ${isMobile && activeChat ? 'chat-open' : ''}`}>
       <FriendsList setActiveChat={setActiveChat} currentUser={currentUser} />
@@ -231,13 +230,13 @@ export default function HomePage({ currentUser }) {
         {activeChat ? (
           <>
             <div className="chat-header">
-              {/* 🔽 ДОБАВЛЕНО: Кнопка "Назад" для мобильных */}
+            
               {isMobile && (
                 <button className="chat-back-btn" onClick={() => setActiveChat(null)}>
                   <BackArrowIcon />
                 </button>
               )}
-              {/* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */}
+              
 
               <div style={{display: 'flex', alignItems: 'center', minWidth: 0}}>
                  {!activeChat.is_group && (
@@ -310,7 +309,6 @@ export default function HomePage({ currentUser }) {
             {renderModal()}
           </>
         ) : (
-          /* 🔽 ИЗМЕНЕНО: Скрываем этот текст на мобильных */
           <h3 
              className="chat-placeholder"
              style={{ textAlign: "center", marginTop: "20px", color: "#aaa" }}

@@ -1,9 +1,8 @@
 const userService = require("../Services/userService");
 const client = require("../databasepg");
-const logService = require("../Services/logService"); // 👈 ДОБАВЛЕНО
+const logService = require("../Services/logService"); 
 
 class AdminController {
-  // Получение всех пользователей
   async getAllUsers(req, res, next) {
     try {
       const users = await userService.getAllUsers();
@@ -13,7 +12,6 @@ class AdminController {
     }
   }
 
-  // Обновление пользователя
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
@@ -25,7 +23,6 @@ class AdminController {
     }
   }
 
-  // Удаление пользователя
   async deleteUser(req, res, next) {
     try {
       const { id } = req.params;
@@ -36,7 +33,6 @@ class AdminController {
     }
   }
 
-  // Поиск пользователей
   async searchUsers(req, res, next) {
     try {
       const { q } = req.query;
@@ -47,7 +43,6 @@ class AdminController {
     }
   }
 
-  // Удаление чата
   async deleteChat(req, res, next) {
     try {
       const { id } = req.params;
@@ -58,13 +53,9 @@ class AdminController {
     }
   }
 
-  // Получение всех чатов
   async getAllChats(req, res, next) {
     try {
-      // Исправлено: используем chatService для получения полной информации, если нужно, 
-      // или оставляем простой запрос, если достаточно базовой информации.
-      // Для админки лучше видеть полную картину, но пока оставим как было для простоты,
-      // или можно заменить на chatService.getAllChats() если он импортирован.
+   
       const chats = await client.query("SELECT * FROM chats");
       res.json(chats.rows);
     } catch (e) {
@@ -72,7 +63,6 @@ class AdminController {
     }
   }
 
-  // 🆕 Получение статистики
   async getStats(req, res, next) {
     try {
       const [usersRes, chatsRes, messagesRes, logsRes] = await Promise.all([
@@ -93,7 +83,6 @@ class AdminController {
     }
   }
 
-  // 🆕 Получение логов
   async getLogs(req, res, next) {
     try {
       const limit = req.query.limit || 100;

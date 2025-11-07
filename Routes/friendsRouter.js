@@ -27,7 +27,6 @@ router.post("/request", authMiddleware, async (req, res, next) => {
       `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'pending')`,
       [userId, friendId]
     );
-    // 🔔 Уведомляем получателя о новом запросе
     req.app.get('io').to(`user_${friendId}`).emit('new_friend_request');
     res.json({ message: "Запрос отправлен" });
   } catch (err) {
@@ -48,7 +47,6 @@ router.post("/accept", authMiddleware, async (req, res, next) => {
        WHERE user_id=$1 AND friend_id=$2 AND status='pending'`,
       [friendId, userId]
     );
-    // 🔔 Уведомляем отправителя запроса (friendId), что userId его принял
     req.app.get('io').to(`user_${friendId}`).emit('friend_request_accepted');
     res.json({ message: "Запрос принят" });
   } catch (e) { next(e); }
@@ -63,7 +61,6 @@ router.post("/remove", authMiddleware, async (req, res, next) => {
        WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)`,
       [userId, friendId]
     );
-    // 🔔 Уведомляем бывшего друга об удалении
     req.app.get('io').to(`user_${friendId}`).emit('friend_removed', { byUserId: userId });
     res.json({ message: "Друг удалён" });
   } catch (err) { next(err); }

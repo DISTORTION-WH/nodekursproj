@@ -9,7 +9,7 @@ async function findRoleByValue(value) {
     return result.rows[0];
   } catch (err) {
     console.error(`[RoleService] Ошибка findRoleByValue (${value}):`, err.message, err.stack);
-    throw err; // Пробрасываем ошибку для контроллера
+    throw err; 
   }
 }
 
@@ -22,7 +22,7 @@ async function findRoleById(id) {
     return result.rows[0];
   } catch (err) {
     console.error(`[RoleService] Ошибка findRoleById (${id}):`, err.message, err.stack);
-    throw err; // Пробрасываем ошибку для контроллера
+    throw err;
   }
 }
 

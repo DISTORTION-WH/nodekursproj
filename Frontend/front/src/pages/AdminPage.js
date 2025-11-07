@@ -5,9 +5,9 @@ import "./AdminPage.css";
 export default function AdminPage() {
  const [users, setUsers] = useState([]);
  const [chats, setChats] = useState([]);
- const [stats, setStats] = useState(null); // 🆕
- const [logs, setLogs] = useState([]);     // 🆕
- const [activeTab, setActiveTab] = useState("users"); // 🆕
+ const [stats, setStats] = useState(null); 
+ const [logs, setLogs] = useState([]);     
+ const [activeTab, setActiveTab] = useState("users");
  
  const [search, setSearch] = useState("");
  const [editingUser, setEditingUser] = useState(null);
@@ -16,7 +16,6 @@ export default function AdminPage() {
  const token = localStorage.getItem("token");
  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
 
- // Загрузка данных в зависимости от активной вкладки
  useEffect(() => {
   if (activeTab === "users" && users.length === 0) {
     fetchUsers();
@@ -39,8 +38,6 @@ export default function AdminPage() {
  const fetchChats = () => {
    axios.get("/admin/chats", { headers: authHeaders })
      .then(res => {
-       // Если бэкенд возвращает простой список без participants/messages, 
-       // нужно убедиться, что поля существуют, чтобы не ломать UI
        const chatsData = res.data.map(c => ({
         ...c,
         participants: c.participants || [],
@@ -109,7 +106,6 @@ export default function AdminPage() {
   <div className="admin-page">
    <h2 className="admin-title">Админ-панель</h2>
 
-   {/* 🆕 Навигация по вкладкам */}
    <div className="admin-tabs">
       <button className={activeTab === "users" ? "active" : ""} onClick={() => setActiveTab("users")}>Пользователи</button>
       <button className={activeTab === "chats" ? "active" : ""} onClick={() => setActiveTab("chats")}>Чаты</button>
@@ -117,7 +113,6 @@ export default function AdminPage() {
       <button className={activeTab === "logs" ? "active" : ""} onClick={() => setActiveTab("logs")}>Логи</button>
    </div>
 
-   {/* === Вкладка Пользователи === */}
    {activeTab === "users" && (
     <div className="admin-section">
         <h3 className="admin-subtitle">Пользователи</h3>
@@ -128,10 +123,7 @@ export default function AdminPage() {
         onChange={e => setSearch(e.target.value)}
         className="admin-search"
         />
-        {/* *
-        * 👇 ИЗМЕНЕНИЕ: Добавлена обертка div.admin-table-wrapper 
-        *
-        */}
+       
         <div className="admin-table-wrapper">
             <table className="admin-table">
             <thead>
@@ -159,10 +151,7 @@ export default function AdminPage() {
             </tbody>
             </table>
         </div>
-        {/* *
-        * 👆 КОНЕЦ ИЗМЕНЕНИЯ 
-        *
-        */}
+       
 
         {editingUser && (
         <div className="edit-form">
@@ -179,7 +168,6 @@ export default function AdminPage() {
     </div>
    )}
 
-   {/* === Вкладка Чаты === */}
    {activeTab === "chats" && (
     <div className="admin-section">
         <h3 className="admin-subtitle">Чаты</h3>
@@ -226,7 +214,6 @@ export default function AdminPage() {
     </div>
    )}
 
-   {/* 🆕 === Вкладка Статистика === */}
    {activeTab === "stats" && stats && (
       <div className="admin-section">
         <h3 className="admin-subtitle">Статистика приложения</h3>
@@ -251,17 +238,13 @@ export default function AdminPage() {
       </div>
     )}
 
-    {/* 🆕 === Вкладка Логи === */}
     {activeTab === "logs" && (
       <div className="admin-section">
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
             <h3 className="admin-subtitle" style={{marginBottom: 0}}>Последние системные логи (50)</h3>
             <button className="admin-btn save" onClick={fetchLogs}>🔄 Обновить</button>
         </div>
-        {/* *
-        * 👇 ИЗМЕНЕНИЕ: Добавлена обертка div.admin-table-wrapper 
-        *
-        */}
+       
         <div className="admin-table-wrapper">
             <table className="admin-table logs-table">
             <thead>
@@ -293,10 +276,7 @@ export default function AdminPage() {
             </tbody>
             </table>
         </div>
-        {/* *
-        * 👆 КОНЕЦ ИЗМЕНЕНИЯ 
-        *
-        */}
+       
       </div>
     )}
 

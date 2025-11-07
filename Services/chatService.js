@@ -1,6 +1,5 @@
 const client = require("../databasepg");
 
-// Получить все чаты с участниками и сообщениями
 async function getAllChats() {
   try {
     const chatsRes = await client.query(`
@@ -23,7 +22,6 @@ async function getAllChats() {
 
     const chats = chatsRes.rows;
 
-    // Этот цикл также должен быть внутри try...catch
     for (let chat of chats) {
       const messagesRes = await client.query(
         `SELECT m.id, m.text, m.created_at,
@@ -40,11 +38,10 @@ async function getAllChats() {
     return chats;
   } catch (err) {
     console.error(`[ChatService] Ошибка getAllChats:`, err.message, err.stack);
-    throw err; // Пробрасываем ошибку для контроллера
+    throw err; 
   }
 }
 
-// Удалить сообщения чата
 async function deleteMessagesByChat(chatId) {
   try {
     return await client.query(`DELETE FROM messages WHERE chat_id = $1`, [chatId]);
@@ -54,7 +51,6 @@ async function deleteMessagesByChat(chatId) {
   }
 }
 
-// Удалить связи пользователей с чатом
 async function deleteChatUsers(chatId) {
   try {
     return await client.query(`DELETE FROM chat_users WHERE chat_id = $1`, [chatId]);
@@ -64,7 +60,6 @@ async function deleteChatUsers(chatId) {
   }
 }
 
-// Удалить сам чат
 async function deleteChat(chatId) {
   try {
     return await client.query(`DELETE FROM chats WHERE id = $1`, [chatId]);

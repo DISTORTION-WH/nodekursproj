@@ -64,9 +64,7 @@ router.post("/:id/invite", async (req, res, next) => {
   const { friendId } = req.body;
   try {
     await client.query(`INSERT INTO chat_users (chat_id, user_id, invited_by_user_id) VALUES ($1, $2, $3)`, [chatId, friendId, inviterId]);
-    // 🔔 Уведомляем приглашенного (чтобы чат появился в списке)
     req.app.get('io').to(`user_${friendId}`).emit('added_to_chat', { chatId });
-    // 🔔 Уведомляем чат (обновить список участников)
     req.app.get('io').to(`chat_${chatId}`).emit('chat_member_updated', { chatId });
     res.json({ message: "Приглашен" });
   } catch (e) { next(e); }
@@ -77,9 +75,7 @@ router.post("/:id/kick", async (req, res, next) => {
   const { userIdToKick } = req.body;
   try {
     await client.query(`DELETE FROM chat_users WHERE chat_id=$1 AND user_id=$2`, [chatId, userIdToKick]);
-    // 🔔 Уведомляем исключенного (чтобы чат пропал из списка)
     req.app.get('io').to(`user_${userIdToKick}`).emit('removed_from_chat', { chatId });
-    // 🔔 Уведомляем чат (обновить список участников)
     req.app.get('io').to(`chat_${chatId}`).emit('chat_member_updated', { chatId });
     res.json({ message: "Удален из комнаты" });
   } catch (e) { next(e); }
@@ -118,7 +114,6 @@ router.post("/:id/messages", async (req, res, next) => {
        RETURNING id, text, created_at, sender_id, chat_id`, [chatId, senderId, text]);
     const msg = result.rows[0];
     msg.sender_name = req.user.username;
-    // 🔔 Отправляем сообщение в комнату чата
     req.app.get('io').to(`chat_${chatId}`).emit('new_message', msg);
     res.json(msg);
   } catch (e) { next(e); }

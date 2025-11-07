@@ -17,23 +17,18 @@ const generateRefreshToken = (id, role) => {
 };
 
 class authController {
-  // ===================== Pre-registration =====================
   async preRegister(req, res, next) {
     try {
       const errors = validationResult(req);
       
-      // ❗️❗️❗️ ВОТ ИСПРАВЛЕНИЕ ❗️❗️❗️
       if (!errors.isEmpty()) {
-        // Вместо общей ошибки, берем *первое* сообщение от валидатора
-        // Например: "Имя пользователя не может быть пустым"
         const firstError = errors.array()[0];
         
-        const err = new Error(firstError.msg); // Используем конкретное сообщение
+        const err = new Error(firstError.msg);
         err.status = 400;
         err.errors = errors.array();
         return next(err);
       }
-      // ❗️❗️❗️ КОНЕЦ ИСПРАВЛЕНИЯ ❗️❗️❗️
 
       const { username, password, email } = req.body;
       const avatar = req.file;
@@ -47,35 +42,27 @@ class authController {
 
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
-      const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-значный код
+      const code = Math.floor(100000 + Math.random() * 900000).toString(); 
       const avatarUrl = avatar ? `/uploads/avatars/${avatar.filename}` : null;
 
-      // Проверяем, есть ли pending регистрация по email
       const pending = await userService.getRegistrationCode(email);
       if (pending) {
-        // обновляем код и данные
         await userService.saveRegistrationCode(email, username, hashedPassword, avatarUrl, code);
         
-        // ❗️ ОТПРАВКА EMAIL ОТКЛЮЧЕНА (для теста)
-        // await emailService.sendVerificationEmail(email, code); 
-        
+      
         return res.json({ message: "Код подтверждения отправлен повторно на email" });
       }
 
-      // Сохраняем новый код регистрации
       await userService.saveRegistrationCode(email, username, hashedPassword, avatarUrl, code);
       
-      // ❗️ ОТПРАВКА EMAIL ОТКЛЮЧЕНА (для теста)
-      // await emailService.sendVerificationEmail(email, code);
-
+    
       res.json({ message: "Код подтверждения отправлен на email" });
     } catch (e) {
       console.error("!!! ОШИБКА В PRE-REGISTER:", e.message, e.stack); 
-      next(e); // Передаем в глобальный обработчик
+      next(e);
     }
   }
 
-  // ===================== Confirm-registration =====================
   async confirmRegistration(req, res, next) {
     try {
       const { email, code } = req.body;
@@ -87,14 +74,7 @@ class authController {
         return next(err);
       }
 
-      // ❗️ ПРОВЕРКА КОДА ОТКЛЮЧЕНА (для теста)
-      /*
-      if (tempData.code !== code) {
-        const err = new Error("Неверный код");
-        err.status = 400;
-        return next(err);
-      }
-      */
+  
 
       const role = await roleService.findRoleByValue("USER");
       if (!role) {
@@ -105,16 +85,14 @@ class authController {
 
       const newUser = await userService.createUser(
         tempData.username,
-        tempData.password, // Пароль уже хэширован
+        tempData.password, 
         role.id,
         tempData.avatar_url,
         tempData.email
       );
 
-      // Удаляем временные данные
       await userService.deleteRegistrationCode(email);
 
-      // Генерируем токены (как при логине)
       const accessToken = generateAccessToken(newUser.id, role.value);
       const refreshToken = generateRefreshToken(newUser.id, role.value);
 
@@ -136,7 +114,6 @@ class authController {
     }
   }
 
-  // ===================== Login =====================
   async login(req, res, next) {
     try {
       const { username, password } = req.body;
@@ -176,7 +153,6 @@ class authController {
     }
   }
 
-  // ===================== Refresh =====================
   async refresh(req, res, next) {
     try {
       const { refreshToken } = req.body;

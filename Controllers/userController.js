@@ -1,8 +1,6 @@
-// Controllers/userController.js
 const userService = require("../Services/userService");
 
 class UserController {
-  // загрузка/обновление аватара
   async updateAvatar(req, res) {
     try {
       if (!req.file) {
@@ -16,8 +14,6 @@ class UserController {
       res.status(500).json({ message: "Ошибка сервера" });
     }
   }
-
-  // получить профиль текущего пользователя с друзьями/датой/ролями
   async getProfile(req, res) {
     try {
       const user = await userService.getUserById(req.user.id);
@@ -29,7 +25,6 @@ class UserController {
     }
   }
 
-  // смена пароля
   async changePassword(req, res) {
     try {
       const { oldPassword, newPassword } = req.body;

@@ -1,11 +1,7 @@
-// 1. Используем CommonJS (require) вместо import, т.к. ваш проект на CJS
 const { Resend } = require("resend");
 
-// 2. Получаем ключ из переменных окружения (которые вы задали на Render)
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-// 3. Адрес 'from'. 
-// По умолчанию 'onboarding@resend.dev' для тестов.
 const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'MyApp <onboarding@resend.dev>';
 
 let resend;
@@ -20,44 +16,35 @@ if (RESEND_API_KEY) {
   );
 }
 
-/**
- * Отправляет email с кодом подтверждения через Resend.
- * @param {string} to - Email получателя
- * @param {string} code - 6-значный код
- */
+
 async function sendVerificationEmail(to, code) {
-  // Если ключ не был найден при старте, resend не будет создан.
   if (!resend) {
     console.error(
       "Ошибка отправки: Resend не инициализирован. Проверьте RESEND_API_KEY."
     );
-    // Бросаем ошибку, чтобы authController ее поймал
     throw new Error("Ошибка конфигурации сервиса email");
   }
 
   try {
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM_ADDRESS,
-      to: [to], // Resend ожидает массив email-адресов
+      to: [to], 
       subject: "Подтверждение регистрации",
       html: `<p>Ваш код подтверждения: <b>${code}</b></p>`,
       text: `Ваш код подтверждения: ${code}`,
     });
 
-    // Если API Resend вернуло ошибку (например, неверный ключ или email)
     if (error) {
       console.error("Ошибка от API Resend:", error);
       throw new Error(error.message || "Ошибка при отправке email");
     }
 
-    // 'data' содержит ID успешной отправки, { id: '...' }
     console.log(`Email успешно отправлен на ${to} (через Resend), ID: ${data.id}`);
-    return data; // Возвращаем успех
+    return data; 
 
   } catch (e) {
-    // Ловим любые другие ошибки (например, сетевой сбой)
     console.error("Критическая ошибка в sendVerificationEmail:", e.message);
-    throw e; // Пробрасываем ошибку, чтобы authController ее поймал
+    throw e; 
   }
 }
 

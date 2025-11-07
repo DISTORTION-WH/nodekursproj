@@ -36,27 +36,22 @@ export default function FriendsList({ setActiveChat, currentUser }) {
           socket.emit('join_user_room', currentUser.id);
       });
 
-      // 🔔 Пришел новый запрос в друзья -> обновляем входящие
       socket.on('new_friend_request', () => {
           axios.get("/friends/incoming", config).then(res => setIncomingRequests(res.data));
       });
 
-      // 🔔 Ваш запрос приняли -> обновляем список друзей
       socket.on('friend_request_accepted', () => {
          axios.get("/friends", config).then(res => setFriends(res.data));
       });
 
-      // 🔔 Вас удалили из друзей -> обновляем список друзей
       socket.on('friend_removed', () => {
          axios.get("/friends", config).then(res => setFriends(res.data));
       });
 
-      // 🔔 Вас добавили в чат -> обновляем список чатов
       socket.on('added_to_chat', () => {
          axios.get("/chats", config).then(res => setGroupChats(res.data.filter(c => c.is_group)));
       });
 
-      // 🔔 Вас исключили из чата -> убираем чат из списка
       socket.on('removed_from_chat', (data) => {
          setGroupChats(prev => prev.filter(c => Number(c.id) !== Number(data.chatId)));
       });
@@ -83,10 +78,9 @@ export default function FriendsList({ setActiveChat, currentUser }) {
  };
 
  const acceptRequest = (id) => {
-  // После успешного ответа сервера сразу убираем из входящих, не дожидаясь сокета (для мгновенной реакции UI)
   axios.post("/friends/accept", { friendId: id }, config).then(() => {
      setIncomingRequests(prev => prev.filter(req => req.requester_id !== id));
-     fetchData(); // И подтягиваем актуальный список друзей
+     fetchData();
   }).catch(console.error);
  };
 

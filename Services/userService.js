@@ -1,8 +1,6 @@
-// Services/userService.js
 const client = require("../databasepg");
 const bcrypt = require("bcryptjs");
 
-// Найти пользователя по username
 async function findUserByUsername(username) {
   try {
     const result = await client.query(
@@ -12,14 +10,11 @@ async function findUserByUsername(username) {
     return result.rows[0];
   } catch (err) {
     console.error(`[UserService] Ошибка findUserByUsername (${username}):`, err.message, err.stack);
-    throw err; // Пробрасываем ошибку для контроллера
+    throw err;
   }
 }
 
-/**
- * Создать нового пользователя.
- * ( ... )
- */
+
 async function createUser(username, password, roleId, avatarUrl = null, email = null) {
   try {
     let hashed = password;
@@ -27,7 +22,6 @@ async function createUser(username, password, roleId, avatarUrl = null, email = 
       throw new Error("Password must be a string");
     }
 
-    // если строка не начинается с $2 (bcrypt), то хэшируем
     if (!hashed.startsWith("$2")) {
       const saltRounds = 10;
       hashed = await bcrypt.hash(hashed, saltRounds);
@@ -47,7 +41,6 @@ async function createUser(username, password, roleId, avatarUrl = null, email = 
   }
 }
 
-// Получить всех пользователей с их ролями и email
 async function getAllUsers() {
   try {
     const result = await client.query(`
@@ -62,10 +55,7 @@ async function getAllUsers() {
   }
 }
 
-/**
- * Получить пользователя по id с деталями:
- * ( ... )
- */
+
 async function getUserById(id) {
   try {
     const userResult = await client.query(
@@ -79,7 +69,6 @@ async function getUserById(id) {
     if (userResult.rows.length === 0) return null;
     const user = userResult.rows[0];
 
-    // список друзей (accepted)
     const friendsResult = await client.query(
       `SELECT u.id, u.username, u.avatar_url
        FROM users u
@@ -99,10 +88,7 @@ async function getUserById(id) {
   }
 }
 
-/**
- * Смена пароля:
- * ( ... )
- */
+
 async function changeUserPassword(userId, oldPassword, newPassword) {
   try {
     const userRes = await client.query("SELECT password FROM users WHERE id = $1", [userId]);
@@ -114,15 +100,12 @@ async function changeUserPassword(userId, oldPassword, newPassword) {
     const hashedNew = await bcrypt.hash(newPassword, 10);
     await client.query("UPDATE users SET password = $1 WHERE id = $2", [hashedNew, userId]);
   } catch (err) {
-    // Логируем, но пробрасываем оригинальную ошибку (напр. "Старый пароль неверный")
     console.error(`[UserService] Ошибка changeUserPassword (${userId}):`, err.message);
     throw err;
   }
 }
 
-/**
- * Обновить аватар пользователя и вернуть обновлённого пользователя
- */
+
 async function updateUserAvatar(userId, avatarUrl) {
   try {
     await client.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [avatarUrl, userId]);
@@ -139,9 +122,7 @@ async function updateUserAvatar(userId, avatarUrl) {
   }
 }
 
-// ========== Новые функции для подтверждения email ==========
 
-// Сохраняем код подтверждения для регистрации
 async function saveRegistrationCode(email, username, password, avatarUrl, code) {
   try {
     await client.query(
@@ -157,7 +138,6 @@ async function saveRegistrationCode(email, username, password, avatarUrl, code) 
   }
 }
 
-// Получаем данные по email (временные данные регистрации)
 async function getRegistrationCode(email) {
   try {
     const res = await client.query(
@@ -171,11 +151,8 @@ async function getRegistrationCode(email) {
   }
 }
 
-// Удаляем код после успешной регистрации
 async function deleteRegistrationCode(email) {
   try {
-    // ❗️ ИСПРАВЛЕНИЕ: У вас таблица registration_codes использует 'email' как PRIMARY KEY,
-    // поэтому удалять нужно по 'email', а не по 'id'.
     await client.query("DELETE FROM registration_codes WHERE email = $1", [email]);
   } catch (err) {
     console.error(`[UserService] Ошибка deleteRegistrationCode (${email}):`, err.message, err.stack);
@@ -183,7 +160,6 @@ async function deleteRegistrationCode(email) {
   }
 }
 
-// ========== Admin helpers we added earlier ==========
 async function updateUser(userId, { username, roleId, email }) {
   try {
     const res = await client.query(

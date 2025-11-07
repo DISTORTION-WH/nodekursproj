@@ -1,18 +1,14 @@
-// --- ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ---
-const logger = require("./Services/logService"); // 👈 ДОБАВЛЕНО
+const logger = require("./Services/logService"); 
 
 process.on('uncaughtException', (err, origin) => {
-  // 👈 ИЗМЕНЕНО на использование logger
   logger.error(`UNCAUGHT EXCEPTION at ${origin}`, err).finally(() => {
      process.exit(1); 
   });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  // 👈 ИЗМЕНЕНО на использование logger
   logger.error('UNHANDLED REJECTION', reason instanceof Error ? reason : { reason });
 });
-// --- КОНЕЦ ГЛОБАЛЬНЫХ ОБРАБОТЧИКОВ ---
 
 const express = require("express");
 const cors = require("cors");
@@ -30,7 +26,6 @@ const PORT = process.env.PORT || 5000;
 
 const app = express();
 
-// --- НАСТРОЙКА CORS ---
 const allowedOrigins = [
   'http://localhost:3000',
   process.env.FRONTEND_URL, 
@@ -49,7 +44,6 @@ app.use(cors({
   credentials: true
 }));
 
-// --- SOCKET.IO ---
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -93,9 +87,7 @@ app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/chats", chatDeleteRouter);     
 app.use("/admin", adminRouter);
 
-// Middleware обработки ошибок
 app.use((err, req, res, next) => {
-  // 👈 ИЗМЕНЕНО: Логируем ошибку в БД
   logger.error(`EXPRESS ERROR: ${req.method} ${req.originalUrl} - ${err.message}`, err);
   
   res.status(err.status || 500).json({ message: err.message || "Server Error" });

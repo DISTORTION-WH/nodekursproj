@@ -28,7 +28,6 @@
   margin-bottom: 20px;
 }
 
-/* 🆕 Вкладки */
 .admin-tabs {
     display: flex;
     gap: 10px;
@@ -76,10 +75,7 @@
   color: var(--text-main);
 }
 
-/* *
-* 👇 ИЗМЕНЕНИЕ: Обертка для таблицы
-*
-*/
+
 .admin-table-wrapper {
   overflow-x: auto;
 }
@@ -151,7 +147,7 @@
   background: rgba(255, 255, 255, 0.05);
   padding: 15px;
   border-radius: 10px;
-  flex: 1 1 200px; /* Адаптивная ширина */
+  flex: 1 1 200px; 
   max-width: 300px;
   cursor: pointer;
   transition: 0.2s;
@@ -214,7 +210,6 @@
   margin-top: 4px;
 }
 
-/* 🆕 Статистика */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -248,7 +243,6 @@
     color: var(--danger);
 }
 
-/* 🆕 Логи */
 .log-row.error { background: rgba(231, 76, 60, 0.15); }
 .log-row.warn { background: rgba(241, 196, 15, 0.15); }
 
@@ -272,14 +266,7 @@
     color: #e0e0e0;
 }
 
-/* *
-*
-* ================== 
-* ИЗМЕНЕН АДАПТИВ 
-* ================== 
-* (Улучшение вида на мобильных)
-*
-*/
+
 
 @media (max-width: 768px) {
   .admin-page {
@@ -291,17 +278,17 @@
   }
 
   .admin-search {
-    max-width: 100%; /* 👈 ИЗМЕНЕНО */
+    max-width: 100%; 
   }
 
-  /* 🔽 ДОБАВЛЕНО 🔽 */
+
   .edit-form input {
     width: 100%;
   }
   .stat-card p {
     font-size: 2.2rem;
   }
-  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 */
+
 
   .admin-tabs {
     gap: 5px;
@@ -311,18 +298,14 @@
     font-size: 0.9rem;
   }
 
-  /* * 👇 ДОБАВЛЕНО: 
-  * Заставляет таблицу прокручиваться по горизонтали, 
-  * не ломая верстку 
-  */
+
   .admin-table-wrapper {
     overflow-x: auto;
   }
   .admin-table {
-    white-space: nowrap; /* Предотвращает перенос строк в ячейках */
+    white-space: nowrap; 
   }
 
-  /* Карточки статистики */
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
