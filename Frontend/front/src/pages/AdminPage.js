@@ -128,7 +128,11 @@ export default function AdminPage() {
         onChange={e => setSearch(e.target.value)}
         className="admin-search"
         />
-        <div style={{overflowX: 'auto'}}>
+        {/* *
+        * 👇 ИЗМЕНЕНИЕ: Добавлена обертка div.admin-table-wrapper 
+        *
+        */}
+        <div className="admin-table-wrapper">
             <table className="admin-table">
             <thead>
             <tr>
@@ -155,6 +159,10 @@ export default function AdminPage() {
             </tbody>
             </table>
         </div>
+        {/* *
+        * 👆 КОНЕЦ ИЗМЕНЕНИЯ 
+        *
+        */}
 
         {editingUser && (
         <div className="edit-form">
@@ -250,7 +258,11 @@ export default function AdminPage() {
             <h3 className="admin-subtitle" style={{marginBottom: 0}}>Последние системные логи (50)</h3>
             <button className="admin-btn save" onClick={fetchLogs}>🔄 Обновить</button>
         </div>
-        <div style={{overflowX: 'auto'}}>
+        {/* *
+        * 👇 ИЗМЕНЕНИЕ: Добавлена обертка div.admin-table-wrapper 
+        *
+        */}
+        <div className="admin-table-wrapper">
             <table className="admin-table logs-table">
             <thead>
                 <tr>
@@ -281,6 +293,10 @@ export default function AdminPage() {
             </tbody>
             </table>
         </div>
+        {/* *
+        * 👆 КОНЕЦ ИЗМЕНЕНИЯ 
+        *
+        */}
       </div>
     )}
 

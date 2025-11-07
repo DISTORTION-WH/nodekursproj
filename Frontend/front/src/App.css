@@ -33,3 +33,34 @@ html, body {
   display: flex;
   overflow: hidden;
 }
+
+/* *
+*
+* ================== 
+* ДОБАВЛЕН АДАПТИВ 
+* ================== 
+*
+*
+*/
+
+@media (max-width: 768px) {
+  /* На мобильных устройствах разрешаем прокрутку, 
+     если body/html ее заблокировали */
+  html, body {
+    overflow: visible;
+  }
+  
+  /* Разрешаем основному контенту прокручиваться, 
+     если он не помещается (например, HomePage в режиме column) */
+  .main-content {
+    overflow: auto;
+  }
+
+  /* Убираем жесткое ограничение высоты 
+     для контейнера приложения на мобильных */
+  .app-container {
+    height: auto;
+    min-height: calc(100vh - 50px);
+    overflow: visible;
+  }
+}

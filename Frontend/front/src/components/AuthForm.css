@@ -73,3 +73,10 @@
     transform: translateY(0);
   }
 }
+@media (max-width: 400px) {
+  .auth-form {
+    width: 90%;
+    padding: 20px;
+    margin: 40px auto;
+  }
+}

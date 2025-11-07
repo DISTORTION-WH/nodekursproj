@@ -63,3 +63,23 @@
   cursor: pointer;
 }
 
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 10px; /* Уменьшаем боковые отступы */
+  }
+
+  .navbar .logo {
+    font-size: 2rem; /* Уменьшаем логотип */
+    letter-spacing: 2px;
+  }
+
+  .navbar .btn {
+    padding: 5px 8px;
+    font-size: 0.9rem;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+  }
+}

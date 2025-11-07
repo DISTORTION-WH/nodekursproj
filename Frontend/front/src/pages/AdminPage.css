@@ -262,3 +262,48 @@
     border-radius: 6px;
     color: #e0e0e0;
 }
+
+
+
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 10px;
+  }
+
+  .admin-section {
+    padding: 15px;
+  }
+
+  .admin-search {
+    max-width: 100%;
+  }
+
+  .admin-tabs {
+    gap: 5px;
+  }
+  .admin-tabs button {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  /* Заставляет таблицу прокручиваться по горизонтали, 
+     не ломая верстку */
+  .admin-table-wrapper {
+    overflow-x: auto;
+  }
+  .admin-table {
+    white-space: nowrap; /* Предотвращает перенос строк в ячейках */
+  }
+
+  /* Карточки статистики */
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .stat-card {
+    padding: 20px;
+  }
+  .stat-card p {
+    font-size: 2.5rem;
+  }
+}

@@ -134,3 +134,20 @@
   font-weight: bold;
   margin-bottom: 10px;
 }
+@media (max-width: 768px) {
+  .friends-list {
+    /* На мобильных (когда HomePage в режиме column) 
+       список друзей занимает всю ширину 
+       и имеет ограниченную высоту, чтобы чат был виден ниже */
+    width: 100%;
+    height: 350px; /* Вы можете настроить эту высоту */
+    min-height: 300px;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid #202225;
+  }
+
+  .friends-section, .bottom-sections {
+     padding: 10px;
+  }
+}

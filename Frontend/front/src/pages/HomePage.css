@@ -273,3 +273,73 @@
 }
 .modal-btn.kick { background-color: #ed4245; }
 .modal-btn.invite { background-color: #5865f2; }
+
+
+
+
+@media (max-width: 768px) {
+  .home-page {
+    /* На мобильных устройствах элементы 
+       (список друзей и чат) встают друг под друга */
+    flex-direction: column;
+    height: auto;
+    /* overflow: visible; */
+  }
+
+  .chat-section {
+    /* Секция чата должна занять оставшееся место
+       и иметь минимальную высоту */
+    flex: 1;
+    min-height: 400px; /* Минимальная высота для чата */
+  }
+
+  .chat-header {
+    /* Разрешаем заголовку переноситься, 
+       если кнопки не помещаются */
+    flex-wrap: wrap;
+    height: auto; /* Высота авто */
+    padding: 10px 15px;
+    gap: 10px;
+  }
+
+  .chat-actions {
+    /* Кнопки занимают 100% ширины и прижимаются 
+       к левому краю под заголовком */
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .chat-action-btn {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .delete-options {
+    width: 100%;
+    display: flex;
+  }
+  .delete-options button {
+    flex: 1;
+  }
+
+  .chat-input {
+    padding: 10px;
+  }
+
+  .emoji-picker-container {
+    width: 95%;
+    left: 2.5%;
+    bottom: 70px; /* Чуть ниже, т.к. инпут стал меньше */
+  }
+
+  /* Модальное окно */
+  .modal-content {
+    max-width: 95%;
+    width: 95%;
+  }
+
+  .chat-messages {
+    padding: 10px;
+  }
+}
