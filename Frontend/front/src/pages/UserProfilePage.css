@@ -180,27 +180,50 @@
   color: var(--text-muted);
 }
 
+/* *
+*
+* ================== 
+* ИЗМЕНЕН АДАПТИВ 
+* ================== 
+* (Улучшение вида на мобильных)
+*
+*/
+
 /* Адаптив */
 @media (max-width: 768px) {
   .user-profile-header {
     flex-direction: column;
     align-items: flex-start;
+    padding: 20px; /* 👈 ИЗМЕНЕНО */
   }
   .user-profile-avatar {
-    width: 120px;
-    height: 120px;
+    width: 100px; /* 👈 ИЗМЕНЕНО */
+    height: 100px; /* 👈 ИЗМЕНЕНО */
   }
   .user-profile-friend-card {
     flex: 0 0 150px;
   }
   .user-profile-friends-section {
     padding: 20px;
+    border-radius: 0; /* 👈 ДОБАВЛЕНО */
   }
   .user-profile-title {
     font-size: 1.6rem;
-    padding: 15px 0;
+    padding: 15px 20px; /* 👈 ИЗМЕНЕНО */
   }
   .user-profile-actions {
-     margin: 10px 20px 0 20px; /* 👈 ИЗМЕНЕНО */
+     margin: 0; /* 👈 ИЗМЕНЕНО */
+     padding: 0 20px 20px 20px; /* 👈 ДОБАВЛЕНО */
+     flex-direction: column; /* 👈 ДОБАВЛЕНО */
+     align-items: stretch; /* 👈 ДОБАВЛЕНО */
   }
+
+  /* 🔽 ДОБАВЛЕНО 🔽 */
+  .user-profile-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    text-align: center;
+  }
+  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 */
 }

@@ -8,6 +8,14 @@ import "./HomePage.css";
 
 let chatSocket;
 
+// 🔽 НОВАЯ ФУНКЦИЯ (для кнопки "Назад" на мобильных)
+const BackArrowIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15.41 7.41L14 6L8 12L14 18L15.41 16.59L10.83 12L15.41 7.41Z" fill="white"/>
+  </svg>
+);
+
+
 export default function HomePage({ currentUser }) {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -16,11 +24,26 @@ export default function HomePage({ currentUser }) {
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  
+  // 🔽 ДОБАВЛЕНО: Состояние для отслеживания мобильной версии
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   const messagesEndRef = useRef(null);
   const location = useLocation();
   const token = localStorage.getItem("token");
   const config = { headers: { Authorization: "Bearer " + token } };
+
+
+  // 🔽 ДОБАВЛЕНО: Эффект для отслеживания размера окна
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
 
   // Инициализация активного чата из навигации
   useEffect(() => {
@@ -199,14 +222,23 @@ export default function HomePage({ currentUser }) {
     );
   };
 
+  // 🔽 ИЗМЕНЕНО: Добавлен класс 'chat-open'
   return (
-    <div className="home-page">
+    <div className={`home-page ${isMobile && activeChat ? 'chat-open' : ''}`}>
       <FriendsList setActiveChat={setActiveChat} currentUser={currentUser} />
       
       <div className="chat-section">
         {activeChat ? (
           <>
             <div className="chat-header">
+              {/* 🔽 ДОБАВЛЕНО: Кнопка "Назад" для мобильных */}
+              {isMobile && (
+                <button className="chat-back-btn" onClick={() => setActiveChat(null)}>
+                  <BackArrowIcon />
+                </button>
+              )}
+              {/* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */}
+
               <div style={{display: 'flex', alignItems: 'center', minWidth: 0}}>
                  {!activeChat.is_group && (
                    <img src={activeChat.avatar_url ? axios.defaults.baseURL + activeChat.avatar_url : "/default-avatar.png"} alt="avatar" className="chat-avatar" />
@@ -278,7 +310,13 @@ export default function HomePage({ currentUser }) {
             {renderModal()}
           </>
         ) : (
-          <h3 style={{ textAlign: "center", marginTop: "20px", color: "#aaa" }}>Выберите чат для начала общения</h3>
+          /* 🔽 ИЗМЕНЕНО: Скрываем этот текст на мобильных */
+          <h3 
+             className="chat-placeholder"
+             style={{ textAlign: "center", marginTop: "20px", color: "#aaa" }}
+          >
+            Выберите чат для начала общения
+          </h3>
         )}
       </div>
     </div>

@@ -23,6 +23,11 @@
   padding-bottom: 10px; /* 👈 ДОБАВЛЕНО: (чтобы последний блок не прилипал) */
 }
 
+/* 🔽 ИЗМЕНЕНО: Убрал padding, чтобы секции были во всю ширину */
+.profile-card {
+  display: contents; /* Позволяет .profile-page 'gap' управлять отступами */
+}
+
 .profile-title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -152,14 +157,14 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   padding: 12px;
   border-radius: 10px;
   transition: 0.2s;
 }
 
 .profile-friend-card:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-4px);
 }
 
@@ -245,15 +250,24 @@
   font-weight: 600;
 }
 
-/* Адаптив */
+/* *
+*
+* ================== 
+* ИЗМЕНЕН АДАПТИВ 
+* ================== 
+* (Улучшение вида на мобильных)
+*
+*/
+
 @media (max-width: 768px) {
   .profile-header {
     flex-direction: column;
     align-items: flex-start;
+    padding: 20px; /* 👈 ИЗМЕНЕНО */
   }
   .profile-avatar {
-    width: 120px;
-    height: 120px;
+    width: 100px; /* 👈 ИЗМЕНЕНО */
+    height: 100px; /* 👈 ИЗМЕНЕНО */
   }
   .profile-friend-card {
     flex: 0 0 150px;
@@ -261,9 +275,38 @@
   .profile-password-section,
   .profile-friends-section {
     padding: 20px;
+    border-radius: 0; /* 👈 ДОБАВЛЕНО */
   }
   .profile-title {
     font-size: 1.6rem;
-    padding: 15px 0;
+    padding: 15px 20px; /* 👈 ИЗМЕНЕНО */
   }
+
+  /* 🔽 ДОБАВЛЕНЫ СТИЛИ 🔽 */
+  .password-input {
+    max-width: 100%;
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+  .password-buttons-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .password-btn, 
+  .profile-logout-btn,
+  .profile-upload-btn {
+    max-width: 100%;
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+  .profile-upload input[type="file"] {
+    font-size: 0.9rem;
+  }
+  .upload-actions {
+    width: 100%;
+  }
+  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ 🔼 */
 }

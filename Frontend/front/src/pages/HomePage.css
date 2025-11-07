@@ -274,53 +274,103 @@
 .modal-btn.kick { background-color: #ed4245; }
 .modal-btn.invite { background-color: #5865f2; }
 
+/* *
+*
+* ================== 
+* ИЗМЕНЕН АДАПТИВ 
+* ================== 
+* (Для создания "мобильного" вида с переключением экранов)
+*
+*/
 
+/* 🔽 ДОБАВЛЕНО: Кнопка "Назад" */
+.chat-back-btn {
+  display: none; /* Скрыта по умолчанию */
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin-right: 10px;
+  border-radius: 50%;
+  line-height: 0;
+}
+.chat-back-btn:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+/* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */
 
 
 @media (max-width: 768px) {
   .home-page {
-    /* На мобильных устройствах элементы 
-       (список друзей и чат) встают друг под друга */
-    flex-direction: column;
-    height: auto;
-    /* overflow: visible; */
+    /* Меняем flex-direction на row, чтобы панели "выезжали" */
+    flex-direction: row;
+    position: relative;
+    overflow: hidden; /* Критически важно для "выезжания" */
+    height: 100%; /* Занимаем всю высоту main-content */
   }
 
+  .chat-placeholder {
+    display: none; /* Скрываем "Выберите чат" на мобильных */
+  }
+
+  /* 🔽 ИЗМЕНЕНО: Стили FriendsList на мобильных */
+  .friends-list {
+    width: 100%;
+    height: 100%;
+    flex-shrink: 0;
+    border-right: none;
+    transition: transform 0.3s ease-in-out;
+    transform: translateX(0);
+  }
+
+  /* 🔽 ИЗМЕНЕНО: Стили ChatSection на мобильных */
   .chat-section {
-    /* Секция чата должна занять оставшееся место
-       и иметь минимальную высоту */
-    flex: 1;
-    min-height: 400px; /* Минимальная высота для чата */
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 100%; /* Изначально чат "за экраном" справа */
+    flex-shrink: 0;
+    transition: transform 0.3s ease-in-out;
+    transform: translateX(0);
+  }
+
+  /* 🔽 ДОБАВЛЕНО: Логика "выезжания" */
+  .home-page.chat-open .friends-list {
+    /* Уезжает влево */
+    transform: translateX(-100%);
+  }
+  .home-page.chat-open .chat-section {
+    /* Встает на место */
+    transform: translateX(-100%);
+  }
+  /* 🔼 КОНЕЦ ДОБАВЛЕНИЯ */
+
+
+  /* 🔽 ДОБАВЛЕНО: Показываем кнопку "Назад" */
+  .chat-back-btn {
+    display: block; 
   }
 
   .chat-header {
-    /* Разрешаем заголовку переноситься, 
-       если кнопки не помещаются */
-    flex-wrap: wrap;
-    height: auto; /* Высота авто */
-    padding: 10px 15px;
-    gap: 10px;
+    flex-wrap: nowrap; /* Запрещаем перенос кнопок в заголовке */
+    height: 60px; 
+    padding: 0 10px 0 5px; /* Уменьшаем отступы */
   }
 
   .chat-actions {
-    /* Кнопки занимают 100% ширины и прижимаются 
-       к левому краю под заголовком */
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-start;
+    margin-left: auto;
+    width: auto; /* Кнопки не должны занимать 100% */
+    gap: 5px;
   }
 
   .chat-action-btn {
-    padding: 8px 10px;
-    font-size: 0.85rem;
+    padding: 6px 8px;
+    font-size: 0.8rem;
   }
 
   .delete-options {
-    width: 100%;
-    display: flex;
-  }
-  .delete-options button {
-    flex: 1;
+    gap: 5px;
   }
 
   .chat-input {
