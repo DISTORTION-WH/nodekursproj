@@ -104,7 +104,7 @@
   background-color: #36393f;
   border-top: 1px solid #202225;
   flex-shrink: 0;       /* ⛔️ Запрещаем сжиматься */
-  position: relative; /* 👈 ДОБАВЛЕНО */
+  position: relative; 
 }
 
 .chat-input input {
@@ -117,7 +117,7 @@
   font-size: 1rem;
   outline: none;
   margin-right: 10px;
-  margin-left: 10px; /* 👈 ДОБАВЛЕНО */
+  margin-left: 10px; 
 }
 
 .chat-input button {
@@ -133,7 +133,7 @@
 .chat-input button:hover { background-color: #4752c4; }
 
 /* *
-* 👇 БЛОК ДОБАВЛЕН 👇
+* 👇 БЛОК ИСПРАВЛЕН/ДОБАВЛЕН 👇
 *
 */
 
@@ -165,16 +165,25 @@
 }
 
 /* Стилизация самого пикера (из библиотеки) */
-.emoji-picker-container .emoji-picker-react {
+/* .EmojiPickerReact - это класс по умолчанию */
+.emoji-picker-container .EmojiPickerReact {
   width: 100% !important;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
   border: 1px solid #202225 !important;
+  background-color: #2f3136 !important; /* 👈 Явный фон */
+  --epr-search-input-bg-color: #202225 !important; /* 👈 Фон поиска */
+  --epr-search-input-border-color: #202225 !important; /* 👈 Рамка поиска */
+  --epr-category-label-bg-color: #2f3136 !important; /* 👈 Фон заголовка */
+  --epr-category-label-text-color: #b9bbbe !important; /* 👈 Цвет заголовка */
+  --epr-bg-color: #2f3136 !important; /* 👈 Общий фон */
+  --epr-picker-border-color: #202225 !important; /* 👈 Рамка */
 }
 
 /* *
-* 👆 БЛОК ДОБАВЛЕН 👆
+* 👆 БЛОК ИСПРАВЛЕН/ДОБАВЛЕН 👆
 *
 */
+
 
 /* Кнопки действий */
 .chat-action-btn {

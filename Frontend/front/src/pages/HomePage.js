@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FriendsList from "../components/FriendsList";
 import { io } from "socket.io-client"; 
-import EmojiPicker from 'emoji-picker-react'; // 👈 ДОБАВЛЕНО
+import EmojiPicker, { Theme } from 'emoji-picker-react'; // 👈 ИЗМЕНЕНО
 import "./HomePage.css"; 
 
 let chatSocket;
@@ -16,7 +16,7 @@ export default function HomePage({ currentUser }) {
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // 👈 ДОБАВЛЕНО
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const location = useLocation();
   const token = localStorage.getItem("token");
@@ -56,7 +56,7 @@ export default function HomePage({ currentUser }) {
     if (!activeChat?.id) return;
     setShowDeleteOptions(false);
     setModalView(null);
-    setShowEmojiPicker(false); // 👈 ДОБАВЛЕНО (скрывать при смене чата)
+    setShowEmojiPicker(false); 
 
     // Загрузка истории
     axios.get(`/chats/${activeChat.id}/messages`, config)
@@ -83,7 +83,6 @@ export default function HomePage({ currentUser }) {
 
     chatSocket.on("chat_member_updated", (data) => {
         if (Number(data.chatId) === Number(activeChat.id)) {
-             // Обновляем участников, если это группа
              if (activeChat.is_group) {
                 axios.get(`/chats/${activeChat.id}/users`, config)
                   .then(res => setChatMembers(res.data))
@@ -118,7 +117,6 @@ export default function HomePage({ currentUser }) {
       .catch(console.error);
   };
   
-  // 👈 ДОБАВЛЕНО: Обработчик клика по смайлику
   const onEmojiClick = (emojiData) => {
     setNewMessage(prevMessage => prevMessage + emojiData.emoji);
   };
@@ -247,15 +245,14 @@ export default function HomePage({ currentUser }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* 👇 БЛОК ИЗМЕНЕН 👇 */}
             <div className="chat-input">
               {showEmojiPicker && (
                 <div className="emoji-picker-container">
                   <EmojiPicker 
                     onEmojiClick={onEmojiClick} 
-                    theme="dark"
+                    theme={Theme.DARK}  {/* 👈 ИЗМЕНЕНО */}
                     lazyLoadEmojis={true}
-                    pickerStyle={{ width: '100%' }}
+                    style={{ width: '100%' }} {/* 👈 ИЗМЕНЕНО (prop 'style' вместо 'pickerStyle') */}
                   />
                 </div>
               )}
@@ -273,12 +270,10 @@ export default function HomePage({ currentUser }) {
                 onChange={(e) => setNewMessage(e.target.value)} 
                 placeholder="Написать сообщение..." 
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()} 
-                onClick={() => setShowEmojiPicker(false)} // 👈 Скрывать пикер при клике на инпут
+                onClick={() => setShowEmojiPicker(false)} 
               />
               <button onClick={sendMessage}>Go</button>
             </div>
-            {/* 👆 БЛОК ИЗМЕНЕН 👆 */}
-
             {renderModal()}
           </>
         ) : (
