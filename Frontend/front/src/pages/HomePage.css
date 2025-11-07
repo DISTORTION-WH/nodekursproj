@@ -190,10 +190,14 @@
   /* --- СКРОЛЛБАР --- */
   --epr-scrollbar-thumb-color: #202225 !important;
   --epr-scrollbar-track-color: #36393f !important;
+}
 
-  /* --- 🔽 ВОТ ИСПРАВЛЕНИЕ 🔽 --- */
-  /* Убираем кнопку выбора тона кожи */
-  --epr-skin-tone-picker-display: none !important;
+/* 🔽 ИСПРАВЛЕНИЕ (CSS): 
+  Более надежный способ скрыть кнопку тона кожи, 
+  если CSS-переменная или prop не сработали.
+*/
+.emoji-picker-container .EmojiPickerReact .epr-skin-tones {
+  display: none !important;
 }
 
 /* *

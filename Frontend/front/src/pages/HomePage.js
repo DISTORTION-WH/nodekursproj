@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import FriendsList from "../components/FriendsList";
 import { io } from "socket.io-client"; 
-import EmojiPicker, { Theme } from 'emoji-picker-react'; // 👈 ИЗМЕНЕНО
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 import "./HomePage.css"; 
 
 let chatSocket;
@@ -16,7 +16,7 @@ export default function HomePage({ currentUser }) {
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); 
   const messagesEndRef = useRef(null);
   const location = useLocation();
   const token = localStorage.getItem("token");
@@ -252,7 +252,8 @@ export default function HomePage({ currentUser }) {
                     onEmojiClick={onEmojiClick} 
                     theme={Theme.DARK}  
                     lazyLoadEmojis={true}
-                    style={{ width: '100%' }} 
+                    style={{ width: '100%' }}
+                    skinTonesDisabled={true} /* 👈 ДОБАВЛЕНО */
                   />
                 </div>
               )}
