@@ -1,9 +1,16 @@
+// src/components/FriendsList.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./FriendsList.css";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
+
+// Импортируем новые компоненты
+import GroupChatList from "./GroupChatList";
+import FriendChatList from "./FriendChatList";
+import IncomingRequests from "./IncomingRequests";
+import UserSearch from "./UserSearch";
 
 export default function FriendsList({ currentUser }) {
   const [friends, setFriends] = useState([]);
@@ -134,14 +141,13 @@ export default function FriendsList({ currentUser }) {
     }
   };
 
-  const openGroupChat = (chat) => {
+  const openGroupChat = (chat) =>
     selectChat({
       id: chat.id,
       name: chat.name,
       is_group: true,
       creator_id: chat.creator_id,
     });
-  };
 
   const joinByCode = async () => {
     const code = prompt("Код приглашения:");
@@ -169,117 +175,37 @@ export default function FriendsList({ currentUser }) {
 
   const openProfile = (id) => navigate(`/profile/${id}`);
 
+  // Теперь JSX стал чистым и декларативным
   return (
     <div className="friends-list">
-      <div className="friends-section">
-        <div className="section-header">
-          <h2>Комнаты</h2>
-          <div className="section-header-actions">
-            <button onClick={joinByCode} className="group-action-btn">
-              Join
-            </button>
-            <button
-              onClick={createGroupChat}
-              className="group-action-btn create"
-            >
-              +
-            </button>
-          </div>
-        </div>
-        {groupChats.map((chat) => (
-          <div
-            key={chat.id}
-            className="friend-item group-item"
-            onClick={() => openGroupChat(chat)}
-          >
-            <span>{chat.name}</span>
-          </div>
-        ))}
-        {groupChats.length === 0 && <p>Нет комнат</p>}
-      </div>
-      <div className="friends-section">
-        <div className="section-header">
-          <h2>Друзья</h2>
-        </div>
-        {friends.map((f) => (
-          <div key={f.id} className="friend-item" onClick={() => openChat(f)}>
-            <img
-              src={
-                f.avatar_url
-                  ? axios.defaults.baseURL + f.avatar_url
-                  : "/default-avatar.png"
-              }
-              alt="ava"
-              className="avatar"
-              onClick={(e) => {
-                e.stopPropagation();
-                openProfile(f.id);
-              }}
-            />
-            <span>{f.username}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                openChat(f);
-              }}
-            >
-              Чат
-            </button>
-          </div>
-        ))}
-        {friends.length === 0 && <p>Нет друзей</p>}
-      </div>
+      <GroupChatList
+        groupChats={groupChats}
+        onJoinByCode={joinByCode}
+        onCreateGroup={createGroupChat}
+        onOpenGroupChat={openGroupChat}
+      />
+
+      <FriendChatList
+        friends={friends}
+        onOpenChat={openChat}
+        onOpenProfile={openProfile}
+      />
+
       <div className="bottom-sections">
-        <div className="incoming-section">
-          <h3>Входящие</h3>
-          {incomingRequests.length === 0 ? (
-            <p>Нет запросов</p>
-          ) : (
-            incomingRequests.map((req) => (
-              <div key={req.requester_id} className="incoming-item">
-                <img
-                  src={
-                    req.requester_avatar
-                      ? axios.defaults.baseURL + req.requester_avatar
-                      : "/default-avatar.png"
-                  }
-                  alt="ava"
-                  className="avatar"
-                  onClick={() => openProfile(req.requester_id)}
-                />
-                <span>{req.requester_name}</span>
-                <button onClick={() => acceptRequest(req.requester_id)}>
-                  Принять
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="search-section">
-          <h3>Поиск</h3>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Имя пользователя"
-          />
-          <button onClick={handleSearch}>Найти</button>
-          {searchResults.map((u) => (
-            <div key={u.id} className="search-item">
-              <img
-                src={
-                  u.avatar_url
-                    ? axios.defaults.baseURL + u.avatar_url
-                    : "/default-avatar.png"
-                }
-                alt="ava"
-                className="avatar"
-                onClick={() => openProfile(u.id)}
-              />
-              <span>{u.username}</span>
-              <button onClick={() => sendFriendRequest(u.id)}>Добавить</button>
-            </div>
-          ))}
-        </div>
+        <IncomingRequests
+          requests={incomingRequests}
+          onAccept={acceptRequest}
+          onOpenProfile={openProfile}
+        />
+
+        <UserSearch
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          onSearchSubmit={handleSearch}
+          results={searchResults}
+          onAddFriend={sendFriendRequest}
+          onOpenProfile={openProfile}
+        />
       </div>
     </div>
   );
