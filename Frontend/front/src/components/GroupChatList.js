@@ -1,4 +1,3 @@
-// src/components/GroupChatList.js
 import React from "react";
 
 export default function GroupChatList({

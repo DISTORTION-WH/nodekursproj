@@ -1,4 +1,3 @@
-// Frontend/front/src/components/admin/LogsViewer.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../../pages/AdminPage.css";

@@ -1,4 +1,3 @@
-// src/components/FriendsList.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +5,6 @@ import "./FriendsList.css";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
 
-// Импортируем новые компоненты
 import GroupChatList from "./GroupChatList";
 import FriendChatList from "./FriendChatList";
 import IncomingRequests from "./IncomingRequests";
@@ -175,7 +173,6 @@ export default function FriendsList({ currentUser }) {
 
   const openProfile = (id) => navigate(`/profile/${id}`);
 
-  // Теперь JSX стал чистым и декларативным
   return (
     <div className="friends-list">
       <GroupChatList

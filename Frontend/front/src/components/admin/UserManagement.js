@@ -1,8 +1,6 @@
-// Frontend/front/src/components/admin/UserManagement.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-// Мы можем использовать тот же CSS, так как классы не пересекаются
 import "../../pages/AdminPage.css";
 
 export default function UserManagement() {
@@ -39,42 +37,21 @@ export default function UserManagement() {
 
   const handleSaveUser = async () => {
     try {
-      // ИСПРАВЛЕНИЕ: AdminPage.js неправильно обрабатывал `role`.
-      // Бэкенд (userService.updateUser) ожидает `roleId`, а не `role`.
-      // Мы должны сначала найти ID роли (1 для 'USER', 2 для 'ADMIN')
-      // Но для простоты, т.к. у нас нет доступа к списку ролей,
-      // отправим `roleId` как 1 или 2.
-      // Этого поля нет в `editingUser`, поэтому мы его пропускаем.
-      // Бэкенд ожидает { username, roleId, email }
-
-      // В `adminController.updateUser` передаются `username, roleId, email`.
-      // В `AdminPage.js` `editingUser.role` - это строка "USER" или "ADMIN".
-      // `userService.updateUser` ожидает `roleId`.
-      // Это было ошибкой в `AdminPage.js`.
-      // Давайте пока оставим как было, чтобы не ломать логику,
-      // но в идеале нужно передавать roleId.
-
       const dataToUpdate = {
         username: editingUser.username,
         email: editingUser.email,
-        // `roleId` не `role`. Если бэкенд ожидает `roleId`,
-        // нам нужно преобразовать "ADMIN" -> 2, "USER" -> 1.
-        // Судя по `adminController`, он ожидает `roleId`.
-        // В `userService.updateUser` он ожидает `roleId`.
-        // В `AdminPage` вы редактировали `role` (строку).
-        // Это несоответствие. Давайте отправим то, что было:
-        roleId: editingUser.role === "ADMIN" ? 2 : 1, // Простое предположение
+
+        roleId: editingUser.role === "ADMIN" ? 2 : 1,
       };
 
       await axios.put(`/admin/users/${editingUser.id}`, dataToUpdate, {
         headers: authHeaders,
       });
 
-      // Обновляем локальное состояние
       setUsers((prev) =>
         prev.map((u) =>
           Number(u.id) === Number(editingUser.id)
-            ? { ...editingUser, role: editingUser.role } // Сохраняем `role` (строку)
+            ? { ...editingUser, role: editingUser.role }
             : u
         )
       );

@@ -1,7 +1,6 @@
-// Frontend/front/src/components/profile/ChangePasswordForm.js
 import React, { useState } from "react";
 import axios from "axios";
-import "../../pages/ProfilePage.css"; // Используем тот же CSS
+import "../../pages/ProfilePage.css";
 
 export default function ChangePasswordForm() {
   const [oldPassword, setOldPassword] = useState("");
@@ -60,10 +59,6 @@ export default function ChangePasswordForm() {
         >
           {loadingPassword ? "Смена..." : "Сменить пароль"}
         </button>
-
-        {/* Кнопка Выхода останется в ProfilePage.js, 
-          так как она управляет состоянием App.js 
-        */}
 
         {passwordMessage && (
           <div className="password-message">{passwordMessage}</div>

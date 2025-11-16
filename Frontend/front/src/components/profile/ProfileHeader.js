@@ -1,7 +1,6 @@
-// Frontend/front/src/components/profile/ProfileHeader.js
 import React, { useState } from "react";
 import axios from "axios";
-import "../../pages/ProfilePage.css"; // Используем тот же CSS
+import "../../pages/ProfilePage.css";
 
 export default function ProfileHeader({ currentUser, handleAvatarChange }) {
   const [newAvatar, setNewAvatar] = useState(null);

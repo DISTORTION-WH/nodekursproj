@@ -1,4 +1,3 @@
-// Frontend/front/src/pages/AdminPage.js
 import React, { useState } from "react";
 import "./AdminPage.css";
 import UserManagement from "../components/admin/UserManagement";
@@ -55,7 +54,6 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Рендерим активную вкладку */}
       {renderTab()}
     </div>
   );

@@ -1,8 +1,7 @@
-// Frontend/front/src/components/profile/ProfileFriendList.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../../pages/ProfilePage.css"; // Используем тот же CSS
+import "../../pages/ProfilePage.css";
 
 export default function ProfileFriendList() {
   const [friends, setFriends] = useState([]);

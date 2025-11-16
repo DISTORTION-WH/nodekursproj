@@ -1,4 +1,3 @@
-// Frontend/front/src/components/admin/ChatManagement.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../../pages/AdminPage.css";
@@ -19,7 +18,6 @@ export default function ChatManagement() {
     axios
       .get("/admin/chats", { headers: authHeaders })
       .then((res) => {
-        // Логика из `AdminPage` для обработки отсутствующих полей
         const chatsData = res.data.map((c) => ({
           ...c,
           participants: c.participants || [],
