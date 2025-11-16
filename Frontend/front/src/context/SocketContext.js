@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+} from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
 
@@ -11,7 +17,7 @@ export const SocketProvider = ({ currentUser, children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (currentUser && currentUser.id && token && !socket) {
+    if (currentUser && currentUser.id && token) {
       const newSocket = io(axios.defaults.baseURL);
 
       newSocket.on("connect", () => {
@@ -26,17 +32,20 @@ export const SocketProvider = ({ currentUser, children }) => {
       return () => {
         console.log("Socket: Отключение...");
         newSocket.disconnect();
-        setSocket(null);
       };
-    } else if (!currentUser && socket) {
-      socket.disconnect();
-      setSocket(null);
+    } else {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
     }
-  }, [currentUser, socket]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const value = useMemo(() => ({ socket }), [socket]);
 
   return (
-    <SocketContext.Provider value={{ socket }}>
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
   );
 };
