@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useChat } from "../context/ChatContext";
 import { BackArrowIcon } from "./icons";
 import "../pages/HomePage.css";
@@ -38,7 +38,7 @@ export default function ChatHeader({ isMobile, onCloseChat }) {
           <img
             src={
               activeChat.avatar_url
-                ? axios.defaults.baseURL + activeChat.avatar_url
+                ? api.defaults.baseURL + activeChat.avatar_url
                 : "/default-avatar.png"
             }
             alt="avatar"

@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import "../../pages/AdminPage.css";
 
 export default function StatsDashboard() {
   const [stats, setStats] = useState(null);
-
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
 
   useEffect(() => {
     fetchStats();
@@ -14,8 +11,8 @@ export default function StatsDashboard() {
   }, []);
 
   const fetchStats = () => {
-    axios
-      .get("/admin/stats", { headers: authHeaders })
+    api
+      .get("/admin/stats")
       .then((res) => setStats(res.data))
       .catch((err) => console.error("Ошибка загрузки статистики:", err));
   };

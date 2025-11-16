@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import "../../pages/AdminPage.css";
 
 export default function LogsViewer() {
   const [logs, setLogs] = useState([]);
-
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
 
   useEffect(() => {
     fetchLogs();
@@ -14,8 +11,8 @@ export default function LogsViewer() {
   }, []);
 
   const fetchLogs = () => {
-    axios
-      .get("/admin/logs?limit=50", { headers: authHeaders })
+    api
+      .get("/admin/logs?limit=50")
       .then((res) => setLogs(res.data))
       .catch((err) => console.error("Ошибка загрузки логов:", err));
   };

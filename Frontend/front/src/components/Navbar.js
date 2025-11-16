@@ -1,22 +1,15 @@
-// src/components/Navbar.js
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Navbar.css";
-import axios from "axios";
-export default function Navbar({
-  isAuth,
-  setIsAuth,
-  role,
-  setRole,
-  currentUser,
-}) {
+import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
+
+export default function Navbar() {
   const navigate = useNavigate();
+  const { isAuth, role, currentUser, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuth(false);
-    setRole(null);
-    navigate("/login");
+    logout();
   };
 
   const leftLinks = isAuth
@@ -47,11 +40,8 @@ export default function Navbar({
           "div",
           { className: "avatar-wrapper" },
           React.createElement("img", {
-            // src: currentUser.avatar_url
-            //   ? "http://localhost:5000" + currentUser.avatar_url + "?t=" + Date.now() тут тоже для локалхоста
-            //   : "/default-avatar.png",
             src: currentUser.avatar_url
-              ? axios.defaults.baseURL +
+              ? api.defaults.baseURL +
                 currentUser.avatar_url +
                 "?t=" +
                 Date.now()
@@ -63,6 +53,14 @@ export default function Navbar({
         )
       : null;
 
+  const logoutBtn = isAuth
+    ? React.createElement(
+        "button",
+        { key: "logout", onClick: handleLogout, className: "btn" },
+        "Выход"
+      )
+    : null;
+
   return React.createElement(
     "nav",
     { className: "navbar" },
@@ -71,6 +69,6 @@ export default function Navbar({
       { to: "/", className: "logo", style: { textDecoration: "none" } },
       "Lume"
     ),
-    React.createElement("div", null, ...leftLinks, avatarEl)
+    React.createElement("div", null, ...leftLinks, avatarEl, logoutBtn)
   );
 }

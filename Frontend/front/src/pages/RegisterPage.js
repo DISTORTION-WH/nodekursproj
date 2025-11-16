@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { jwtDecode } from "jwt-decode";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 import "../components/AuthForm.css";
 
-export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
+export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,7 +11,7 @@ export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
   const [verificationCode, setVerificationCode] = useState("");
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handlePreRegister = async (e) => {
     e.preventDefault();
@@ -25,7 +24,7 @@ export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
       formData.append("password", password);
       if (avatar) formData.append("avatar", avatar);
 
-      await axios.post("/auth/pre-registration", formData, {
+      await api.post("/auth/pre-registration", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -41,29 +40,15 @@ export default function RegisterPage({ setIsAuth, setRole, setCurrentUser }) {
     setError("");
 
     try {
-      await axios.post("/auth/confirm-registration", {
+      await api.post("/auth/confirm-registration", {
         email,
         code: verificationCode,
       });
 
-      const resLogin = await axios.post("/auth/login", { username, password });
-      const token = resLogin.data.accessToken;
-      localStorage.setItem("token", token);
-
-      if (setIsAuth) setIsAuth(true);
-      if (setRole) setRole(jwtDecode(token).role || "USER");
-
-      if (setCurrentUser) {
-        const resUser = await axios.get("/users/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCurrentUser(resUser.data);
-      }
-
-      navigate("/");
+      await login(username, password);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || "Ошибка подтверждения");
+      setError(err.response?.data?.message || err || "Ошибка подтверждения");
     }
   };
 

@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useSocket } from "./SocketContext";
 
 const ChatContext = createContext();
@@ -20,27 +20,20 @@ export const ChatProvider = ({ currentUser, children }) => {
   const [chatMembers, setChatMembers] = useState([]);
   const [friendsForInvite, setFriendsForInvite] = useState([]);
 
-  const token = localStorage.getItem("token");
-  const config = { headers: { Authorization: `Bearer ${token}` } };
-
-  const fetchChatMembers = useCallback(
-    (chatId) => {
-      axios
-        .get(`/chats/${chatId}/users`, config)
-        .then((res) => setChatMembers(res.data))
-        .catch(console.error);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token]
-  );
+  const fetchChatMembers = useCallback((chatId) => {
+    api
+      .get(`/chats/${chatId}/users`)
+      .then((res) => setChatMembers(res.data))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (!socket || !activeChat?.id) {
       return;
     }
 
-    axios
-      .get(`/chats/${activeChat.id}/messages`, config)
+    api
+      .get(`/chats/${activeChat.id}/messages`)
       .then((res) => setMessages(res.data))
       .catch(console.error);
 
@@ -108,9 +101,7 @@ export const ChatProvider = ({ currentUser, children }) => {
 
   const sendMessage = (text) => {
     if (!text.trim() || !activeChat?.id) return;
-    axios
-      .post(`/chats/${activeChat.id}/messages`, { text }, config)
-      .catch(console.error);
+    api.post(`/chats/${activeChat.id}/messages`, { text }).catch(console.error);
   };
 
   const deleteMessages = async (allForEveryone) => {
@@ -118,11 +109,9 @@ export const ChatProvider = ({ currentUser, children }) => {
     if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?"))
       return;
     try {
-      await axios.post(
-        `/chats/${activeChat.id}/messages/delete`,
-        { allForEveryone },
-        config
-      );
+      await api.post(`/chats/${activeChat.id}/messages/delete`, {
+        allForEveryone,
+      });
       if (!allForEveryone) setMessages([]);
     } catch (err) {
       console.error(err);
@@ -131,7 +120,7 @@ export const ChatProvider = ({ currentUser, children }) => {
 
   const openInviteModal = async () => {
     try {
-      const res = await axios.get("/friends", config);
+      const res = await api.get("/friends");
       const memberIds = new Set(chatMembers.map((m) => m.id));
       setFriendsForInvite(res.data.filter((f) => !memberIds.has(f.id)));
       setModalView("invite");
@@ -150,7 +139,7 @@ export const ChatProvider = ({ currentUser, children }) => {
 
   const handleInvite = async (friendId) => {
     try {
-      await axios.post(`/chats/${activeChat.id}/invite`, { friendId }, config);
+      await api.post(`/chats/${activeChat.id}/invite`, { friendId });
       closeModal();
     } catch (err) {
       alert(err.response?.data?.message || "Ошибка");
@@ -162,11 +151,7 @@ export const ChatProvider = ({ currentUser, children }) => {
     if (!window.confirm(isLeaving ? "Выйти из группы?" : "Удалить участника?"))
       return;
     try {
-      await axios.post(
-        `/chats/${activeChat.id}/kick`,
-        { userIdToKick },
-        config
-      );
+      await api.post(`/chats/${activeChat.id}/kick`, { userIdToKick });
       if (isLeaving) closeChat();
     } catch (err) {
       alert(err.response?.data?.message || "Ошибка");
@@ -175,11 +160,7 @@ export const ChatProvider = ({ currentUser, children }) => {
 
   const handleGetInviteCode = async () => {
     try {
-      const res = await axios.post(
-        `/chats/${activeChat.id}/invite-code`,
-        {},
-        config
-      );
+      const res = await api.post(`/chats/${activeChat.id}/invite-code`, {});
       window.prompt("Код приглашения:", res.data.inviteCode);
     } catch (err) {
       console.error(err);

@@ -20,7 +20,6 @@ const authRouter = require("./Routes/authRouter");
 const chatRouter = require("./Routes/chatRouter");
 const usersRouter = require("./Routes/usersRouter");
 const friendsRouter = require("./Routes/friendsRouter");
-const chatDeleteRouter = require("./Routes/chatDeleteRouter");
 const adminRouter = require("./Routes/adminRouter");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -89,7 +88,6 @@ app.use("/chats", chatRouter);
 app.use("/friends", friendsRouter);
 app.use("/users", usersRouter);
 app.use("/uploads/avatars", express.static("uploads/avatars"));
-app.use("/chats", chatDeleteRouter);
 app.use("/admin", adminRouter);
 
 app.use((err, req, res, next) => {

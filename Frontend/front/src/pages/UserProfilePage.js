@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 import "./UserProfilePage.css";
 
 export default function UserProfilePage() {
@@ -8,15 +8,12 @@ export default function UserProfilePage() {
   const [user, setUser] = useState(null);
   const [friends, setFriends] = useState([]);
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-  const config = { headers: { Authorization: "Bearer " + token } };
 
   useEffect(() => {
     if (!userId) return;
 
-    //   axios.get(`http://localhost:5000/users/${userId}`, config)
-    axios
-      .get(`/users/${userId}`, config)
+    api
+      .get(`/users/${userId}`)
       .then((res) => {
         setUser(res.data);
         setFriends(res.data.friends || []);
@@ -26,7 +23,7 @@ export default function UserProfilePage() {
         alert("Ошибка при загрузке профиля пользователя");
         navigate(-1);
       });
-  }, [userId]);
+  }, [userId, navigate]);
 
   const startChat = async () => {
     try {
@@ -36,12 +33,7 @@ export default function UserProfilePage() {
         return;
       }
 
-      const res = await axios.post(
-        //     "http://localhost:5000/chats/private",
-        "/chats/private",
-        { friendId },
-        config
-      );
+      const res = await api.post("/chats/private", { friendId });
 
       if (!res.data || !res.data.id) {
         alert("Ошибка: сервер не вернул ID чата");
@@ -68,12 +60,7 @@ export default function UserProfilePage() {
   const removeFriend = async () => {
     if (!window.confirm("Удалить из друзей?")) return;
     try {
-      await axios.post(
-        //     `http://localhost:5000/friends/remove`,
-        `/friends/remove`,
-        { friendId: user.id },
-        config
-      );
+      await api.post(`/friends/remove`, { friendId: user.id });
       alert("Пользователь удалён из друзей");
       navigate(-1);
     } catch (err) {
@@ -94,7 +81,7 @@ export default function UserProfilePage() {
         <img
           src={
             user.avatar_url
-              ? axios.defaults.baseURL + user.avatar_url
+              ? api.defaults.baseURL + user.avatar_url
               : "/default-avatar.png"
           }
           alt="avatar"
@@ -124,7 +111,7 @@ export default function UserProfilePage() {
                 <img
                   src={
                     friend.avatar_url
-                      ? axios.defaults.baseURL + friend.avatar_url
+                      ? api.defaults.baseURL + friend.avatar_url
                       : "/default-avatar.png"
                   }
                   alt="friend-avatar"

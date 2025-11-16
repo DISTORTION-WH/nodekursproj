@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import "../../pages/ProfilePage.css";
 
 export default function ChangePasswordForm() {
@@ -7,9 +7,6 @@ export default function ChangePasswordForm() {
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [loadingPassword, setLoadingPassword] = useState(false);
-
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
 
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword) {
@@ -19,11 +16,7 @@ export default function ChangePasswordForm() {
     setPasswordMessage("");
     setLoadingPassword(true);
     try {
-      await axios.put(
-        "/users/password",
-        { oldPassword, newPassword },
-        { headers: authHeaders }
-      );
+      await api.put("/users/password", { oldPassword, newPassword });
       setPasswordMessage("Пароль успешно изменён");
       setOldPassword("");
       setNewPassword("");

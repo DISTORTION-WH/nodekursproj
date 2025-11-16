@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import "../../pages/ProfilePage.css";
 
@@ -7,17 +7,13 @@ export default function ProfileFriendList() {
   const [friends, setFriends] = useState([]);
   const navigate = useNavigate();
 
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
-
   useEffect(() => {
-    if (!token) return;
-    axios
-      .get("/friends", { headers: authHeaders })
+    api
+      .get("/friends")
       .then((res) => setFriends(res.data || []))
       .catch(() => setFriends([]));
     // eslint-disable-next-line
-  }, [token]);
+  }, []);
 
   const openFriendProfile = (id) => {
     navigate(`/profile/${id}`);
@@ -38,7 +34,7 @@ export default function ProfileFriendList() {
               <img
                 src={
                   f.avatar_url
-                    ? axios.defaults.baseURL + f.avatar_url
+                    ? api.defaults.baseURL + f.avatar_url
                     : "/default-avatar.png"
                 }
                 alt={f.username}

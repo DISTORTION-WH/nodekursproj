@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import "../../pages/AdminPage.css";
 
 export default function ChatManagement() {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
-
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
 
   useEffect(() => {
     fetchChats();
@@ -15,8 +12,8 @@ export default function ChatManagement() {
   }, []);
 
   const fetchChats = () => {
-    axios
-      .get("/admin/chats", { headers: authHeaders })
+    api
+      .get("/admin/chats")
       .then((res) => {
         const chatsData = res.data.map((c) => ({
           ...c,
@@ -34,7 +31,7 @@ export default function ChatManagement() {
   const handleDeleteChat = async (chat) => {
     if (!window.confirm("Удалить этот чат?")) return;
     try {
-      await axios.delete(`/admin/chats/${chat.id}`, { headers: authHeaders });
+      await api.delete(`/admin/chats/${chat.id}`);
       setChats((prev) => prev.filter((c) => Number(c.id) !== Number(chat.id)));
       if (selectedChat?.id === chat.id) setSelectedChat(null);
     } catch (err) {

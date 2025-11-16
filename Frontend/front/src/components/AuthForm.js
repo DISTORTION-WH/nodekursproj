@@ -1,14 +1,12 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
+import { useAuth } from "../context/AuthContext";
 import "./AuthForm.css";
 
-export default function AuthForm({ type, setIsAuth, setRole, setCurrentUser }) {
+export default function AuthForm({ type }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,25 +18,10 @@ export default function AuthForm({ type, setIsAuth, setRole, setCurrentUser }) {
     }
 
     try {
-      const res = await axios.post("/auth/login", { username, password });
-
-      const token = res.data.accessToken;
-      localStorage.setItem("token", token);
-
-      if (setIsAuth) setIsAuth(true);
-      if (setRole) setRole(jwtDecode(token).role || "USER");
-
-      if (setCurrentUser) {
-        const resUser = await axios.get("/users/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCurrentUser(resUser.data);
-      }
-
-      navigate("/");
+      await login(username, password);
     } catch (err) {
-      console.error(err.response?.data || err);
-      setError(err.response?.data?.message || "Ошибка входа");
+      console.error(err);
+      setError(err || "Неизвестная ошибка входа");
     }
   };
 

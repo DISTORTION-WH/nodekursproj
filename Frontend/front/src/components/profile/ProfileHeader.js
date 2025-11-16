@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import "../../pages/ProfilePage.css";
 
 export default function ProfileHeader({ currentUser, handleAvatarChange }) {
@@ -31,7 +31,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }) {
         className="profile-avatar"
         src={
           currentUser && currentUser.avatar_url
-            ? axios.defaults.baseURL +
+            ? api.defaults.baseURL +
               currentUser.avatar_url +
               "?t=" +
               new Date().getTime()

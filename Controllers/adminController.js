@@ -1,5 +1,6 @@
 const userService = require("../Services/userService");
-const client = require("../databasepg");
+const chatService = require("../Services/chatService");
+const adminService = require("../Services/adminService");
 const logService = require("../Services/logService");
 
 class AdminController {
@@ -50,8 +51,8 @@ class AdminController {
   async deleteChat(req, res, next) {
     try {
       const { id } = req.params;
-      await client.query("DELETE FROM chats WHERE id = $1", [id]);
-      res.json({ message: "Чат удалён" });
+      await adminService.deleteChat(id);
+      res.json({ message: "Чат и все его данные удалены" });
     } catch (e) {
       next(e);
     }
@@ -59,8 +60,8 @@ class AdminController {
 
   async getAllChats(req, res, next) {
     try {
-      const chats = await client.query("SELECT * FROM chats");
-      res.json(chats.rows);
+      const chats = await chatService.getAllChats();
+      res.json(chats);
     } catch (e) {
       next(e);
     }
@@ -68,19 +69,8 @@ class AdminController {
 
   async getStats(req, res, next) {
     try {
-      const [usersRes, chatsRes, messagesRes, logsRes] = await Promise.all([
-        client.query("SELECT COUNT(*) FROM users"),
-        client.query("SELECT COUNT(*) FROM chats"),
-        client.query("SELECT COUNT(*) FROM messages"),
-        client.query("SELECT COUNT(*) FROM app_logs"),
-      ]);
-
-      res.json({
-        usersCount: parseInt(usersRes.rows[0].count, 10),
-        chatsCount: parseInt(chatsRes.rows[0].count, 10),
-        messagesCount: parseInt(messagesRes.rows[0].count, 10),
-        logsCount: parseInt(logsRes.rows[0].count, 10),
-      });
+      const stats = await adminService.getAppStats();
+      res.json(stats);
     } catch (e) {
       next(e);
     }

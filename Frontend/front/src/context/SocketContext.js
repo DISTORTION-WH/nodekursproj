@@ -6,7 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import { io } from "socket.io-client";
-import axios from "axios";
+import api from "../services/api";
 
 const SocketContext = createContext(null);
 
@@ -18,7 +18,7 @@ export const SocketProvider = ({ currentUser, children }) => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (currentUser && currentUser.id && token) {
-      const newSocket = io(axios.defaults.baseURL);
+      const newSocket = io(api.defaults.baseURL);
 
       newSocket.on("connect", () => {
         newSocket.emit("join_user_room", currentUser.id);

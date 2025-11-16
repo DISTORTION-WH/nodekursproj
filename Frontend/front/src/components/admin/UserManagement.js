@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 
 import "../../pages/AdminPage.css";
 
@@ -8,17 +8,14 @@ export default function UserManagement() {
   const [search, setSearch] = useState("");
   const [editingUser, setEditingUser] = useState(null);
 
-  const token = localStorage.getItem("token");
-  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
-
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line
   }, []);
 
   const fetchUsers = () => {
-    axios
-      .get("/admin/users", { headers: authHeaders })
+    api
+      .get("/admin/users")
       .then((res) => setUsers(res.data))
       .catch((err) => console.error("Ошибка загрузки пользователей:", err));
   };
@@ -26,7 +23,7 @@ export default function UserManagement() {
   const handleDeleteUser = async (id) => {
     if (!window.confirm("Удалить пользователя?")) return;
     try {
-      await axios.delete(`/admin/users/${id}`, { headers: authHeaders });
+      await api.delete(`/admin/users/${id}`);
       setUsers((prev) => prev.filter((u) => Number(u.id) !== Number(id)));
     } catch (err) {
       console.error("Ошибка удаления:", err);
@@ -44,9 +41,7 @@ export default function UserManagement() {
         roleId: editingUser.role === "ADMIN" ? 2 : 1,
       };
 
-      await axios.put(`/admin/users/${editingUser.id}`, dataToUpdate, {
-        headers: authHeaders,
-      });
+      await api.put(`/admin/users/${editingUser.id}`, dataToUpdate);
 
       setUsers((prev) =>
         prev.map((u) =>

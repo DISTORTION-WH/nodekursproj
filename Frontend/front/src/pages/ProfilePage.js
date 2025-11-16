@@ -1,25 +1,13 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import "./ProfilePage.css";
 
 import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileFriendList from "../components/profile/ProfileFriendList";
 import ChangePasswordForm from "../components/profile/ChangePasswordForm";
+import { useAuth } from "../context/AuthContext";
 
-export default function ProfilePage({
-  currentUser,
-  handleAvatarChange,
-  setIsAuth,
-  setRole,
-}) {
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuth(false);
-    setRole(null);
-    navigate("/login");
-  };
+export default function ProfilePage() {
+  const { currentUser, handleAvatarChange } = useAuth();
 
   return (
     <div className="profile-page">
@@ -34,15 +22,6 @@ export default function ProfilePage({
         <ProfileFriendList />
 
         <ChangePasswordForm />
-
-        <section
-          className="profile-logout-section"
-          style={{ padding: "20px 40px", background: "#202225" }}
-        >
-          <button className="profile-logout-btn" onClick={handleLogout}>
-            Выйти
-          </button>
-        </section>
       </div>
     </div>
   );
