@@ -2,20 +2,22 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./FriendsList.css";
-import { io } from "socket.io-client";
+import { useSocket } from "../context/SocketContext";
+import { useChat } from "../context/ChatContext";
 
-let socket;
-
-export default function FriendsList({ setActiveChat, currentUser }) {
+export default function FriendsList({ currentUser }) {
   const [friends, setFriends] = useState([]);
   const [groupChats, setGroupChats] = useState([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const config = { headers: { Authorization: "Bearer " + token } };
+
+  const { socket } = useSocket();
+  const { selectChat } = useChat();
 
   const fetchData = () => {
     if (!token) return;
@@ -35,51 +37,53 @@ export default function FriendsList({ setActiveChat, currentUser }) {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
-    if (currentUser && currentUser.id && token) {
-      if (!socket || !socket.connected) {
-        socket = io(axios.defaults.baseURL);
-      }
-
-      socket.on("connect", () => {
-        socket.emit("join_user_room", currentUser.id);
-      });
-
-      socket.on("new_friend_request", () => {
+  useEffect(() => {
+    if (socket) {
+      const onNewFriendRequest = () => {
         axios
           .get("/friends/incoming", config)
           .then((res) => setIncomingRequests(res.data));
-      });
+      };
 
-      socket.on("friend_request_accepted", () => {
+      const onFriendRequestAccepted = () => {
         axios.get("/friends", config).then((res) => setFriends(res.data));
-      });
+      };
 
-      socket.on("friend_removed", () => {
+      const onFriendRemoved = () => {
         axios.get("/friends", config).then((res) => setFriends(res.data));
-      });
+      };
 
-      socket.on("added_to_chat", () => {
+      const onAddedToChat = () => {
         axios
           .get("/chats", config)
           .then((res) => setGroupChats(res.data.filter((c) => c.is_group)));
-      });
+      };
 
-      socket.on("removed_from_chat", (data) => {
+      const onRemovedFromChat = (data) => {
         setGroupChats((prev) =>
           prev.filter((c) => Number(c.id) !== Number(data.chatId))
         );
-      });
+      };
+
+      socket.on("new_friend_request", onNewFriendRequest);
+      socket.on("friend_request_accepted", onFriendRequestAccepted);
+      socket.on("friend_removed", onFriendRemoved);
+      socket.on("added_to_chat", onAddedToChat);
+      socket.on("removed_from_chat", onRemovedFromChat);
 
       return () => {
-        socket.off("new_friend_request");
-        socket.off("friend_request_accepted");
-        socket.off("friend_removed");
-        socket.off("added_to_chat");
-        socket.off("removed_from_chat");
+        socket.off("new_friend_request", onNewFriendRequest);
+        socket.off("friend_request_accepted", onFriendRequestAccepted);
+        socket.off("friend_removed", onFriendRemoved);
+        socket.off("added_to_chat", onAddedToChat);
+        socket.off("removed_from_chat", onRemovedFromChat);
       };
     }
-  }, [currentUser, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, token]);
 
   const handleSearch = () => {
     if (!search.trim()) return;
@@ -119,7 +123,7 @@ export default function FriendsList({ setActiveChat, currentUser }) {
         { friendId: friend.id },
         config
       );
-      setActiveChat({
+      selectChat({
         id: res.data.id,
         username: friend.username,
         avatar_url: friend.avatar_url,
@@ -130,13 +134,14 @@ export default function FriendsList({ setActiveChat, currentUser }) {
     }
   };
 
-  const openGroupChat = (chat) =>
-    setActiveChat({
+  const openGroupChat = (chat) => {
+    selectChat({
       id: chat.id,
       name: chat.name,
       is_group: true,
       creator_id: chat.creator_id,
     });
+  };
 
   const joinByCode = async () => {
     const code = prompt("Код приглашения:");

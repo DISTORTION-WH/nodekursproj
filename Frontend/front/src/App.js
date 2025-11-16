@@ -14,10 +14,13 @@ import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
+import { SocketProvider } from "./context/SocketContext";
+import { ChatProvider } from "./context/ChatContext";
 import "./App.css";
 
 axios.defaults.baseURL =
   process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 export default function App() {
   const [isAuth, setIsAuth] = useState(false);
   const [role, setRole] = useState(null);
@@ -95,91 +98,95 @@ export default function App() {
     );
 
   return (
-    <Router>
-      <Navbar
-        isAuth={isAuth}
-        setIsAuth={setIsAuth}
-        role={role}
-        setRole={setRole}
-        currentUser={currentUser}
-      />
-      <div className="app-container">
-        <div className="main-content">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                isAuth ? (
-                  <HomePage
-                    currentUser={currentUser}
-                    setCurrentUser={setCurrentUser}
-                  />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/login"
-              element={
-                <LoginPage
-                  setIsAuth={setIsAuth}
-                  setRole={setRole}
-                  setCurrentUser={setCurrentUser}
+    <SocketProvider currentUser={currentUser}>
+      <ChatProvider currentUser={currentUser}>
+        <Router>
+          <Navbar
+            isAuth={isAuth}
+            setIsAuth={setIsAuth}
+            role={role}
+            setRole={setRole}
+            currentUser={currentUser}
+          />
+          <div className="app-container">
+            <div className="main-content">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
                 />
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <RegisterPage
-                  setIsAuth={setIsAuth}
-                  setRole={setRole}
-                  setCurrentUser={setCurrentUser}
+                <Route
+                  path="/login"
+                  element={
+                    <LoginPage
+                      setIsAuth={setIsAuth}
+                      setRole={setRole}
+                      setCurrentUser={setCurrentUser}
+                    />
+                  }
                 />
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                isAuth && role === "ADMIN" ? <AdminPage /> : <Navigate to="/" />
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                isAuth ? (
-                  <ProfilePage
-                    currentUser={currentUser}
-                    handleAvatarChange={handleAvatarChange}
-                    setIsAuth={setIsAuth}
-                    setRole={setRole}
-                  />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/profile/:userId"
-              element={isAuth ? <UserProfilePage /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="*"
-              element={
-                isAuth ? (
-                  <HomePage
-                    currentUser={currentUser}
-                    setCurrentUser={setCurrentUser}
-                  />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-          </Routes>
-        </div>
-      </div>
-    </Router>
+                <Route
+                  path="/register"
+                  element={
+                    <RegisterPage
+                      setIsAuth={setIsAuth}
+                      setRole={setRole}
+                      setCurrentUser={setCurrentUser}
+                    />
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    isAuth && role === "ADMIN" ? (
+                      <AdminPage />
+                    ) : (
+                      <Navigate to="/" />
+                    )
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    isAuth ? (
+                      <ProfilePage
+                        currentUser={currentUser}
+                        handleAvatarChange={handleAvatarChange}
+                        setIsAuth={setIsAuth}
+                        setRole={setRole}
+                      />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+                <Route
+                  path="/profile/:userId"
+                  element={
+                    isAuth ? <UserProfilePage /> : <Navigate to="/login" />
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+              </Routes>
+            </div>
+          </div>
+        </Router>
+      </ChatProvider>
+    </SocketProvider>
   );
 }
