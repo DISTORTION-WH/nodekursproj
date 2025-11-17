@@ -13,6 +13,7 @@ export interface User {
   created_at?: string;
   friends?: User[]; 
   roles?: string[];
+  token?: string; // Добавил на всякий случай, так как используется в AuthResponse
 }
 
 export interface Message {
@@ -25,6 +26,7 @@ export interface Message {
   sender?: {
     id: number;
     username: string;
+    avatar_url?: string;
   };
 }
 
@@ -47,7 +49,13 @@ export interface Chat {
     text: string;
     created_at: string;
   };
-  participants?: User[]; 
+  participants?: User[];
+  messages?: Message[]; // Исправление: добавлено это поле
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
 }
 
 export interface FriendRequest {
