@@ -44,12 +44,14 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const openChat = async (friend: User) => {
     try {
       const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
+      
       selectChat({
         id: res.data.id,
         username: friend.username,
         avatar_url: friend.avatar_url,
         is_group: false,
         name: null,
+        participants: [{ id: friend.id, username: friend.username }] as any
       });
     } catch (err) {
       console.error(err);

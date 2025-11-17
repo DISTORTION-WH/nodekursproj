@@ -15,6 +15,8 @@ import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CallProvider } from "./context/CallContext";
+import CallOverlay from "./components/CallOverlay";
 import "./App.css";
 
 function AppRoutes() {
@@ -27,57 +29,60 @@ function AppRoutes() {
 
   return (
     <SocketProvider currentUser={currentUser}>
-      <ChatProvider currentUser={currentUser}>
-        <Navbar />
-        <div className="app-container">
-          <div className="main-content">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  isAuth ? (
-                    <HomePage currentUser={currentUser} />
-                  ) : (
-                    <Navigate to="/login" />
-                  )
-                }
-              />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<ZFRegisterPage />} />
-              <Route
-                path="/admin"
-                element={
-                  isAuth && role === "ADMIN" ? (
-                    <AdminPage />
-                  ) : (
-                    <Navigate to="/" />
-                  )
-                }
-              />
-              <Route
-                path="/profile"
-                element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
-              />
-              <Route
-                path="/profile/:userId"
-                element={
-                  isAuth ? <UserProfilePage /> : <Navigate to="/login" />
-                }
-              />
-              <Route
-                path="*"
-                element={
-                  isAuth ? (
-                    <HomePage currentUser={currentUser} />
-                  ) : (
-                    <Navigate to="/login" />
-                  )
-                }
-              />
-            </Routes>
+      <CallProvider>
+        <ChatProvider currentUser={currentUser}>
+          <Navbar />
+          <div className="app-container">
+            <div className="main-content">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<ZFRegisterPage />} />
+                <Route
+                  path="/admin"
+                  element={
+                    isAuth && role === "ADMIN" ? (
+                      <AdminPage />
+                    ) : (
+                      <Navigate to="/" />
+                    )
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
+                />
+                <Route
+                  path="/profile/:userId"
+                  element={
+                    isAuth ? <UserProfilePage /> : <Navigate to="/login" />
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+              </Routes>
+            </div>
           </div>
-        </div>
-      </ChatProvider>
+          <CallOverlay />
+        </ChatProvider>
+      </CallProvider>
     </SocketProvider>
   );
 }

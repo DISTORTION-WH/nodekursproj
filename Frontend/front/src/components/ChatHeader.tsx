@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import api from "../services/api";
 import { useChat } from "../context/ChatContext";
-import { BackArrowIcon } from "./icons";
+import { useCall } from "../context/CallContext";
+import { BackArrowIcon, PhoneIcon, VideoIcon } from "./icons";
 import "../pages/HomePage.css";
 
 interface ChatHeaderProps {
@@ -21,6 +22,8 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     deleteMessages,
   } = useChat();
 
+  const { startCall } = useCall();
+
   if (!activeChat || !currentUser) return null;
 
   const handleLeave = () => {
@@ -30,6 +33,27 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   const handleDelete = (isAll: boolean) => {
     deleteMessages(isAll);
     setShowDeleteOptions(false);
+  };
+
+  const handleCall = (video: boolean) => {
+    if (activeChat.is_group) {
+        alert("Звонки в группах не поддерживаются");
+        return;
+    }
+
+    let targetId: number | undefined;
+
+    if (activeChat.participants && activeChat.participants.length > 0) {
+        const friend = activeChat.participants.find(p => Number(p.id) !== Number(currentUser.id));
+        targetId = friend?.id;
+    }
+
+    if (!targetId) {
+       alert("Ошибка: Не удалось определить ID пользователя для звонка.");
+       return;
+    }
+
+    startCall(Number(targetId), video);
   };
 
   return (
@@ -56,6 +80,17 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
       </div>
 
       <div className="chat-actions">
+        {!activeChat.is_group && (
+            <>
+                <button className="chat-action-btn" onClick={() => handleCall(false)} title="Аудиозвонок">
+                    <PhoneIcon />
+                </button>
+                <button className="chat-action-btn" onClick={() => handleCall(true)} title="Видеозвонок">
+                    <VideoIcon />
+                </button>
+            </>
+        )}
+
         {activeChat.is_group ? (
           <>
             <button

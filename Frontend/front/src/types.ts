@@ -39,12 +39,15 @@ export interface Chat {
   id: number;
   name: string | null;
   is_group: boolean;
-  creator_id?: number | null;
-  invite_code?: string | null;
-  participants?: ChatParticipant[];
-  messages?: Message[];
-  username?: string; 
-  avatar_url?: string | null;
+  creator_id?: number;
+  invite_code?: string;
+  username?: string;
+  avatar_url?: string; 
+  last_message?: {
+    text: string;
+    created_at: string;
+  };
+  participants?: User[]; 
 }
 
 export interface FriendRequest {
