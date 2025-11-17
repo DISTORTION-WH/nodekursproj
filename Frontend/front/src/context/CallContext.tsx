@@ -48,8 +48,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const otherUserId = useRef<number | null>(null);
-  const pendingOffer = useRef<any>(null); 
-  const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]); 
+  const pendingOffer = useRef<any>(null);
+  const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
 
   const resetCall = useCallback(() => {
     if (localStream) {
@@ -71,9 +71,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   }, [localStream]);
 
   const createPeerConnection = () => {
-    if (peerConnection.current) {
-        peerConnection.current.close();
-    }
+    if (peerConnection.current) peerConnection.current.close();
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
@@ -86,15 +84,26 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+    // ВАЖНО: Улучшенная обработка входящего потока
     pc.ontrack = (event) => {
-      console.log("📡 Получен удаленный поток (Audio/Video)");
-      setRemoteStream(event.streams[0]);
+      console.log("📡 Получен трек:", event.track.kind);
+      
+      // Иногда stream приходит пустым в event.streams, создаем новый если надо
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      
+      console.log("🔊 Аудио треков:", stream.getAudioTracks().length);
+      console.log("📺 Видео треков:", stream.getVideoTracks().length);
+
+      setRemoteStream(prevStream => {
+         // Если поток уже есть, просто вернем его (чтобы не вызывать перерисовку)
+         // Или можно объединить треки, если они приходят по отдельности
+         if (prevStream && prevStream.id === stream.id) return prevStream;
+         return stream;
+      });
     };
 
     pc.onconnectionstatechange = () => {
-        console.log("Статус соединения WebRTC:", pc.connectionState);
-        if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        }
+        console.log("Connection state:", pc.connectionState);
     };
 
     return pc;
@@ -102,29 +111,31 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const processIceQueue = async () => {
     if (!peerConnection.current) return;
-    
     while (iceCandidatesQueue.current.length > 0) {
         const candidate = iceCandidatesQueue.current.shift();
         if (candidate) {
             try {
                 await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log("✅ Добавлен ICE кандидат из очереди");
-            } catch (e) {
-                console.error("Ошибка добавления ICE из очереди", e);
-            }
+            } catch (e) { console.error(e); }
         }
     }
   };
 
   const getMediaStream = async (video: boolean) => {
     try {
-      console.log("Запрос доступа к медиа devices...");
-      const stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
+      // Всегда запрашиваем аудио!
+      const stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: true });
+      
+      console.log("🎤 Локальный доступ получен. Аудио треков:", stream.getAudioTracks().length);
+      if (stream.getAudioTracks().length === 0) {
+          alert("Внимание: Микрофон не найден или недоступен!");
+      }
+
       setLocalStream(stream);
       return stream;
     } catch (err) {
-      console.error("❌ Ошибка доступа к камере/микрофону:", err);
-      alert("Не удалось получить доступ к камере или микрофону. Проверьте разрешения в браузере (замочек в строке адреса).");
+      console.error("Error accessing media:", err);
+      alert("Ошибка доступа к микрофону/камере. Проверьте разрешения браузера.");
       return null;
     }
   };
@@ -132,13 +143,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("incoming_call", async (data: { from: number; name: string; signal: any; isVideo: boolean }) => {
-      console.log("📞 Входящий звонок от:", data.name);
-      if (callState !== "idle") {
-          console.log("Линия занята");
-          return; 
-      }
-
+    socket.on("incoming_call", async (data) => {
+      if (callState !== "idle") return;
+      console.log("Incoming call from", data.name);
       setCallerData({ id: data.from, name: data.name });
       setIsVideoCall(data.isVideo);
       setCallState("incoming");
@@ -147,7 +154,6 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     });
 
     socket.on("call_accepted", async (signal) => {
-      console.log("✅ Звонок принят собеседником");
       setCallState("connected");
       if (peerConnection.current) {
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
@@ -158,21 +164,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     socket.on("receive_ice_candidate", async (data) => {
       const candidate = data.candidate;
       if (peerConnection.current && peerConnection.current.remoteDescription) {
-        try {
-          await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error("Ошибка добавления ICE", e);
-        }
+        try { await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate)); } 
+        catch (e) { console.error(e); }
       } else {
-        console.log("🧊 Кандидат пришел рано, добавляем в очередь");
         iceCandidatesQueue.current.push(candidate);
       }
     });
 
-    socket.on("call_ended", () => {
-      console.log("📴 Собеседник завершил звонок");
-      resetCall();
-    });
+    socket.on("call_ended", () => resetCall());
 
     return () => {
       socket.off("incoming_call");
@@ -184,21 +183,18 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const startCall = async (userId: number, video: boolean) => {
     if (!socket || !currentUser) return;
-    
     setIsVideoCall(video);
     otherUserId.current = userId;
     setCallState("calling");
 
     const stream = await getMediaStream(video);
     if (!stream) {
-      console.log("Не удалось получить стрим, отмена звонка");
       setCallState("idle");
       return;
     }
 
     const pc = createPeerConnection();
     peerConnection.current = pc;
-
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
     const offer = await pc.createOffer();
@@ -214,45 +210,24 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const answerCall = async () => {
-    if (!socket || !otherUserId.current) {
-        console.error("Нет сокета или ID звонящего");
-        return;
-    }
-
-    console.log("Ответ на звонок. Получение медиа...");
-    const stream = await getMediaStream(isVideoCall);
+    if (!socket || !otherUserId.current) return;
     
-    if (!stream) {
-        console.error("Отмена ответа: нет доступа к медиа");
-        endCall(); 
-        return;
-    }
+    // При ответе видео включаем, только если это был видеозвонок
+    const stream = await getMediaStream(isVideoCall);
+    if (!stream) { endCall(); return; }
 
     const pc = createPeerConnection();
     peerConnection.current = pc;
-
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-    const offer = pendingOffer.current;
-    if (!offer) {
-        console.error("Ошибка: Offer потерян");
-        endCall();
-        return;
+    if (pendingOffer.current) {
+        await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.current));
+        processIceQueue();
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        setCallState("connected");
+        socket.emit("answer_call", { signal: answer, to: otherUserId.current });
     }
-
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    
-    processIceQueue();
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    setCallState("connected");
-
-    socket.emit("answer_call", {
-      signal: answer,
-      to: otherUserId.current,
-    });
   };
 
   const endCall = () => {
@@ -278,20 +253,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <CallContext.Provider
-      value={{
-        callState,
-        isVideoCall,
-        localStream,
-        remoteStream,
-        callerData,
-        startCall,
-        answerCall,
-        endCall,
-        muteAudio,
-        muteVideo,
-        isAudioMuted,
-        isVideoMuted,
-      }}
+      value={{ callState, isVideoCall, localStream, remoteStream, callerData, startCall, answerCall, endCall, muteAudio, muteVideo, isAudioMuted, isVideoMuted }}
     >
       {children}
     </CallContext.Provider>
