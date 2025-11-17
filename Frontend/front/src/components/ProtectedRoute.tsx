@@ -13,6 +13,5 @@ export default function ProtectedRoute({
   if (!isAuth) {
     return <Navigate to="/login" replace />;
   }
-  // Фрагмент нужен, так как children это ReactNode
   return <>{children}</>;
 }

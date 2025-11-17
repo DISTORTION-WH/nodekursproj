@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction } from "express";
-// Используем 'body' вместо 'check' для POST запросов
 import { body } from "express-validator"; 
 import multer, { MulterError } from "multer";
 import authController from "../Controllers/authController";
@@ -18,7 +17,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Middleware для обработки ошибок Multer
 const handleUploadErrors = (
   err: any,
   req: Request,
@@ -43,7 +41,6 @@ router.post(
   upload.single("avatar"),
   handleUploadErrors,
   [
-    // Заменили check на body
     body("username", "Имя пользователя не может быть пустым").notEmpty(),
     body(
       "password",

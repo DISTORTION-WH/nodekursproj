@@ -1,7 +1,6 @@
 import client from "../databasepg";
 import { QueryResult } from "pg";
 
-// Интерфейс для лога из БД
 export interface AppLog {
   id: number;
   level: string;
@@ -17,7 +16,6 @@ class LogService {
   }
 
   async info(message: string, meta: any = {}): Promise<void> {
-    // INFO логи пока только в консоль, согласно оригинальному коду
     console.log(" [LOG-INFO]", message);
   }
 
@@ -30,7 +28,6 @@ class LogService {
     try {
       let metaToSave = meta;
       if (meta instanceof Error) {
-        // Error не сериализуется в JSON напрямую, берем нужные поля
         metaToSave = { stack: meta.stack, message: meta.message };
       }
 
@@ -39,7 +36,6 @@ class LogService {
         [level, message, JSON.stringify(metaToSave)]
       );
     } catch (err) {
-      // Не используем this.error, чтобы избежать бесконечной рекурсии, если БД упала
       console.error("FAILED TO SAVE LOG TO DB:", err);
     }
   }

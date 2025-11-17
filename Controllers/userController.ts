@@ -1,20 +1,16 @@
 import { Request, Response } from 'express';
 import userService from "../Services/userService";
 
-// Интерфейс для запроса с авторизованным пользователем
-// (Если вы создали глобальный тип в types/express.d.ts, используйте его, иначе этот локальный)
 interface AuthRequest extends Request {
   user?: {
     id: number;
-    // добавьте другие поля, если они есть в токене (username, role и т.д.)
   };
 }
 
 class UserController {
   async updateAvatar(req: Request, res: Response): Promise<any> {
     try {
-      // Приводим req к AuthRequest для доступа к user
-      // req.file типизируется автоматически, если установлены @types/multer
+    
       const authReq = req as AuthRequest;
 
       if (!req.file) {
@@ -88,7 +84,6 @@ class UserController {
       return res.json({ message: "Пароль изменён" });
     } catch (e: any) {
       console.error(e);
-      // e.message может не существовать, если e не Error, поэтому безопасно обрабатываем
       const msg = e.message || "Ошибка при смене пароля";
       return res.status(400).json({ message: msg });
     }

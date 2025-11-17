@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { secret } from "../config"; // Убедитесь, что config.ts существует
+import { secret } from "../config"; 
 
-// Расширяем интерфейс Request, чтобы TypeScript знал о поле user
 export interface AuthRequest extends Request {
   user?: string | JwtPayload;
 }
@@ -33,8 +32,7 @@ export default function (req: AuthRequest, res: Response, next: NextFunction) {
       return next();
     } catch (e: any) {
       if (e.name === "TokenExpiredError") {
-        // req.headers[...] может вернуть string | string[] | undefined
-        // Приводим к string, так как ожидаем один токен
+    
         const refreshToken = req.headers["x-refresh-token"] as string;
 
         if (!refreshToken) {

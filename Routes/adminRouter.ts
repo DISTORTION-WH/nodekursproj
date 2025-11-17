@@ -4,7 +4,6 @@ import roleMiddleware from "../middleware/roleMiddleware";
 
 const router = Router();
 
-// Применяем middleware для всех роутов в этом файле
 router.use(roleMiddleware("ADMIN"));
 
 router.get("/users", adminController.getAllUsers);

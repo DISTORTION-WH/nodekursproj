@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import type { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
@@ -10,7 +11,8 @@ interface FriendChatListProps {
 
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [friends, setFriends] = useState<User[]>([]);
-  const { socket } = useSocket();
+
+  const { socket } = useSocket() as { socket: Socket | null };
   const { selectChat } = useChat();
 
   const fetchFriends = () => {
@@ -47,6 +49,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         username: friend.username,
         avatar_url: friend.avatar_url,
         is_group: false,
+        name: null,
       });
     } catch (err) {
       console.error(err);

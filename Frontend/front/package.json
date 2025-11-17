@@ -47,7 +47,6 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@types/react-router-dom": "^5.3.3",
-    "@types/socket.io-client": "^1.4.36",
     "typescript": "^5.9.3"
   }
 }

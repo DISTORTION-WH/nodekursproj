@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { secret } from "../config";
 
-// Интерфейс для полезной нагрузки токена
 interface UserJwtPayload extends JwtPayload {
   role: string;
 }
@@ -28,7 +27,6 @@ export default function (roles: string | string[]) {
         return next(err);
       }
 
-      // Проверяем токен и приводим к нашему типу
       const decoded = jwt.verify(token, secret) as UserJwtPayload;
       const userRole = decoded.role;
       

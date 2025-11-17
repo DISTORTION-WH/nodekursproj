@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import chatService from "../Services/chatService";
 
-// Интерфейс для запроса с авторизованным пользователем
-// (Обычно выносится в types/express.d.ts или отдельный файл типов)
 interface AuthRequest extends Request {
   user?: {
     id: number;
@@ -16,7 +14,6 @@ class ChatController {
     try {
       const authReq = req as AuthRequest;
       const chatId = authReq.params.id;
-      // Проверка на наличие user, чтобы TS не ругался на possible undefined
       const requesterId = authReq.user?.id;
 
       if (!requesterId) {
@@ -89,6 +86,11 @@ class ChatController {
       const chatId = req.params.id;
       const inviterId = authReq.user?.id;
       const { friendId } = req.body;
+
+      if (!inviterId) {
+         res.status(401).json({ message: "Пользователь не авторизован" });
+         return;
+      }
 
       await chatService.inviteToGroup(chatId, friendId, inviterId);
 
@@ -178,8 +180,6 @@ class ChatController {
 
       const msg = await chatService.postMessage(chatId, senderId, text);
 
-      // Добавляем имя отправителя для сокета (как было в оригинале)
-      // В оригинале было msg.sender_name = ... Если msg это объект БД, лучше клонировать или расширить тип
       const msgWithSender = { ...msg, sender_name: authReq.user.username };
 
       req.app.get("io").to(`chat_${chatId}`).emit("new_message", msgWithSender);

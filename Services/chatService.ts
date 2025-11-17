@@ -2,7 +2,6 @@ import client from "../databasepg";
 import crypto from "crypto";
 import { QueryResult } from "pg";
 
-// --- Интерфейсы ---
 
 export interface ChatParticipant {
   id: number;

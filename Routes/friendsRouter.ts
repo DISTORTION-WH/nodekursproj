@@ -5,19 +5,16 @@ import { Server } from "socket.io";
 
 const router = Router();
 
-// Интерфейс для тела запроса при добавлении/удалении друга
 interface FriendBody {
   friendId: number;
 }
 
-// Интерфейс для строки друга из БД
 interface FriendRow {
   id: number;
   username: string;
   avatar_url: string | null;
 }
 
-// Интерфейс для входящей заявки
 interface IncomingRequestRow {
   requester_id: number;
   requester_name: string;
@@ -57,7 +54,7 @@ router.post("/request", authMiddleware, async (req: AuthRequest, res: Response, 
     
     res.json({ message: "Запрос отправлен" });
   } catch (err: any) {
-    if (err.code === "23505") { // Уникальное нарушение (уже друзья или запрос отправлен)
+    if (err.code === "23505") { 
       err.status = 409;
       err.message = "Запрос уже отправлен или вы уже друзья.";
     }

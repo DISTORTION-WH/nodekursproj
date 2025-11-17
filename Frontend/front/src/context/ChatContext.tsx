@@ -6,6 +6,7 @@ import React, {
   useCallback,
   ReactNode,
 } from "react";
+import { Socket } from "socket.io-client"; 
 import api from "../services/api";
 import { useSocket } from "./SocketContext";
 import { Chat, Message, User, ChatParticipant } from "../types";
@@ -43,7 +44,8 @@ interface ChatProviderProps {
 }
 
 export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
-  const { socket } = useSocket();
+  const { socket } = useSocket() as { socket: Socket | null };
+  
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [modalView, setModalView] = useState<"invite" | "members" | null>(null);

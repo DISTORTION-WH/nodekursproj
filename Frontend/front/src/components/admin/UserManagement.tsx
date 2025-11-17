@@ -37,7 +37,7 @@ export default function UserManagement() {
       const dataToUpdate = {
         username: editingUser.username,
         email: editingUser.email,
-        roleId: editingUser.role === "ADMIN" ? 2 : 1, // Пример логики, возможно нужно поправить под ваш бекенд
+        roleId: editingUser.role === "ADMIN" ? 2 : 1, 
       };
 
       await api.put(`/admin/users/${editingUser.id}`, dataToUpdate);

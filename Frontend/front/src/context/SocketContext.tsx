@@ -14,7 +14,8 @@ interface SocketContextType {
   socket: Socket | null;
 }
 
-const SocketContext = createContext < SocketContextType > { socket: null };
+
+const SocketContext = createContext<SocketContextType>({ socket: null });
 
 export const useSocket = () => useContext(SocketContext);
 
@@ -27,13 +28,14 @@ export const SocketProvider = ({
   currentUser,
   children,
 }: SocketProviderProps) => {
-  const [socket, setSocket] = (useState < Socket) | (null > null);
+
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (currentUser && currentUser.id && token) {
       const newSocket = io(api.defaults.baseURL || "", {
-  
+ 
       });
 
       newSocket.on("connect", () => {

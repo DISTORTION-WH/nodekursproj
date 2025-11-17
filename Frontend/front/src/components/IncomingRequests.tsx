@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { FriendRequest } from "../types";
@@ -9,7 +10,8 @@ interface IncomingRequestsProps {
 
 export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProps) {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const { socket } = useSocket();
+  
+  const { socket } = useSocket() as { socket: Socket | null };
 
   const fetchRequests = () => {
     api

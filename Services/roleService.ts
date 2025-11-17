@@ -1,7 +1,6 @@
 import client from "../databasepg";
 import { QueryResult } from "pg";
 
-// Интерфейс роли
 export interface Role {
   id: number;
   value: string;

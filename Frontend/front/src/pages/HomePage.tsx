@@ -21,7 +21,8 @@ interface HomePageProps {
 
 export default function HomePage({ currentUser }: HomePageProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const { activeChat, selectChat } = useChat();
+  
+  const { activeChat, selectChat, closeChat } = useChat();
   const location = useLocation();
 
   useEffect(() => {
@@ -39,14 +40,14 @@ export default function HomePage({ currentUser }: HomePageProps) {
         username: location.state.friend?.username,
         avatar_url: location.state.friend?.avatar_url,
         is_group: false,
+        name: null, 
       });
       window.history.replaceState({}, document.title);
     }
   }, [location.state, selectChat]);
 
   const handleCloseChat = () => {
-    selectChat(null as any); // Приведение типа, если selectChat ожидает Chat, но логика допускает null (нужно поправить в контексте)
-    // Или лучше: в ChatContext разрешите null для selectChat
+    closeChat();
   };
 
   return (

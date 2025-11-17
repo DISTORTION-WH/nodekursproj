@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import "./AuthForm.css";
 
 interface AuthFormProps {
-  type?: "login" | "register"; // Пропc type есть в JS версии, оставим его опциональным
+  type?: "login" | "register"; 
 }
 
 export default function AuthForm({ type }: AuthFormProps) {

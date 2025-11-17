@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { secret } from '../config';
 import userService from "../Services/userService";
 import roleService from "../Services/roleService";
-import emailService from "../Services/emailService"; 
+import * as emailService from "../Services/emailService";
 
 interface CustomError extends Error {
   status?: number;
@@ -42,7 +42,6 @@ class AuthController {
 
       const { username, password, email } = req.body;
       
-   
       const avatar = req.file;
 
       const candidate = await userService.findUserByUsername(username);
@@ -66,6 +65,9 @@ class AuthController {
           avatarUrl,
           code
         );
+        
+        // Можно раскомментировать отправку email
+        // await emailService.sendVerificationEmail(email, code);
 
         res.json({
           message: "Код подтверждения отправлен повторно на email",
@@ -80,6 +82,9 @@ class AuthController {
         avatarUrl,
         code
       );
+
+      // Можно раскомментировать отправку email
+      // await emailService.sendVerificationEmail(email, code);
 
       res.json({ message: "Код подтверждения отправлен на email" });
     } catch (e: any) {
@@ -99,7 +104,7 @@ class AuthController {
         return next(err);
       }
 
-    
+
       const role = await roleService.findRoleByValue("USER");
       if (!role) {
         const err = new Error("Роль 'USER' не найдена в базе данных") as CustomError;
@@ -109,7 +114,7 @@ class AuthController {
 
       const newUser = await userService.createUser(
         tempData.username,
-        tempData.password,
+        tempData.password, 
         role.id,
         tempData.avatar_url,
         tempData.email
@@ -147,6 +152,12 @@ class AuthController {
         return next(err);
       }
 
+      if (!user.password) {
+        const err = new Error("Ошибка данных пользователя (отсутствует пароль)") as CustomError;
+        err.status = 500;
+        return next(err);
+      }
+
       const validPassword = bcrypt.compareSync(password, user.password);
       if (!validPassword) {
         const err = new Error("Введен неверный пароль") as CustomError;
@@ -154,8 +165,13 @@ class AuthController {
         return next(err);
       }
 
-      const role = await roleService.findRoleById(user.role_id);
-      const roleValue = role ? role.value : "USER";
+      let roleValue = "USER";
+      if (user.role_id) {
+        const role = await roleService.findRoleById(user.role_id);
+        if (role) {
+            roleValue = role.value;
+        }
+      }
 
       const accessToken = generateAccessToken(user.id, roleValue);
       const refreshToken = generateRefreshToken(user.id, roleValue);

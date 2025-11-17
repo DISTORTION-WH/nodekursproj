@@ -18,8 +18,7 @@ export default function ChatModals() {
   if (!modalView || !activeChat || !currentUser) return null;
 
   const isInvite = modalView === "invite";
-  // Приводим типы, так как friendsForInvite - это User[], а chatMembers - ChatParticipant[]
-  // Для рендера нам нужны id и username, которые есть в обоих интерфейсах
+
   const list: any[] = isInvite ? friendsForInvite : chatMembers;
 
   return (

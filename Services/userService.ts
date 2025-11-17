@@ -2,7 +2,6 @@ import client from "../databasepg";
 import bcrypt from "bcryptjs";
 import { QueryResult } from "pg";
 
-// --- Интерфейсы ---
 
 export interface Friend {
   id: number;
@@ -13,13 +12,13 @@ export interface Friend {
 export interface User {
   id: number;
   username: string;
-  password?: string; // Может отсутствовать в некоторых выборках
+  password?: string; 
   role_id?: number;
-  role?: string; // Добавляется через JOIN или вручную
+  role?: string; 
   avatar_url?: string | null;
   email?: string | null;
   created_at?: Date;
-  friends?: Friend[]; // Добавляется в getUserById
+  friends?: Friend[];
 }
 
 export interface RegistrationCode {
@@ -37,7 +36,6 @@ export interface UpdateUserPayload {
   email?: string;
 }
 
-// --- Функции сервиса ---
 
 async function findUserByUsername(username: string): Promise<User | undefined> {
   try {
@@ -58,7 +56,7 @@ async function findUserByUsername(username: string): Promise<User | undefined> {
 
 async function createUser(
   username: string,
-  password: any, // any, так как может прийти что угодно, но мы проверяем
+  password: any, 
   roleId: number,
   avatarUrl: string | null = null,
   email: string | null = null
@@ -193,7 +191,7 @@ async function updateUserAvatar(userId: string | number, avatarUrl: string): Pro
 async function saveRegistrationCode(
   email: string,
   username: string,
-  password: string, // предполагается уже хеш
+  password: string, 
   avatarUrl: string | null,
   code: string
 ): Promise<void> {

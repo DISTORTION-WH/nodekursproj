@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { Chat } from "../types";
@@ -9,7 +10,7 @@ interface GroupChatListProps {
 
 export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
   const [groupChats, setGroupChats] = useState<Chat[]>([]);
-  const { socket } = useSocket();
+  const { socket } = useSocket() as { socket: Socket | null };
 
   const fetchGroupChats = () => {
     api

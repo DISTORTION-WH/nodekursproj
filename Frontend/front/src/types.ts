@@ -11,7 +11,7 @@ export interface User {
   role?: string;
   avatar_url?: string | null;
   created_at?: string;
-  friends?: User[]; // или Friend[]
+  friends?: User[]; 
   roles?: string[];
 }
 
@@ -43,7 +43,6 @@ export interface Chat {
   invite_code?: string | null;
   participants?: ChatParticipant[];
   messages?: Message[];
-  // Для отображения в списках (когда это ЛС):
   username?: string; 
   avatar_url?: string | null;
 }

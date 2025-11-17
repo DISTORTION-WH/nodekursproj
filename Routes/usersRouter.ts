@@ -18,12 +18,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Поиск пользователей
 router.get("/", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const search = (req.query.search as string) || "";
-    // Приводим user к any, так как структура user из токена может варьироваться,
-    // но мы знаем, что там есть id из authMiddleware
     const userId = (req.user as any).id;
 
     const result = await userService.getAllUsers();
@@ -39,43 +36,38 @@ router.get("/", authMiddleware, async (req: AuthRequest, res: Response, next: Ne
   }
 });
 
-// Получить свой профиль
-router.get("/me", authMiddleware, (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get("/me", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    // Передаем как Request, так как контроллер ожидает стандартный Request (или расширенный, если он тоже типизирован)
-    userController.getProfile(req as Request, res, next);
+    await userController.getProfile(req as Request, res);
   } catch (e: any) {
-    console.error("❗️ Синхронная ошибка в GET /me:", e.message, e.stack);
+    console.error("❗️ Ошибка в GET /me:", e.message, e.stack);
     next(e);
   }
 });
 
-// Обновить аватар
 router.put(
   "/avatar",
   authMiddleware,
   upload.single("avatar"),
-  (req: AuthRequest, res: Response, next: NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      userController.updateAvatar(req as Request, res, next);
+      await userController.updateAvatar(req as Request, res);
     } catch (e: any) {
-      console.error("❗️ Синхронная ошибка в PUT /avatar:", e.message, e.stack);
+      console.error("❗️ Ошибка в PUT /avatar:", e.message, e.stack);
       next(e);
     }
   }
 );
 
-// Сменить пароль
-router.put("/password", authMiddleware, (req: AuthRequest, res: Response, next: NextFunction) => {
+router.put("/password", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    userController.changePassword(req as Request, res, next);
+    await userController.changePassword(req as Request, res);
   } catch (e: any) {
-    console.error("❗️ Синхронная ошибка в PUT /password:", e.message, e.stack);
+    console.error("❗️ Ошибка в PUT /password:", e.message, e.stack);
     next(e);
   }
 });
 
-// Получить пользователя по ID
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id, 10);

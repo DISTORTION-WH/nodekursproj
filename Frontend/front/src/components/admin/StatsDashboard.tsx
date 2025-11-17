@@ -4,13 +4,10 @@ import "../../pages/AdminPage.css";
 import { AppStats } from "../../types";
 
 export default function StatsDashboard() {
-  // Исправление 1: Правильный синтаксис useState с дженериком
   const [stats, setStats] = useState<AppStats | null>(null);
 
   useEffect(() => {
-    // Исправление 3: Перенесли функцию внутрь useEffect, чтобы убрать предупреждение линтера
     const fetchStats = () => {
-      // Исправление 2: Правильный вызов api.get(...)
       api.get<AppStats>("/admin/stats")
         .then((res) => setStats(res.data))
         .catch((err: any) => console.error("Ошибка загрузки статистики:", err));
