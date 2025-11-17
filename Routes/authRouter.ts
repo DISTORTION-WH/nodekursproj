@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { check } from "express-validator";
+// Используем 'body' вместо 'check' для POST запросов
+import { body } from "express-validator"; 
 import multer, { MulterError } from "multer";
 import authController from "../Controllers/authController";
 
@@ -42,12 +43,13 @@ router.post(
   upload.single("avatar"),
   handleUploadErrors,
   [
-    check("username", "Имя пользователя не может быть пустым").notEmpty(),
-    check(
+    // Заменили check на body
+    body("username", "Имя пользователя не может быть пустым").notEmpty(),
+    body(
       "password",
       "Пароль должен быть больше 4 и меньше 10 символов"
     ).isLength({ min: 4, max: 10 }),
-    check("email", "Неверный email").isEmail(),
+    body("email", "Неверный email").isEmail(),
   ],
   async (req: Request, res: Response, next: NextFunction) => {
     try {
