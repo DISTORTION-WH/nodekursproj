@@ -4,7 +4,6 @@ import http from "http";
 import { Server, Socket } from "socket.io";
 import client from "./databasepg"; 
 
-
 import authRouter from "./Routes/authRouter";
 import chatRouter from "./Routes/chatRouter";
 import usersRouter from "./Routes/usersRouter";
@@ -61,25 +60,43 @@ const io = new Server(server, {
 app.set("io", io);
 
 io.on("connection", (socket: Socket) => {
-  console.log("🔌 Socket connected:", socket.id);
+  console.log("Socket connected:", socket.id);
 
   socket.on("join_user_room", (userId: string | number) => {
     socket.join(`user_${userId}`);
-    console.log(`👤 User ${userId} joined their personal room`);
   });
 
   socket.on("join_chat", (chatId: string | number) => {
     socket.join(`chat_${chatId}`);
-    console.log(`💬 Socket ${socket.id} joined chat_${chatId}`);
   });
 
   socket.on("leave_chat", (chatId: string | number) => {
     socket.leave(`chat_${chatId}`);
-    console.log(`👋 Socket ${socket.id} left chat_${chatId}`);
+  });
+
+  socket.on("call_user", (data: { userToCall: number; signalData: any; from: number; name: string; isVideo: boolean }) => {
+    io.to(`user_${data.userToCall}`).emit("incoming_call", { 
+      signal: data.signalData, 
+      from: data.from, 
+      name: data.name,
+      isVideo: data.isVideo 
+    });
+  });
+
+  socket.on("answer_call", (data: { to: number; signal: any }) => {
+    io.to(`user_${data.to}`).emit("call_accepted", data.signal);
+  });
+
+  socket.on("send_ice_candidate", (data: { to: number; candidate: any }) => {
+    io.to(`user_${data.to}`).emit("receive_ice_candidate", { candidate: data.candidate });
+  });
+
+  socket.on("end_call", (data: { to: number }) => {
+    io.to(`user_${data.to}`).emit("call_ended");
   });
 
   socket.on("disconnect", () => {
-    console.log("🔌 Socket disconnected:", socket.id);
+    console.log("Socket disconnected:", socket.id);
   });
 });
 
@@ -138,16 +155,16 @@ async function initializeDatabase() {
     await client.query(
       `CREATE TABLE IF NOT EXISTS registration_codes (email VARCHAR(255) PRIMARY KEY NOT NULL, username VARCHAR(50) NOT NULL, password TEXT NOT NULL, avatar_url TEXT, code VARCHAR(6) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
-    console.log("✅ DB initialized.");
+    console.log("DB initialized.");
   } catch (e) {
-    console.error("❗️ DB Init Error:", e);
+    console.error("DB Init Error:", e);
     process.exit(1);
   }
 }
 
 async function start() {
   await initializeDatabase();
-  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
 start();

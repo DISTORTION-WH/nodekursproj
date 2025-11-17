@@ -30,7 +30,6 @@ export interface Chat {
   messages?: Message[];
 }
 
-// --- Сервис ---
 
 class ChatService {
   async getAllChats(): Promise<Chat[]> {

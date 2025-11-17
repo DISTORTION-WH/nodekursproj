@@ -13,7 +13,7 @@ export interface User {
   created_at?: string;
   friends?: User[]; 
   roles?: string[];
-  token?: string; // Добавил на всякий случай, так как используется в AuthResponse
+  token?: string; 
 }
 
 export interface Message {
@@ -50,7 +50,7 @@ export interface Chat {
     created_at: string;
   };
   participants?: User[];
-  messages?: Message[]; // Исправление: добавлено это поле
+  messages?: Message[]; 
 }
 
 export interface AuthResponse {

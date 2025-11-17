@@ -49,8 +49,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const otherUserId = useRef<number | null>(null);
 
-  // Оборачиваем resetCall в useCallback, чтобы функция была стабильной
-  // и менялась только при изменении localStream
+
   const resetCall = useCallback(() => {
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
@@ -137,7 +136,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       socket.off("receive_ice_candidate");
       socket.off("call_ended");
     };
-  }, [socket, callState, resetCall]); // Теперь resetCall в зависимостях, и ошибки нет
+  }, [socket, callState, resetCall]); 
 
   const startCall = async (userId: number, video: boolean) => {
     if (!socket || !currentUser) return;

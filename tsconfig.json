@@ -11,6 +11,6 @@
     "rootDir": "./",
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "Frontend/front/src/components/MessageList.tsx"],
   "exclude": ["node_modules", "Frontend"]
 }
