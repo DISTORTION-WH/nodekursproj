@@ -1,28 +1,29 @@
-const logger = require("./Services/logService");
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+import http from "http";
+import { Server, Socket } from "socket.io";
+import client from "./databasepg"; 
 
-process.on("uncaughtException", (err, origin) => {
+
+import authRouter from "./Routes/authRouter";
+import chatRouter from "./Routes/chatRouter";
+import usersRouter from "./Routes/usersRouter";
+import friendsRouter from "./Routes/friendsRouter";
+import adminRouter from "./Routes/adminRouter";
+import logger from "./Services/logService";
+
+process.on("uncaughtException", (err: Error, origin: string) => {
   logger.error(`UNCAUGHT EXCEPTION at ${origin}`, err).finally(() => {
     process.exit(1);
   });
 });
 
-process.on("unhandledRejection", (reason, promise) => {
+process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
   logger.error(
     "UNHANDLED REJECTION",
     reason instanceof Error ? reason : { reason }
   );
 });
-
-const express = require("express");
-const cors = require("cors");
-const client = require("./databasepg");
-const authRouter = require("./Routes/authRouter");
-const chatRouter = require("./Routes/chatRouter");
-const usersRouter = require("./Routes/usersRouter");
-const friendsRouter = require("./Routes/friendsRouter");
-const adminRouter = require("./Routes/adminRouter");
-const http = require("http");
-const { Server } = require("socket.io");
 
 const PORT = process.env.PORT || 5000;
 
@@ -30,7 +31,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL || "", 
   "https://nodekursproj.vercel.app",
 ];
 
@@ -59,20 +60,20 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-io.on("connection", (socket) => {
+io.on("connection", (socket: Socket) => {
   console.log("🔌 Socket connected:", socket.id);
 
-  socket.on("join_user_room", (userId) => {
+  socket.on("join_user_room", (userId: string | number) => {
     socket.join(`user_${userId}`);
     console.log(`👤 User ${userId} joined their personal room`);
   });
 
-  socket.on("join_chat", (chatId) => {
+  socket.on("join_chat", (chatId: string | number) => {
     socket.join(`chat_${chatId}`);
     console.log(`💬 Socket ${socket.id} joined chat_${chatId}`);
   });
 
-  socket.on("leave_chat", (chatId) => {
+  socket.on("leave_chat", (chatId: string | number) => {
     socket.leave(`chat_${chatId}`);
     console.log(`👋 Socket ${socket.id} left chat_${chatId}`);
   });
@@ -90,7 +91,7 @@ app.use("/users", usersRouter);
 app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/admin", adminRouter);
 
-app.use((err, req, res, next) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logger.error(
     `EXPRESS ERROR: ${req.method} ${req.originalUrl} - ${err.message}`,
     err
@@ -116,7 +117,7 @@ async function initializeDatabase() {
       await client.query(
         `ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`
       );
-    } catch (e) {
+    } catch (e: any) {
       if (e.code !== "42701") throw e;
     }
     await client.query(

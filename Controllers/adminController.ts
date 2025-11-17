@@ -1,10 +1,11 @@
-const userService = require("../Services/userService");
-const chatService = require("../Services/chatService");
-const adminService = require("../Services/adminService");
-const logService = require("../Services/logService");
+import { Request, Response, NextFunction } from 'express';
+import userService from "../Services/userService";
+import chatService from "../Services/chatService";
+import adminService from "../Services/adminService";
+import logService from "../Services/logService";
 
 class AdminController {
-  async getAllUsers(req, res, next) {
+  async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const users = await userService.getAllUsers();
       res.json(users);
@@ -13,10 +14,11 @@ class AdminController {
     }
   }
 
-  async updateUser(req, res, next) {
+  async updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const { username, roleId, email } = req.body;
+      
       const updated = await userService.updateUser(id, {
         username,
         roleId,
@@ -28,7 +30,7 @@ class AdminController {
     }
   }
 
-  async deleteUser(req, res, next) {
+  async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       await userService.deleteUser(id);
@@ -38,9 +40,9 @@ class AdminController {
     }
   }
 
-  async searchUsers(req, res, next) {
+  async searchUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { q } = req.query;
+      const q = req.query.q as string; 
       const result = await userService.searchUsers(q);
       res.json(result);
     } catch (e) {
@@ -48,7 +50,7 @@ class AdminController {
     }
   }
 
-  async deleteChat(req, res, next) {
+  async deleteChat(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       await adminService.deleteChat(id);
@@ -58,7 +60,7 @@ class AdminController {
     }
   }
 
-  async getAllChats(req, res, next) {
+  async getAllChats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const chats = await chatService.getAllChats();
       res.json(chats);
@@ -67,7 +69,7 @@ class AdminController {
     }
   }
 
-  async getStats(req, res, next) {
+  async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const stats = await adminService.getAppStats();
       res.json(stats);
@@ -76,9 +78,9 @@ class AdminController {
     }
   }
 
-  async getLogs(req, res, next) {
+  async getLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const limit = req.query.limit || 100;
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
       const logs = await logService.getRecentLogs(limit);
       res.json(logs);
     } catch (e) {
@@ -87,4 +89,4 @@ class AdminController {
   }
 }
 
-module.exports = new AdminController();
+export default new AdminController();

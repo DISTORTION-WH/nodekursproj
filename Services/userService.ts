@@ -1,14 +1,52 @@
-const client = require("../databasepg");
-const bcrypt = require("bcryptjs");
+import client from "../databasepg";
+import bcrypt from "bcryptjs";
+import { QueryResult } from "pg";
 
-async function findUserByUsername(username) {
+// --- Интерфейсы ---
+
+export interface Friend {
+  id: number;
+  username: string;
+  avatar_url: string | null;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  password?: string; // Может отсутствовать в некоторых выборках
+  role_id?: number;
+  role?: string; // Добавляется через JOIN или вручную
+  avatar_url?: string | null;
+  email?: string | null;
+  created_at?: Date;
+  friends?: Friend[]; // Добавляется в getUserById
+}
+
+export interface RegistrationCode {
+  email: string;
+  username: string;
+  password?: string;
+  avatar_url?: string | null;
+  code: string;
+  created_at?: Date;
+}
+
+export interface UpdateUserPayload {
+  username?: string;
+  roleId?: number;
+  email?: string;
+}
+
+// --- Функции сервиса ---
+
+async function findUserByUsername(username: string): Promise<User | undefined> {
   try {
-    const result = await client.query(
+    const result = await client.query<User>(
       "SELECT * FROM users WHERE username = $1",
       [username]
     );
     return result.rows[0];
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка findUserByUsername (${username}):`,
       err.message,
@@ -19,12 +57,12 @@ async function findUserByUsername(username) {
 }
 
 async function createUser(
-  username,
-  password,
-  roleId,
-  avatarUrl = null,
-  email = null
-) {
+  username: string,
+  password: any, // any, так как может прийти что угодно, но мы проверяем
+  roleId: number,
+  avatarUrl: string | null = null,
+  email: string | null = null
+): Promise<User> {
   try {
     let hashed = password;
     if (!hashed || typeof hashed !== "string") {
@@ -36,7 +74,7 @@ async function createUser(
       hashed = await bcrypt.hash(hashed, saltRounds);
     }
 
-    const result = await client.query(
+    const result = await client.query<User>(
       `INSERT INTO users (username, password, role_id, avatar_url, email)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, username, avatar_url, role_id, created_at, email`,
@@ -44,7 +82,7 @@ async function createUser(
     );
 
     return result.rows[0];
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка createUser (${username}):`,
       err.message,
@@ -54,23 +92,23 @@ async function createUser(
   }
 }
 
-async function getAllUsers() {
+async function getAllUsers(): Promise<User[]> {
   try {
-    const result = await client.query(`
+    const result = await client.query<User>(`
       SELECT u.id, u.username, u.password, u.avatar_url, r.value as role, u.email, u.created_at
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
     `);
     return result.rows;
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[UserService] Ошибка getAllUsers:`, err.message, err.stack);
     throw err;
   }
 }
 
-async function getUserById(id) {
+async function getUserById(id: string | number): Promise<User | null> {
   try {
-    const userResult = await client.query(
+    const userResult = await client.query<User>(
       `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
@@ -81,7 +119,7 @@ async function getUserById(id) {
     if (userResult.rows.length === 0) return null;
     const user = userResult.rows[0];
 
-    const friendsResult = await client.query(
+    const friendsResult = await client.query<Friend>(
       `SELECT u.id, u.username, u.avatar_url
        FROM users u
        JOIN friends f
@@ -94,7 +132,7 @@ async function getUserById(id) {
 
     user.friends = friendsResult.rows || [];
     return user;
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка getUserById (${id}):`,
       err.message,
@@ -104,9 +142,9 @@ async function getUserById(id) {
   }
 }
 
-async function changeUserPassword(userId, oldPassword, newPassword) {
+async function changeUserPassword(userId: string | number, oldPassword: string, newPassword: string): Promise<void> {
   try {
-    const userRes = await client.query(
+    const userRes = await client.query<{ password: string }>(
       "SELECT password FROM users WHERE id = $1",
       [userId]
     );
@@ -120,7 +158,7 @@ async function changeUserPassword(userId, oldPassword, newPassword) {
       hashedNew,
       userId,
     ]);
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка changeUserPassword (${userId}):`,
       err.message
@@ -129,20 +167,20 @@ async function changeUserPassword(userId, oldPassword, newPassword) {
   }
 }
 
-async function updateUserAvatar(userId, avatarUrl) {
+async function updateUserAvatar(userId: string | number, avatarUrl: string): Promise<User> {
   try {
     await client.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [
       avatarUrl,
       userId,
     ]);
 
-    const res = await client.query(
+    const res = await client.query<User>(
       `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email
        FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
       [userId]
     );
     return res.rows[0];
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка updateUserAvatar (${userId}):`,
       err.message,
@@ -153,12 +191,12 @@ async function updateUserAvatar(userId, avatarUrl) {
 }
 
 async function saveRegistrationCode(
-  email,
-  username,
-  password,
-  avatarUrl,
-  code
-) {
+  email: string,
+  username: string,
+  password: string, // предполагается уже хеш
+  avatarUrl: string | null,
+  code: string
+): Promise<void> {
   try {
     await client.query(
       `INSERT INTO registration_codes (email, username, password, avatar_url, code)
@@ -167,7 +205,7 @@ async function saveRegistrationCode(
          SET username = $2, password = $3, avatar_url = $4, code = $5, created_at = NOW()`,
       [email, username, password, avatarUrl, code]
     );
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка saveRegistrationCode (${email}):`,
       err.message,
@@ -177,14 +215,14 @@ async function saveRegistrationCode(
   }
 }
 
-async function getRegistrationCode(email) {
+async function getRegistrationCode(email: string): Promise<RegistrationCode | undefined> {
   try {
-    const res = await client.query(
+    const res = await client.query<RegistrationCode>(
       "SELECT * FROM registration_codes WHERE email = $1",
       [email]
     );
     return res.rows[0];
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка getRegistrationCode (${email}):`,
       err.message,
@@ -194,12 +232,12 @@ async function getRegistrationCode(email) {
   }
 }
 
-async function deleteRegistrationCode(email) {
+async function deleteRegistrationCode(email: string): Promise<void> {
   try {
     await client.query("DELETE FROM registration_codes WHERE email = $1", [
       email,
     ]);
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка deleteRegistrationCode (${email}):`,
       err.message,
@@ -209,9 +247,9 @@ async function deleteRegistrationCode(email) {
   }
 }
 
-async function updateUser(userId, { username, roleId, email }) {
+async function updateUser(userId: string | number, { username, roleId, email }: UpdateUserPayload): Promise<User> {
   try {
-    const res = await client.query(
+    const res = await client.query<User>(
       `UPDATE users
        SET username = COALESCE($1, username),
            role_id = COALESCE($2, role_id),
@@ -221,7 +259,7 @@ async function updateUser(userId, { username, roleId, email }) {
       [username, roleId, email, userId]
     );
     return res.rows[0];
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка updateUser (${userId}):`,
       err.message,
@@ -231,10 +269,10 @@ async function updateUser(userId, { username, roleId, email }) {
   }
 }
 
-async function deleteUser(userId) {
+async function deleteUser(userId: string | number): Promise<void> {
   try {
     await client.query("DELETE FROM users WHERE id = $1", [userId]);
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка deleteUser (${userId}):`,
       err.message,
@@ -244,9 +282,9 @@ async function deleteUser(userId) {
   }
 }
 
-async function searchUsers(query) {
+async function searchUsers(query: string): Promise<User[]> {
   try {
-    const res = await client.query(
+    const res = await client.query<User>(
       `SELECT u.id, u.username, u.email, u.avatar_url, r.value as role
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
@@ -254,7 +292,7 @@ async function searchUsers(query) {
       [`%${query}%`]
     );
     return res.rows;
-  } catch (err) {
+  } catch (err: any) {
     console.error(
       `[UserService] Ошибка searchUsers (${query}):`,
       err.message,
@@ -264,7 +302,7 @@ async function searchUsers(query) {
   }
 }
 
-module.exports = {
+export default {
   findUserByUsername,
   createUser,
   getAllUsers,

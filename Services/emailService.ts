@@ -1,11 +1,12 @@
-const { Resend } = require("resend");
+import { Resend } from "resend";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY;
 
-const EMAIL_FROM_ADDRESS =
+const EMAIL_FROM_ADDRESS: string =
   process.env.EMAIL_FROM_ADDRESS || "MyApp <onboarding@resend.dev>";
 
-let resend;
+let resend: Resend | null = null;
+
 if (RESEND_API_KEY) {
   resend = new Resend(RESEND_API_KEY);
 } else {
@@ -17,7 +18,7 @@ if (RESEND_API_KEY) {
   );
 }
 
-async function sendVerificationEmail(to, code) {
+export async function sendVerificationEmail(to: string, code: string): Promise<any> {
   if (!resend) {
     console.error(
       "Ошибка отправки: Resend не инициализирован. Проверьте RESEND_API_KEY."
@@ -40,13 +41,11 @@ async function sendVerificationEmail(to, code) {
     }
 
     console.log(
-      `Email успешно отправлен на ${to} (через Resend), ID: ${data.id}`
+      `Email успешно отправлен на ${to} (через Resend), ID: ${data?.id}`
     );
     return data;
-  } catch (e) {
+  } catch (e: any) {
     console.error("Критическая ошибка в sendVerificationEmail:", e.message);
     throw e;
   }
 }
-
-module.exports = { sendVerificationEmail };

@@ -1,8 +1,10 @@
-const Router = require("express");
-const router = new Router();
-const adminController = require("../Controllers/adminController");
-const roleMiddleware = require("../middleware/roleMiddleware");
+import { Router } from "express";
+import adminController from "../Controllers/adminController";
+import roleMiddleware from "../middleware/roleMiddleware";
 
+const router = Router();
+
+// Применяем middleware для всех роутов в этом файле
 router.use(roleMiddleware("ADMIN"));
 
 router.get("/users", adminController.getAllUsers);
@@ -16,4 +18,4 @@ router.delete("/chats/:id", adminController.deleteChat);
 router.get("/stats", adminController.getStats);
 router.get("/logs", adminController.getLogs);
 
-module.exports = router;
+export default router;

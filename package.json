@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start:dev": "nodemon index.js",
-    "start": "node index.js"
-  },
+  "build": "tsc",
+  "start": "node dist/index.js",
+  "start:dev": "nodemon index.ts"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -21,9 +22,21 @@
     "mongose": "^0.0.2-security",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
-    "nodemon": "^3.1.10",
     "pg": "^8.16.3",
     "resend": "^6.4.1",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/express-validator": "^2.20.33",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

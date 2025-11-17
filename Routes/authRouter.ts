@@ -1,8 +1,9 @@
-const Router = require("express");
-const router = new Router();
-const controller = require("../Controllers/authController");
-const { check } = require("express-validator");
-const multer = require("multer");
+import { Router, Request, Response, NextFunction } from "express";
+import { check } from "express-validator";
+import multer, { MulterError } from "multer";
+import authController from "../Controllers/authController";
+
+const router = Router();
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -13,12 +14,19 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + "-" + file.originalname);
   },
 });
+
 const upload = multer({ storage });
 
-const handleUploadErrors = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
+// Middleware для обработки ошибок Multer
+const handleUploadErrors = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (err instanceof MulterError) {
     console.warn("❗️ Ошибка Multer (загрузка аватара):", err.message);
-    const error = new Error(`Ошибка загрузки файла: ${err.message}`);
+    const error: any = new Error(`Ошибка загрузки файла: ${err.message}`);
     error.status = 400;
     return next(error);
   } else if (err) {
@@ -41,10 +49,10 @@ router.post(
     ).isLength({ min: 4, max: 10 }),
     check("email", "Неверный email").isEmail(),
   ],
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await controller.preRegister(req, res, next);
-    } catch (e) {
+      await authController.preRegister(req, res, next);
+    } catch (e: any) {
       console.error(
         "❗️ Ошибка в POST /auth/pre-registration:",
         e.message,
@@ -55,10 +63,10 @@ router.post(
   }
 );
 
-router.post("/confirm-registration", async (req, res, next) => {
+router.post("/confirm-registration", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await controller.confirmRegistration(req, res, next);
-  } catch (e) {
+    await authController.confirmRegistration(req, res, next);
+  } catch (e: any) {
     console.error(
       "❗️ Ошибка в POST /auth/confirm-registration:",
       e.message,
@@ -68,31 +76,31 @@ router.post("/confirm-registration", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/login", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await controller.login(req, res, next);
-  } catch (e) {
+    await authController.login(req, res, next);
+  } catch (e: any) {
     console.error("❗️ Ошибка в POST /auth/login:", e.message, e.stack);
     next(e);
   }
 });
 
-router.post("/refresh", async (req, res, next) => {
+router.post("/refresh", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await controller.refresh(req, res, next);
-  } catch (e) {
+    await authController.refresh(req, res, next);
+  } catch (e: any) {
     console.error("❗️ Ошибка в POST /auth/refresh:", e.message, e.stack);
     next(e);
   }
 });
 
-router.get("/users", async (req, res, next) => {
+router.get("/users", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await controller.getUsers(req, res, next);
-  } catch (e) {
+    await authController.getUsers(req, res, next);
+  } catch (e: any) {
     console.error("❗️ Ошибка в GET /auth/users:", e.message, e.stack);
     next(e);
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,22 +1,24 @@
-const { Client } = require("pg");
+import { Client, ClientConfig } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
-
-const client = new Client({
+const connectionString: string | undefined = process.env.DATABASE_URL;
+const clientConfig: ClientConfig = {
   connectionString: connectionString,
 
   ssl: connectionString ? { rejectUnauthorized: false } : false,
 
-  ...(!connectionString && {
+  ...(!connectionString 
+    ? {
     host: "localhost",
     user: "postgres",
     port: 5432,
     password: "1234",
     database: "postgres",
-  }),
-});
+  } : {}),
+};
 
-client.on("error", (err) => {
+const client = new Client(clientConfig);
+
+client.on("error", (err: Error) => {
   console.error("❗️ НЕОЖИДАННАЯ ОШИБКА КЛИЕНТА POSTGRESQL (во время работы):");
   console.error(err.message, err.stack);
 });
@@ -36,4 +38,4 @@ client
     process.exit(1);
   });
 
-module.exports = client;
+export default client;
