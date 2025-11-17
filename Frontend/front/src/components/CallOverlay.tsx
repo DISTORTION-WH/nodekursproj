@@ -23,12 +23,18 @@ export default function CallOverlay() {
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.muted = true;
     }
   }, [localStream, callState]);
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.muted = false; 
+      
+      remoteVideoRef.current.play().catch(e => {
+        console.error("Ошибка автовоспроизведения удаленного видео:", e);
+      });
     }
   }, [remoteStream, callState]);
 
@@ -39,7 +45,7 @@ export default function CallOverlay() {
       {callState === "incoming" && (
         <div className="call-card incoming">
           <div className="call-avatar-placeholder">
-            {callerData?.name[0].toUpperCase()}
+            {callerData?.name ? callerData.name[0].toUpperCase() : "?"}
           </div>
           <h3>{callerData?.name}</h3>
           <p>{isVideoCall ? "Входящий видеозвонок..." : "Входящий аудиозвонок..."}</p>
@@ -58,7 +64,13 @@ export default function CallOverlay() {
         <div className="call-card calling">
           <div className="video-preview">
              {isVideoCall && localStream && (
-                <video ref={localVideoRef} autoPlay muted playsInline className="local-preview" />
+                <video 
+                  ref={localVideoRef} 
+                  autoPlay 
+                  muted 
+                  playsInline 
+                  className="local-preview" 
+                />
              )}
           </div>
           <h3>Звонок...</h3>
@@ -73,31 +85,47 @@ export default function CallOverlay() {
       {callState === "connected" && (
         <div className={`call-active ${isVideoCall ? "video-mode" : "audio-mode"}`}>
           <div className="video-container">
-            {isVideoCall && (
-                 <video ref={remoteVideoRef} autoPlay playsInline className="remote-video" />
-            )}
-            {!isVideoCall && (
+            
+            {isVideoCall ? (
+                 <video 
+                    ref={remoteVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="remote-video" 
+                 />
+            ) : (
                 <div className="audio-placeholder">
-                    <div className="big-avatar">{callerData?.name[0]}</div>
+                    <div className="big-avatar">
+                      {callerData?.name ? callerData.name[0].toUpperCase() : "?"}
+                    </div>
                     <h3>{callerData?.name}</h3>
                     <p>Идет разговор...</p>
+                    <audio ref={remoteVideoRef} autoPlay /> 
                 </div>
             )}
 
             {isVideoCall && (
-                <video ref={localVideoRef} autoPlay muted playsInline className="local-video-pip" />
+                <video 
+                  ref={localVideoRef} 
+                  autoPlay 
+                  muted 
+                  playsInline 
+                  className="local-video-pip" 
+                />
             )}
           </div>
 
           <div className="call-controls">
             <button onClick={muteAudio} className={isAudioMuted ? "control-btn active" : "control-btn"}>
-               🎤
+               🎤 {isAudioMuted ? "Вкл" : ""}
             </button>
+            
             {isVideoCall && (
                 <button onClick={muteVideo} className={isVideoMuted ? "control-btn active" : "control-btn"}>
-                 📷
+                 📷 {isVideoMuted ? "Вкл" : ""}
                 </button>
             )}
+            
             <button className="control-btn hangup" onClick={endCall}>
               📞 Завершить
             </button>

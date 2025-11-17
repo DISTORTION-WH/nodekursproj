@@ -48,7 +48,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const otherUserId = useRef<number | null>(null);
-
+  const pendingOffer = useRef<any>(null); 
+  const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]); 
 
   const resetCall = useCallback(() => {
     if (localStream) {
@@ -63,12 +64,17 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setCallState("idle");
     setCallerData(null);
     otherUserId.current = null;
+    pendingOffer.current = null;
+    iceCandidatesQueue.current = [];
     setIsAudioMuted(false);
     setIsVideoMuted(false);
-    (window as any).pendingOffer = null;
   }, [localStream]);
 
   const createPeerConnection = () => {
+    if (peerConnection.current) {
+        peerConnection.current.close();
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
@@ -81,18 +87,44 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     };
 
     pc.ontrack = (event) => {
+      console.log("📡 Получен удаленный поток (Audio/Video)");
       setRemoteStream(event.streams[0]);
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log("Статус соединения WebRTC:", pc.connectionState);
+        if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        }
     };
 
     return pc;
   };
 
+  const processIceQueue = async () => {
+    if (!peerConnection.current) return;
+    
+    while (iceCandidatesQueue.current.length > 0) {
+        const candidate = iceCandidatesQueue.current.shift();
+        if (candidate) {
+            try {
+                await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log("✅ Добавлен ICE кандидат из очереди");
+            } catch (e) {
+                console.error("Ошибка добавления ICE из очереди", e);
+            }
+        }
+    }
+  };
+
   const getMediaStream = async (video: boolean) => {
     try {
+      console.log("Запрос доступа к медиа devices...");
       const stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
       setLocalStream(stream);
       return stream;
     } catch (err) {
+      console.error("❌ Ошибка доступа к камере/микрофону:", err);
+      alert("Не удалось получить доступ к камере или микрофону. Проверьте разрешения в браузере (замочек в строке адреса).");
       return null;
     }
   };
@@ -101,32 +133,44 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (!socket) return;
 
     socket.on("incoming_call", async (data: { from: number; name: string; signal: any; isVideo: boolean }) => {
-      if (callState !== "idle") return; 
+      console.log("📞 Входящий звонок от:", data.name);
+      if (callState !== "idle") {
+          console.log("Линия занята");
+          return; 
+      }
 
       setCallerData({ id: data.from, name: data.name });
       setIsVideoCall(data.isVideo);
       setCallState("incoming");
       otherUserId.current = data.from;
-      
-      (window as any).pendingOffer = data.signal;
+      pendingOffer.current = data.signal;
     });
 
     socket.on("call_accepted", async (signal) => {
+      console.log("✅ Звонок принят собеседником");
       setCallState("connected");
       if (peerConnection.current) {
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+        processIceQueue();
       }
     });
 
     socket.on("receive_ice_candidate", async (data) => {
-      if (peerConnection.current) {
+      const candidate = data.candidate;
+      if (peerConnection.current && peerConnection.current.remoteDescription) {
         try {
-          await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch (e) {}
+          await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error("Ошибка добавления ICE", e);
+        }
+      } else {
+        console.log("🧊 Кандидат пришел рано, добавляем в очередь");
+        iceCandidatesQueue.current.push(candidate);
       }
     });
 
     socket.on("call_ended", () => {
+      console.log("📴 Собеседник завершил звонок");
       resetCall();
     });
 
@@ -136,7 +180,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       socket.off("receive_ice_candidate");
       socket.off("call_ended");
     };
-  }, [socket, callState, resetCall]); 
+  }, [socket, callState, resetCall]);
 
   const startCall = async (userId: number, video: boolean) => {
     if (!socket || !currentUser) return;
@@ -147,6 +191,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
     const stream = await getMediaStream(video);
     if (!stream) {
+      console.log("Не удалось получить стрим, отмена звонка");
       setCallState("idle");
       return;
     }
@@ -169,10 +214,16 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const answerCall = async () => {
-    if (!socket || !otherUserId.current) return;
+    if (!socket || !otherUserId.current) {
+        console.error("Нет сокета или ID звонящего");
+        return;
+    }
 
+    console.log("Ответ на звонок. Получение медиа...");
     const stream = await getMediaStream(isVideoCall);
+    
     if (!stream) {
+        console.error("Отмена ответа: нет доступа к медиа");
         endCall(); 
         return;
     }
@@ -182,8 +233,16 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-    const offer = (window as any).pendingOffer;
+    const offer = pendingOffer.current;
+    if (!offer) {
+        console.error("Ошибка: Offer потерян");
+        endCall();
+        return;
+    }
+
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    processIceQueue();
 
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
