@@ -2,18 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./UserProfilePage.css";
+import { User } from "../types";
 
 export default function UserProfilePage() {
-  const { userId } = useParams();
-  const [user, setUser] = useState(null);
-  const [friends, setFriends] = useState([]);
+  const { userId } = useParams<{ userId: string }>();
+  const [user, setUser] = useState<User | null>(null);
+  const [friends, setFriends] = useState<User[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!userId) return;
 
     api
-      .get(`/users/${userId}`)
+      .get<User>(`/users/${userId}`)
       .then((res) => {
         setUser(res.data);
         setFriends(res.data.friends || []);
@@ -26,14 +27,15 @@ export default function UserProfilePage() {
   }, [userId, navigate]);
 
   const startChat = async () => {
+    if (!user) return;
     try {
-      const friendId = user.id || user._id;
+      const friendId = user.id;
       if (!friendId) {
         alert("Ошибка: ID друга не найден");
         return;
       }
 
-      const res = await api.post("/chats/private", { friendId });
+      const res = await api.post<{ id: number }>("/chats/private", { friendId });
 
       if (!res.data || !res.data.id) {
         alert("Ошибка: сервер не вернул ID чата");
@@ -49,7 +51,7 @@ export default function UserProfilePage() {
           },
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Ошибка создания чата:", err.response?.data || err.message);
       const serverMessage =
         err.response?.data?.message || err.response?.data || err.message;
@@ -58,7 +60,7 @@ export default function UserProfilePage() {
   };
 
   const removeFriend = async () => {
-    if (!window.confirm("Удалить из друзей?")) return;
+    if (!user || !window.confirm("Удалить из друзей?")) return;
     try {
       await api.post(`/friends/remove`, { friendId: user.id });
       alert("Пользователь удалён из друзей");
@@ -91,7 +93,7 @@ export default function UserProfilePage() {
           <h2>{user.username}</h2>
           <p>Роль: {user.role || "USER"}</p>
           <p>
-            Зарегистрирован: {new Date(user.created_at).toLocaleDateString()}
+            Зарегистрирован: {user.created_at ? new Date(user.created_at).toLocaleDateString() : "-"}
           </p>
         </div>
       </div>

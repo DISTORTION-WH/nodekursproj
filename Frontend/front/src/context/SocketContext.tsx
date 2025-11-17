@@ -4,21 +4,37 @@ import React, {
   useEffect,
   useState,
   useMemo,
+  ReactNode,
 } from "react";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import api from "../services/api";
+import { User } from "../types";
 
-const SocketContext = createContext(null);
+interface SocketContextType {
+  socket: Socket | null;
+}
+
+const SocketContext = createContext < SocketContextType > { socket: null };
 
 export const useSocket = () => useContext(SocketContext);
 
-export const SocketProvider = ({ currentUser, children }) => {
-  const [socket, setSocket] = useState(null);
+interface SocketProviderProps {
+  currentUser: User | null;
+  children: ReactNode;
+}
+
+export const SocketProvider = ({
+  currentUser,
+  children,
+}: SocketProviderProps) => {
+  const [socket, setSocket] = (useState < Socket) | (null > null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (currentUser && currentUser.id && token) {
-      const newSocket = io(api.defaults.baseURL);
+      const newSocket = io(api.defaults.baseURL || "", {
+  
+      });
 
       newSocket.on("connect", () => {
         newSocket.emit("join_user_room", currentUser.id);
@@ -39,9 +55,8 @@ export const SocketProvider = ({ currentUser, children }) => {
         setSocket(null);
       }
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
+    // eslint-disable-next-line
+  }, [currentUser]); 
 
   const value = useMemo(() => ({ socket }), [socket]);
 

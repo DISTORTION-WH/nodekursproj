@@ -4,25 +4,55 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  ReactNode,
 } from "react";
 import api from "../services/api";
 import { useSocket } from "./SocketContext";
+import { Chat, Message, User, ChatParticipant } from "../types";
 
-const ChatContext = createContext();
+interface ChatContextType {
+  activeChat: Chat | null;
+  messages: Message[];
+  modalView: "invite" | "members" | null;
+  chatMembers: ChatParticipant[];
+  friendsForInvite: User[];
+  currentUser: User | null;
+  selectChat: (chat: Chat) => void;
+  closeChat: () => void;
+  sendMessage: (text: string) => void;
+  deleteMessages: (allForEveryone: boolean) => Promise<void>;
+  openInviteModal: () => void;
+  openMembersModal: () => void;
+  closeModal: () => void;
+  handleInvite: (friendId: number) => Promise<void>;
+  handleKick: (userIdToKick: number) => Promise<void>;
+  handleGetInviteCode: () => Promise<void>;
+}
 
-export const useChat = () => useContext(ChatContext);
+const ChatContext = createContext<ChatContextType | null>(null);
 
-export const ChatProvider = ({ currentUser, children }) => {
+export const useChat = () => {
+  const context = useContext(ChatContext);
+  if (!context) throw new Error("useChat must be used within ChatProvider");
+  return context;
+};
+
+interface ChatProviderProps {
+  currentUser: User | null;
+  children: ReactNode;
+}
+
+export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const { socket } = useSocket();
-  const [activeChat, setActiveChat] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [modalView, setModalView] = useState(null);
-  const [chatMembers, setChatMembers] = useState([]);
-  const [friendsForInvite, setFriendsForInvite] = useState([]);
+  const [activeChat, setActiveChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [modalView, setModalView] = useState<"invite" | "members" | null>(null);
+  const [chatMembers, setChatMembers] = useState<ChatParticipant[]>([]);
+  const [friendsForInvite, setFriendsForInvite] = useState<User[]>([]);
 
-  const fetchChatMembers = useCallback((chatId) => {
+  const fetchChatMembers = useCallback((chatId: number) => {
     api
-      .get(`/chats/${chatId}/users`)
+      .get<ChatParticipant[]>(`/chats/${chatId}/users`)
       .then((res) => setChatMembers(res.data))
       .catch(console.error);
   }, []);
@@ -33,7 +63,7 @@ export const ChatProvider = ({ currentUser, children }) => {
     }
 
     api
-      .get(`/chats/${activeChat.id}/messages`)
+      .get<Message[]>(`/chats/${activeChat.id}/messages`)
       .then((res) => setMessages(res.data))
       .catch(console.error);
 
@@ -44,19 +74,19 @@ export const ChatProvider = ({ currentUser, children }) => {
     socket.emit("join_chat", activeChat.id);
     console.log(`Socket: Вступил в комнату chat_${activeChat.id}`);
 
-    const handleNewMessage = (msg) => {
+    const handleNewMessage = (msg: Message) => {
       if (Number(msg.chat_id) === Number(activeChat.id)) {
         setMessages((prev) => [...prev, msg]);
       }
     };
 
-    const handleMessagesCleared = (data) => {
+    const handleMessagesCleared = (data: { chatId: number }) => {
       if (Number(data.chatId) === Number(activeChat.id)) {
         setMessages([]);
       }
     };
 
-    const handleChatMemberUpdated = (data) => {
+    const handleChatMemberUpdated = (data: { chatId: number }) => {
       if (
         Number(data.chatId) === Number(activeChat.id) &&
         activeChat.is_group
@@ -65,7 +95,7 @@ export const ChatProvider = ({ currentUser, children }) => {
       }
     };
 
-    const handleRemovedFromChat = (data) => {
+    const handleRemovedFromChat = (data: { chatId: number }) => {
       if (Number(data.chatId) === Number(activeChat.id)) {
         alert("Вас исключили из этого чата");
         setActiveChat(null);
@@ -85,10 +115,9 @@ export const ChatProvider = ({ currentUser, children }) => {
       socket.off("chat_member_updated", handleChatMemberUpdated);
       socket.off("removed_from_chat", handleRemovedFromChat);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, activeChat, fetchChatMembers]);
 
-  const selectChat = (chat) => {
+  const selectChat = (chat: Chat) => {
     setMessages([]);
     setChatMembers([]);
     setModalView(null);
@@ -99,12 +128,12 @@ export const ChatProvider = ({ currentUser, children }) => {
     setActiveChat(null);
   };
 
-  const sendMessage = (text) => {
+  const sendMessage = (text: string) => {
     if (!text.trim() || !activeChat?.id) return;
     api.post(`/chats/${activeChat.id}/messages`, { text }).catch(console.error);
   };
 
-  const deleteMessages = async (allForEveryone) => {
+  const deleteMessages = async (allForEveryone: boolean) => {
     if (!activeChat?.id) return;
     if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?"))
       return;
@@ -120,7 +149,7 @@ export const ChatProvider = ({ currentUser, children }) => {
 
   const openInviteModal = async () => {
     try {
-      const res = await api.get("/friends");
+      const res = await api.get<User[]>("/friends");
       const memberIds = new Set(chatMembers.map((m) => m.id));
       setFriendsForInvite(res.data.filter((f) => !memberIds.has(f.id)));
       setModalView("invite");
@@ -137,30 +166,33 @@ export const ChatProvider = ({ currentUser, children }) => {
     setModalView(null);
   };
 
-  const handleInvite = async (friendId) => {
+  const handleInvite = async (friendId: number) => {
     try {
+      if (!activeChat) return;
       await api.post(`/chats/${activeChat.id}/invite`, { friendId });
       closeModal();
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.message || "Ошибка");
     }
   };
 
-  const handleKick = async (userIdToKick) => {
+  const handleKick = async (userIdToKick: number) => {
+    if (!activeChat || !currentUser) return;
     const isLeaving = currentUser.id === userIdToKick;
     if (!window.confirm(isLeaving ? "Выйти из группы?" : "Удалить участника?"))
       return;
     try {
       await api.post(`/chats/${activeChat.id}/kick`, { userIdToKick });
       if (isLeaving) closeChat();
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.message || "Ошибка");
     }
   };
 
   const handleGetInviteCode = async () => {
     try {
-      const res = await api.post(`/chats/${activeChat.id}/invite-code`, {});
+      if (!activeChat) return;
+      const res = await api.post<{ inviteCode: string }>(`/chats/${activeChat.id}/invite-code`, {});
       window.prompt("Код приглашения:", res.data.inviteCode);
     } catch (err) {
       console.error(err);
