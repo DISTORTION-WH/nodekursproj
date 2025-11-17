@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
+import { FriendRequest } from "../types";
 
-export default function IncomingRequests({ onOpenProfile }) {
-  const [requests, setRequests] = useState([]);
+interface IncomingRequestsProps {
+  onOpenProfile: (id: number) => void;
+}
+
+export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProps) {
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
   const { socket } = useSocket();
 
   const fetchRequests = () => {
     api
-      .get("/friends/incoming")
+      .get<FriendRequest[]>("/friends/incoming")
       .then((res) => setRequests(res.data))
       .catch(console.error);
   };
@@ -26,7 +31,7 @@ export default function IncomingRequests({ onOpenProfile }) {
     }
   }, [socket]);
 
-  const acceptRequest = (id) => {
+  const acceptRequest = (id: number) => {
     api
       .post("/friends/accept", { friendId: id })
       .then(() => {

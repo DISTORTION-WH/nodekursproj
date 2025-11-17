@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import EmojiPicker, { Theme } from "emoji-picker-react";
+import React, { useState, KeyboardEvent } from "react";
+import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import "../pages/HomePage.css";
 
@@ -8,16 +8,22 @@ export default function MessageInput() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { sendMessage } = useChat();
 
-  const handleSend = (e) => {
-    e.preventDefault();
+  const handleSend = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newMessage.trim()) return;
     sendMessage(newMessage);
     setNewMessage("");
     setShowEmojiPicker(false);
   };
 
-  const onEmojiClick = (emojiData) => {
+  const onEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage((prevMessage) => prevMessage + emojiData.emoji);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      handleSend();
+    }
   };
 
   return (
@@ -47,7 +53,7 @@ export default function MessageInput() {
         value={newMessage}
         onChange={(e) => setNewMessage(e.target.value)}
         placeholder="Написать сообщение..."
-        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend(e)}
+        onKeyDown={handleKeyDown}
         onClick={() => setShowEmojiPicker(false)}
       />
       <button type="submit">Go</button>

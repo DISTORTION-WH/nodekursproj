@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import "../../pages/AdminPage.css";
+import { Chat } from "../../types";
 
 export default function ChatManagement() {
-  const [chats, setChats] = useState([]);
-  const [selectedChat, setSelectedChat] = useState(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
 
   useEffect(() => {
     fetchChats();
-    // eslint-disable-next-line
   }, []);
 
   const fetchChats = () => {
     api
-      .get("/admin/chats")
+      .get<Chat[]>("/admin/chats")
       .then((res) => {
         const chatsData = res.data.map((c) => ({
           ...c,
@@ -25,10 +25,12 @@ export default function ChatManagement() {
       .catch((err) => console.error("Ошибка загрузки чатов:", err));
   };
 
-  const openChat = (chatId) =>
-    setSelectedChat(chats.find((c) => Number(c.id) === Number(chatId)));
+  const openChat = (chatId: number) => {
+    const found = chats.find((c) => Number(c.id) === Number(chatId));
+    if (found) setSelectedChat(found);
+  };
 
-  const handleDeleteChat = async (chat) => {
+  const handleDeleteChat = async (chat: Chat) => {
     if (!window.confirm("Удалить этот чат?")) return;
     try {
       await api.delete(`/admin/chats/${chat.id}`);

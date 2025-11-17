@@ -4,7 +4,12 @@ import { useChat } from "../context/ChatContext";
 import { BackArrowIcon } from "./icons";
 import "../pages/HomePage.css";
 
-export default function ChatHeader({ isMobile, onCloseChat }) {
+interface ChatHeaderProps {
+  isMobile: boolean;
+  onCloseChat: () => void;
+}
+
+export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
 
   const {
@@ -16,11 +21,13 @@ export default function ChatHeader({ isMobile, onCloseChat }) {
     deleteMessages,
   } = useChat();
 
+  if (!activeChat || !currentUser) return null;
+
   const handleLeave = () => {
     handleKick(currentUser.id);
   };
 
-  const handleDelete = (isAll) => {
+  const handleDelete = (isAll: boolean) => {
     deleteMessages(isAll);
     setShowDeleteOptions(false);
   };

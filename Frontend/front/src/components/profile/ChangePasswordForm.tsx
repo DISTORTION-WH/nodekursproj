@@ -20,7 +20,7 @@ export default function ChangePasswordForm() {
       setPasswordMessage("Пароль успешно изменён");
       setOldPassword("");
       setNewPassword("");
-    } catch (err) {
+    } catch (err: any) {
       setPasswordMessage(err.response?.data?.message || "Ошибка смены пароля");
     } finally {
       setLoadingPassword(false);

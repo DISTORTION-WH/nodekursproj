@@ -1,14 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import "./AuthForm.css";
 
-export default function AuthForm({ type }) {
+interface AuthFormProps {
+  type?: "login" | "register"; // Пропc type есть в JS версии, оставим его опциональным
+}
+
+export default function AuthForm({ type }: AuthFormProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -19,9 +23,9 @@ export default function AuthForm({ type }) {
 
     try {
       await login(username, password);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError(err || "Неизвестная ошибка входа");
+      setError(typeof err === 'string' ? err : "Неизвестная ошибка входа");
     }
   };
 

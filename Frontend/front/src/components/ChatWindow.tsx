@@ -5,7 +5,12 @@ import MessageInput from "./MessageInput";
 import ChatModals from "./ChatModals";
 import { useChat } from "../context/ChatContext";
 
-export default function ChatWindow({ isMobile, onCloseChat }) {
+interface ChatWindowProps {
+  isMobile: boolean;
+  onCloseChat: () => void;
+}
+
+export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
   const { activeChat } = useChat();
 
   if (!activeChat) {

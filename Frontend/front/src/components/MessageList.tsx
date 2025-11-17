@@ -4,7 +4,7 @@ import "../pages/HomePage.css";
 
 export default function MessageList() {
   const { messages, currentUser, activeChat } = useChat();
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -13,6 +13,8 @@ export default function MessageList() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [activeChat]);
+
+  if (!activeChat) return null;
 
   return (
     <div className="chat-messages">

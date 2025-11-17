@@ -1,21 +1,26 @@
 import React, { useState } from "react";
 import api from "../services/api";
+import { User } from "../types";
 
-export default function UserSearch({ onOpenProfile }) {
+interface UserSearchProps {
+  onOpenProfile: (id: number) => void;
+}
+
+export default function UserSearch({ onOpenProfile }: UserSearchProps) {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<User[]>([]);
 
   const handleSearch = () => {
     if (!search.trim()) return;
     api
-      .get(`/users?search=${encodeURIComponent(search)}`)
+      .get<User[]>(`/users?search=${encodeURIComponent(search)}`)
       .then((res) => setResults(res.data))
       .catch(console.error);
   };
 
-  const addFriend = (id) => {
+  const addFriend = (id: number) => {
     api
-      .post("/friends/request", { friendId: id })
+      .post<{ message: string }>("/friends/request", { friendId: id })
       .then((res) => {
         alert(res.data.message);
         setSearch("");

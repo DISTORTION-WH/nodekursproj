@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
+import { Chat } from "../types";
 
-export default function GroupChatList({ onOpenGroupChat }) {
-  const [groupChats, setGroupChats] = useState([]);
+interface GroupChatListProps {
+  onOpenGroupChat: (chat: Chat) => void;
+}
+
+export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
+  const [groupChats, setGroupChats] = useState<Chat[]>([]);
   const { socket } = useSocket();
 
   const fetchGroupChats = () => {
     api
-      .get("/chats")
+      .get<Chat[]>("/chats")
       .then((res) => setGroupChats(res.data.filter((chat) => chat.is_group)))
       .catch(console.error);
   };
@@ -22,7 +27,7 @@ export default function GroupChatList({ onOpenGroupChat }) {
       const onAddedToChat = () => {
         fetchGroupChats();
       };
-      const onRemovedFromChat = (data) => {
+      const onRemovedFromChat = (data: { chatId: number }) => {
         setGroupChats((prev) =>
           prev.filter((c) => Number(c.id) !== Number(data.chatId))
         );
@@ -42,10 +47,10 @@ export default function GroupChatList({ onOpenGroupChat }) {
     const code = prompt("Код приглашения:");
     if (!code?.trim()) return;
     try {
-      const res = await api.post("/chats/join", { inviteCode: code });
+      const res = await api.post<Chat>("/chats/join", { inviteCode: code });
       alert(`Вы вошли в: ${res.data.name}`);
       fetchGroupChats();
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.message || "Ошибка");
     }
   };
@@ -54,7 +59,7 @@ export default function GroupChatList({ onOpenGroupChat }) {
     const name = prompt("Название комнаты:");
     if (!name?.trim()) return;
     try {
-      const res = await api.post("/chats/group", { name });
+      const res = await api.post<Chat>("/chats/group", { name });
       setGroupChats((prev) => [...prev, res.data]);
       onOpenGroupChat(res.data);
     } catch (err) {

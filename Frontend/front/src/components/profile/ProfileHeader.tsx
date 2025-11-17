@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import api from "../../services/api";
 import "../../pages/ProfilePage.css";
+import { User } from "../../types";
 
-export default function ProfileHeader({ currentUser, handleAvatarChange }) {
-  const [newAvatar, setNewAvatar] = useState(null);
+interface ProfileHeaderProps {
+  currentUser: User | null;
+  handleAvatarChange: (file: File) => Promise<void>;
+}
+
+export default function ProfileHeader({ currentUser, handleAvatarChange }: ProfileHeaderProps) {
+  const [newAvatar, setNewAvatar] = useState<File | null>(null);
   const [uploadMessage, setUploadMessage] = useState("");
 
   const handleUploadClick = async () => {
@@ -18,7 +24,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }) {
         setUploadMessage("Аватар обновлён");
         setNewAvatar(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       setUploadMessage(
         err.response?.data?.message || "Ошибка при загрузке аватара"
       );
@@ -60,7 +66,9 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }) {
             type="file"
             accept="image/*"
             onChange={(e) => {
-              setNewAvatar(e.target.files && e.target.files[0]);
+              if (e.target.files && e.target.files[0]) {
+                  setNewAvatar(e.target.files[0]);
+              }
               setUploadMessage("");
             }}
           />

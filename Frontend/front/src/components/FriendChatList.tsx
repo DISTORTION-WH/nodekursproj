@@ -2,15 +2,20 @@ import React, { useState, useEffect } from "react";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
+import { User } from "../types";
 
-export default function FriendChatList({ onOpenProfile }) {
-  const [friends, setFriends] = useState([]);
+interface FriendChatListProps {
+  onOpenProfile: (id: number) => void;
+}
+
+export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
+  const [friends, setFriends] = useState<User[]>([]);
   const { socket } = useSocket();
   const { selectChat } = useChat();
 
   const fetchFriends = () => {
     api
-      .get("/friends")
+      .get<User[]>("/friends")
       .then((res) => setFriends(res.data))
       .catch(console.error);
   };
@@ -34,9 +39,9 @@ export default function FriendChatList({ onOpenProfile }) {
     }
   }, [socket]);
 
-  const openChat = async (friend) => {
+  const openChat = async (friend: User) => {
     try {
-      const res = await api.post("/chats/private", { friendId: friend.id });
+      const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
       selectChat({
         id: res.data.id,
         username: friend.username,

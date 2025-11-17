@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import "../components/AuthForm.css";
@@ -7,13 +7,13 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [avatar, setAvatar] = useState(null);
+  const [avatar, setAvatar] = useState<File | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const { login } = useAuth();
 
-  const handlePreRegister = async (e) => {
+  const handlePreRegister = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -29,13 +29,13 @@ export default function RegisterPage() {
       });
 
       setStep(2);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || "Ошибка регистрации");
     }
   };
 
-  const handleConfirm = async (e) => {
+  const handleConfirm = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -46,7 +46,7 @@ export default function RegisterPage() {
       });
 
       await login(username, password);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || err || "Ошибка подтверждения");
     }
@@ -86,7 +86,11 @@ export default function RegisterPage() {
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setAvatar(e.target.files[0])}
+            onChange={(e) => {
+                if(e.target.files && e.target.files[0]) {
+                    setAvatar(e.target.files[0]);
+                }
+            }}
           />
           <button type="submit" className="btn primary">
             Зарегистрироваться

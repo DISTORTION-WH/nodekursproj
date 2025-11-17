@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import "../../pages/AdminPage.css";
+import { AppStats } from "../../types";
 
 export default function StatsDashboard() {
-  const [stats, setStats] = useState(null);
+  // Исправление 1: Правильный синтаксис useState с дженериком
+  const [stats, setStats] = useState<AppStats | null>(null);
 
   useEffect(() => {
-    fetchStats();
-    // eslint-disable-next-line
-  }, []);
+    // Исправление 3: Перенесли функцию внутрь useEffect, чтобы убрать предупреждение линтера
+    const fetchStats = () => {
+      // Исправление 2: Правильный вызов api.get(...)
+      api.get<AppStats>("/admin/stats")
+        .then((res) => setStats(res.data))
+        .catch((err: any) => console.error("Ошибка загрузки статистики:", err));
+    };
 
-  const fetchStats = () => {
-    api
-      .get("/admin/stats")
-      .then((res) => setStats(res.data))
-      .catch((err) => console.error("Ошибка загрузки статистики:", err));
-  };
+    fetchStats();
+  }, []);
 
   if (!stats) {
     return (

@@ -1,3 +1,8 @@
+export interface Friend {
+  id: number;
+  username: string;
+  avatar_url: string | null;
+}
 
 export interface User {
   id: number;
@@ -6,7 +11,8 @@ export interface User {
   role?: string;
   avatar_url?: string | null;
   created_at?: string;
-  friends?: User[];
+  friends?: User[]; // или Friend[]
+  roles?: string[];
 }
 
 export interface Message {
@@ -37,6 +43,7 @@ export interface Chat {
   invite_code?: string | null;
   participants?: ChatParticipant[];
   messages?: Message[];
+  // Для отображения в списках (когда это ЛС):
   username?: string; 
   avatar_url?: string | null;
 }
@@ -45,4 +52,19 @@ export interface FriendRequest {
   requester_id: number;
   requester_name: string;
   requester_avatar: string | null;
+}
+
+export interface LogEntry {
+  id: number;
+  level: string;
+  message: string;
+  meta: any;
+  created_at: string;
+}
+
+export interface AppStats {
+  usersCount: number;
+  chatsCount: number;
+  messagesCount: number;
+  logsCount: number;
 }

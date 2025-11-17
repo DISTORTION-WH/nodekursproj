@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
-
 import "../../pages/AdminPage.css";
+import { User } from "../../types";
 
 export default function UserManagement() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
-  const [editingUser, setEditingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();
-    // eslint-disable-next-line
   }, []);
 
   const fetchUsers = () => {
     api
-      .get("/admin/users")
+      .get<User[]>("/admin/users")
       .then((res) => setUsers(res.data))
       .catch((err) => console.error("Ошибка загрузки пользователей:", err));
   };
 
-  const handleDeleteUser = async (id) => {
+  const handleDeleteUser = async (id: number) => {
     if (!window.confirm("Удалить пользователя?")) return;
     try {
       await api.delete(`/admin/users/${id}`);
@@ -30,15 +29,15 @@ export default function UserManagement() {
     }
   };
 
-  const handleEditUser = (user) => setEditingUser({ ...user });
+  const handleEditUser = (user: User) => setEditingUser({ ...user });
 
   const handleSaveUser = async () => {
+    if (!editingUser) return;
     try {
       const dataToUpdate = {
         username: editingUser.username,
         email: editingUser.email,
-
-        roleId: editingUser.role === "ADMIN" ? 2 : 1,
+        roleId: editingUser.role === "ADMIN" ? 2 : 1, // Пример логики, возможно нужно поправить под ваш бекенд
       };
 
       await api.put(`/admin/users/${editingUser.id}`, dataToUpdate);
@@ -127,7 +126,7 @@ export default function UserManagement() {
           />
           <input
             type="email"
-            value={editingUser.email}
+            value={editingUser.email || ""}
             onChange={(e) =>
               setEditingUser({ ...editingUser, email: e.target.value })
             }
@@ -135,7 +134,7 @@ export default function UserManagement() {
           />
           <input
             type="text"
-            value={editingUser.role}
+            value={editingUser.role || ""}
             onChange={(e) =>
               setEditingUser({ ...editingUser, role: e.target.value })
             }

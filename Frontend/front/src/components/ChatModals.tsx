@@ -15,10 +15,12 @@ export default function ChatModals() {
     handleGetInviteCode,
   } = useChat();
 
-  if (!modalView) return null;
+  if (!modalView || !activeChat || !currentUser) return null;
 
   const isInvite = modalView === "invite";
-  const list = isInvite ? friendsForInvite : chatMembers;
+  // Приводим типы, так как friendsForInvite - это User[], а chatMembers - ChatParticipant[]
+  // Для рендера нам нужны id и username, которые есть в обоих интерфейсах
+  const list: any[] = isInvite ? friendsForInvite : chatMembers;
 
   return (
     <div className="modal-backdrop" onClick={closeModal}>

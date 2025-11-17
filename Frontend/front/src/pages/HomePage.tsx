@@ -4,6 +4,7 @@ import FriendsList from "../components/FriendsList";
 import ChatWindow from "../components/ChatWindow";
 import { useChat } from "../context/ChatContext";
 import "./HomePage.css";
+import { User } from "../types";
 
 const ChatPlaceholder = () => (
   <h3
@@ -14,7 +15,11 @@ const ChatPlaceholder = () => (
   </h3>
 );
 
-export default function HomePage({ currentUser }) {
+interface HomePageProps {
+  currentUser: User | null;
+}
+
+export default function HomePage({ currentUser }: HomePageProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const { activeChat, selectChat } = useChat();
   const location = useLocation();
@@ -40,7 +45,8 @@ export default function HomePage({ currentUser }) {
   }, [location.state, selectChat]);
 
   const handleCloseChat = () => {
-    selectChat(null);
+    selectChat(null as any); // Приведение типа, если selectChat ожидает Chat, но логика допускает null (нужно поправить в контексте)
+    // Или лучше: в ChatContext разрешите null для selectChat
   };
 
   return (

@@ -2,20 +2,20 @@ import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import "../../pages/ProfilePage.css";
+import { User } from "../../types";
 
 export default function ProfileFriendList() {
-  const [friends, setFriends] = useState([]);
+  const [friends, setFriends] = useState<User[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     api
-      .get("/friends")
+      .get<User[]>("/friends")
       .then((res) => setFriends(res.data || []))
       .catch(() => setFriends([]));
-    // eslint-disable-next-line
   }, []);
 
-  const openFriendProfile = (id) => {
+  const openFriendProfile = (id: number) => {
     navigate(`/profile/${id}`);
   };
 
@@ -23,7 +23,7 @@ export default function ProfileFriendList() {
     <section className="profile-friends-section">
       <h3 className="friends-title">Друзья</h3>
       <ul className="profile-friends-list">
-        {friends && friends.length ? (
+        {friends && friends.length > 0 ? (
           friends.map((f) => (
             <li
               key={f.id}

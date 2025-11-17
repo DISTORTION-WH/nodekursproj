@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import "../../pages/AdminPage.css";
+import { LogEntry } from "../../types";
 
 export default function LogsViewer() {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     fetchLogs();
-    // eslint-disable-next-line
   }, []);
 
   const fetchLogs = () => {
     api
-      .get("/admin/logs?limit=50")
+      .get<LogEntry[]>("/admin/logs?limit=50")
       .then((res) => setLogs(res.data))
       .catch((err) => console.error("Ошибка загрузки логов:", err));
   };

@@ -1,6 +1,6 @@
 import React from "react";
 
-export const BackArrowIcon = () => (
+export const BackArrowIcon: React.FC = () => (
   <svg
     width="24"
     height="24"
