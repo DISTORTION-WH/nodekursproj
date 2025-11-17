@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
 import { Socket } from "socket.io-client";
@@ -48,6 +48,26 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const otherUserId = useRef<number | null>(null);
+
+  // Оборачиваем resetCall в useCallback, чтобы функция была стабильной
+  // и менялась только при изменении localStream
+  const resetCall = useCallback(() => {
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCallState("idle");
+    setCallerData(null);
+    otherUserId.current = null;
+    setIsAudioMuted(false);
+    setIsVideoMuted(false);
+    (window as any).pendingOffer = null;
+  }, [localStream]);
 
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -117,7 +137,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       socket.off("receive_ice_candidate");
       socket.off("call_ended");
     };
-  }, [socket, callState]);
+  }, [socket, callState, resetCall]); // Теперь resetCall в зависимостях, и ошибки нет
 
   const startCall = async (userId: number, video: boolean) => {
     if (!socket || !currentUser) return;
@@ -182,24 +202,6 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       socket.emit("end_call", { to: otherUserId.current });
     }
     resetCall();
-  };
-
-  const resetCall = () => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-    }
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
-    }
-    setLocalStream(null);
-    setRemoteStream(null);
-    setCallState("idle");
-    setCallerData(null);
-    otherUserId.current = null;
-    setIsAudioMuted(false);
-    setIsVideoMuted(false);
-    (window as any).pendingOffer = null;
   };
 
   const muteAudio = () => {

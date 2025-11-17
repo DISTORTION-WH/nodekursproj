@@ -48,7 +48,8 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
       selectChat({
         id: res.data.id,
         username: friend.username,
-        avatar_url: friend.avatar_url,
+        // ИСПРАВЛЕНИЕ: (friend.avatar_url || undefined) преобразует null в undefined
+        avatar_url: friend.avatar_url || undefined,
         is_group: false,
         name: null,
         participants: [{ id: friend.id, username: friend.username }] as any
