@@ -1,62 +1,104 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { SocketProvider } from "./context/SocketContext"; // Важно
-import { ChatProvider } from "./context/ChatContext";
-import { CallProvider } from "./context/CallContext";
-
-// Страницы
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import ZFRegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
+import AdminPage from "./pages/AdminPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
-import AdminPage from "./pages/AdminPage";
-
-// Компоненты
-import Navbar from "./components/Navbar";
-import CallOverlay from "./components/CallOverlay"; // Наш глобальный оверлей
-import ProtectedRoute from "./components/ProtectedRoute";
-
+import { SocketProvider } from "./context/SocketContext";
+import { ChatProvider } from "./context/ChatContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CallProvider } from "./context/CallContext";
+import CallOverlay from "./components/CallOverlay";
 import "./App.css";
 
 function AppRoutes() {
-  const { token, user, loading } = useAuth();
+  // ИСПРАВЛЕНО: Используем имена, которые реально есть в AuthContext.tsx
+  const { isAuth, role, currentUser, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
+    );
+  }
 
   return (
-    // 1. SocketProvider должен быть как можно выше, чтобы сокет жил при смене страниц
-    <SocketProvider currentUser={user}>
-      {/* 2. CallProvider внутри сокета, чтобы иметь доступ к нему */}
+    // currentUser передаем напрямую, так как он теперь доступен
+    <SocketProvider currentUser={currentUser}>
       <CallProvider>
-        {/* 3. ChatProvider для данных чата */}
-        <ChatProvider currentUser={user}>
+        <ChatProvider currentUser={currentUser}>
+          {isAuth && <Navbar />} {/* Navbar показываем только если авторизован */}
           
-          {token && <Navbar />}
-
           <div className="app-container">
             <div className="main-content">
               <Routes>
-                {/* Публичные */}
-                <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" />} />
-                <Route path="/register" element={!token ? <RegisterPage /> : <Navigate to="/" />} />
-
-                {/* Защищенные */}
-                <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/user/:id" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
+                <Route
+                  path="/"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+                <Route 
+                  path="/login" 
+                  element={!isAuth ? <LoginPage /> : <Navigate to="/" />} 
+                />
+                <Route 
+                  path="/register" 
+                  element={!isAuth ? <ZFRegisterPage /> : <Navigate to="/" />} 
+                />
                 
-                {/* Админка */}
-                <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+                {/* Админский роут */}
+                <Route
+                  path="/admin"
+                  element={
+                    isAuth && role === "ADMIN" ? (
+                      <AdminPage />
+                    ) : (
+                      <Navigate to="/" />
+                    )
+                  }
+                />
 
-                <Route path="*" element={<Navigate to="/" />} />
+                <Route
+                  path="/profile"
+                  element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
+                />
+                
+                <Route
+                  path="/profile/:userId"
+                  element={
+                    isAuth ? <UserProfilePage /> : <Navigate to="/login" />
+                  }
+                />
+
+                {/* Ловушка для несуществующих страниц */}
+                <Route
+                  path="*"
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
               </Routes>
             </div>
           </div>
-
-          {/* ГЛОБАЛЬНЫЙ ОВЕРЛЕЙ ЗВОНКА - БУДЕТ ВИДЕН ВЕЗДЕ */}
-          {token && <CallOverlay />}
+          
+          {/* Глобальная плашка звонка (вне Routes) */}
+          <CallOverlay /> 
 
         </ChatProvider>
       </CallProvider>
@@ -64,7 +106,7 @@ function AppRoutes() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <Router>
       <AuthProvider>
@@ -73,5 +115,3 @@ function App() {
     </Router>
   );
 }
-
-export default App;
