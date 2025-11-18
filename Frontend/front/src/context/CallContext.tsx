@@ -30,6 +30,21 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 
@@ -84,26 +99,27 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // ВАЖНО: Улучшенная обработка входящего потока
     pc.ontrack = (event) => {
       console.log("📡 Получен трек:", event.track.kind);
-      
-      // Иногда stream приходит пустым в event.streams, создаем новый если надо
       const stream = event.streams[0] || new MediaStream([event.track]);
       
       console.log("🔊 Аудио треков:", stream.getAudioTracks().length);
       console.log("📺 Видео треков:", stream.getVideoTracks().length);
 
       setRemoteStream(prevStream => {
-         // Если поток уже есть, просто вернем его (чтобы не вызывать перерисовку)
-         // Или можно объединить треки, если они приходят по отдельности
          if (prevStream && prevStream.id === stream.id) return prevStream;
          return stream;
       });
     };
 
-    pc.onconnectionstatechange = () => {
-        console.log("Connection state:", pc.connectionState);
+    pc.oniceconnectionstatechange = () => {
+        console.log("❄️ ICE Connection State:", pc.iceConnectionState);
+        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+            console.error("❌ Ошибка P2P соединения. Скорее всего NAT/Firewall блокирует связь.");
+        }
+        if (pc.iceConnectionState === "connected") {
+            console.log("✅ P2P Соединение установлено успешно!");
+        }
     };
 
     return pc;
@@ -123,7 +139,6 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const getMediaStream = async (video: boolean) => {
     try {
-      // Всегда запрашиваем аудио!
       const stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: true });
       
       console.log("🎤 Локальный доступ получен. Аудио треков:", stream.getAudioTracks().length);
@@ -212,7 +227,6 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const answerCall = async () => {
     if (!socket || !otherUserId.current) return;
     
-    // При ответе видео включаем, только если это был видеозвонок
     const stream = await getMediaStream(isVideoCall);
     if (!stream) { endCall(); return; }
 
