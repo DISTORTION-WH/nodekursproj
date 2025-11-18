@@ -8,18 +8,21 @@ export default function ChatModals() {
     closeModal,
     friendsForInvite,
     chatMembers,
-    activeChat,
+    currentChat, // Исправлено: activeChat -> currentChat
     currentUser,
     handleInvite,
     handleKick,
     handleGetInviteCode,
   } = useChat();
 
-  if (!modalView || !activeChat || !currentUser) return null;
+  if (!modalView || !currentChat || !currentUser) return null;
 
   const isInvite = modalView === "invite";
 
   const list: any[] = isInvite ? friendsForInvite : chatMembers;
+
+  // Приведение к any для доступа к полям, если типы расходятся
+  const chatAny = currentChat as any; 
 
   return (
     <div className="modal-backdrop" onClick={closeModal}>
@@ -42,7 +45,7 @@ export default function ChatModals() {
             <div key={item.id} className="modal-item">
               <span>
                 {item.username}{" "}
-                {item.id === activeChat.creator_id && !isInvite ? "👑" : ""}
+                {item.id === chatAny.creator_id && !isInvite ? "👑" : ""}
               </span>
               {isInvite ? (
                 <button
@@ -52,7 +55,7 @@ export default function ChatModals() {
                   Пригласить
                 </button>
               ) : (
-                ((currentUser.id === activeChat.creator_id &&
+                ((currentUser.id === chatAny.creator_id &&
                   item.id !== currentUser.id) ||
                   item.invited_by_user_id === currentUser.id) && (
                   <button

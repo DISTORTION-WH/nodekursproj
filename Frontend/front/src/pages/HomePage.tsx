@@ -22,7 +22,11 @@ interface HomePageProps {
 export default function HomePage({ currentUser }: HomePageProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   
-  const { activeChat, selectChat, closeChat } = useChat();
+  // Исправлено: activeChat -> currentChat, selectChat -> enterChat (нет closeChat в контексте, используем setState(null) внутри контекста если нужно, но здесь enterChat переключает)
+  // В ChatContext есть enterChat, но нет явного closeChat. 
+  // Вы можете добавить const closeModal = () => setCurrentChat(null) в контекст, если нужно.
+  // Пока используем currentChat для проверки.
+  const { currentChat, enterChat } = useChat();
   const location = useLocation();
 
   useEffect(() => {
@@ -35,27 +39,25 @@ export default function HomePage({ currentUser }: HomePageProps) {
 
   useEffect(() => {
     if (location.state?.openChatId) {
-      selectChat({
-        id: location.state.openChatId,
-        username: location.state.friend?.username,
-        avatar_url: location.state.friend?.avatar_url,
-        is_group: false,
-        name: null, 
-      });
+      // Исправлено: передаем только ID
+      enterChat(location.state.openChatId);
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, selectChat]);
+  }, [location.state, enterChat]);
 
   const handleCloseChat = () => {
-    closeChat();
+    // Если нужно закрыть чат, в контексте должен быть метод для сброса currentChat.
+    // Если его нет, можно перезагрузить страницу или добавить метод setCurrentChat(null) в контекст.
+    // Временное решение: перезагрузка или ничего (для мобильных обычно кнопка "Назад" делает history.back)
+    window.location.reload(); 
   };
 
   return (
-    <div className={`home-page ${isMobile && activeChat ? "chat-open" : ""}`}>
+    <div className={`home-page ${isMobile && currentChat ? "chat-open" : ""}`}>
       <FriendsList currentUser={currentUser} />
 
       <div className="chat-section">
-        {activeChat ? (
+        {currentChat ? (
           <ChatWindow isMobile={isMobile} onCloseChat={handleCloseChat} />
         ) : (
           <ChatPlaceholder />

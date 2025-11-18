@@ -7,8 +7,8 @@ interface Chat {
   name?: string; 
   isGroup: boolean;
   participants?: any[]; 
-  avatarUrl?: string; // Добавлено для совместимости с ChatHeader
-  username?: string;  // Добавлено для совместимости с ChatHeader
+  avatarUrl?: string;
+  username?: string; 
   lastMessage?: string;
   updatedAt?: string;
 }
@@ -32,7 +32,7 @@ interface ChatContextType {
   messages: Message[];
   loading: boolean;
   unreadChats: Set<number>;
-  currentUser: any; // Добавили currentUser
+  currentUser: any; 
   fetchChats: () => void;
   enterChat: (chatId: number) => void;
   sendMessage: (content: string) => void;
@@ -81,7 +81,7 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
       const res = await api.get("/chats");
       setChats(res.data);
 
-      // ВАЖНО: Подписываемся на события всех чатов, чтобы получать уведомления
+      // ВАЖНО: Подписываемся на события всех чатов
       if (socket) {
         res.data.forEach((c: Chat) => {
           socket.emit("join_chat", c.id);
@@ -103,8 +103,6 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
       setCurrentChat(found || null);
 
       markChatAsRead(chatId);
-
-      // На всякий случай джойнимся (если новый чат)
       socket?.emit("join_chat", chatId);
     } catch (error) {
       console.error("Error entering chat", error);
@@ -213,11 +211,12 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
+  // Если сокет переподключился или обновился список чатов, нужно снова войти в комнаты
   useEffect(() => {
     if (socket && chats.length > 0) {
         chats.forEach(c => socket.emit("join_chat", c.id));
     }
-  }, [socket, chats.length]);
+  }, [socket, chats]); 
 
   useEffect(() => {
     if (!socket) return;
@@ -259,9 +258,7 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
     };
 
     const handleChatMemberUpdated = (data: { chatId: number }) => {
-        if(currentChat && currentChat.id === Number(data.chatId)) {
-            // Можно обновить список
-        }
+        // Логика обновления участников
     };
 
     socket.on("new_message", handleReceiveMessage);
@@ -283,7 +280,7 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
         messages,
         loading,
         unreadChats,
-        currentUser, // Передаем текущего пользователя
+        currentUser, 
         fetchChats,
         enterChat,
         sendMessage,

@@ -15,24 +15,21 @@ interface FriendsListProps {
 
 export default function FriendsList({ currentUser }: FriendsListProps) {
   const navigate = useNavigate();
-  const { selectChat } = useChat();
+  // Исправлено: selectChat -> enterChat
+  const { enterChat } = useChat();
 
   const openProfile = (id: number) => navigate(`/profile/${id}`);
 
-  const openGroupChat = (chat: Chat) =>
-    selectChat({
-      id: chat.id,
-      name: chat.name,
-      is_group: true,
-      creator_id: chat.creator_id,
-      participants: chat.participants,
-    });
+  const openGroupChat = (chat: Chat) => {
+    // Исправлено: передаем только ID
+    enterChat(chat.id);
+  };
 
   return (
     <div className="friends-list">
       <GroupChatList onOpenGroupChat={openGroupChat} />
 
-      <FriendChatList onOpenProfile={openProfile} />
+      <FriendChatList />
 
       <div className="bottom-sections">
         <IncomingRequests onOpenProfile={openProfile} />

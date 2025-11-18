@@ -11,9 +11,9 @@ interface ChatWindowProps {
 }
 
 export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
-  const { activeChat } = useChat();
+  const { currentChat } = useChat(); // Исправлено: activeChat -> currentChat
 
-  if (!activeChat) {
+  if (!currentChat) {
     return null;
   }
 
