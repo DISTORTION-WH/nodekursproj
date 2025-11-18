@@ -20,9 +20,7 @@ import CallOverlay from "./components/CallOverlay";
 import "./App.css";
 
 function AppRoutes() {
-  // ИСПРАВЛЕНО: Используем имена, которые реально есть в AuthContext.tsx
   const { isAuth, role, currentUser, loading } = useAuth();
-
   if (loading) {
     return (
       <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
@@ -30,12 +28,10 @@ function AppRoutes() {
   }
 
   return (
-    // currentUser передаем напрямую, так как он теперь доступен
     <SocketProvider currentUser={currentUser}>
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
-          {isAuth && <Navbar />} {/* Navbar показываем только если авторизован */}
-          
+          <Navbar />
           <div className="app-container">
             <div className="main-content">
               <Routes>
@@ -49,16 +45,8 @@ function AppRoutes() {
                     )
                   }
                 />
-                <Route 
-                  path="/login" 
-                  element={!isAuth ? <LoginPage /> : <Navigate to="/" />} 
-                />
-                <Route 
-                  path="/register" 
-                  element={!isAuth ? <ZFRegisterPage /> : <Navigate to="/" />} 
-                />
-                
-                {/* Админский роут */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<ZFRegisterPage />} />
                 <Route
                   path="/admin"
                   element={
@@ -69,20 +57,16 @@ function AppRoutes() {
                     )
                   }
                 />
-
                 <Route
                   path="/profile"
                   element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
                 />
-                
                 <Route
                   path="/profile/:userId"
                   element={
                     isAuth ? <UserProfilePage /> : <Navigate to="/login" />
                   }
                 />
-
-                {/* Ловушка для несуществующих страниц */}
                 <Route
                   path="*"
                   element={
@@ -96,10 +80,7 @@ function AppRoutes() {
               </Routes>
             </div>
           </div>
-          
-          {/* Глобальная плашка звонка (вне Routes) */}
-          <CallOverlay /> 
-
+          <CallOverlay />
         </ChatProvider>
       </CallProvider>
     </SocketProvider>

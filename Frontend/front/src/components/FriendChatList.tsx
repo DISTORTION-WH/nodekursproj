@@ -4,45 +4,37 @@ import "./FriendsList.css";
 
 export default function FriendChatList() {
   const { chats, enterChat, unreadChats } = useChat();
-  const friendChats = chats.filter(c => !c.isGroup);
+  // Фильтруем только личные чаты (или все, если хотите и группы тут)
+  const displayChats = chats.filter(c => !c.isGroup);
 
   return (
-    <div className="friends-list">
-      <h3>Диалоги</h3>
-      {friendChats.length === 0 ? (
+    <div className="friends-list-section">
+      <h3 style={{ padding: "0 10px", color: "#b9bbbe", fontSize: "0.9rem", textTransform: "uppercase" }}>
+        Диалоги
+      </h3>
+      {displayChats.length === 0 ? (
         <p style={{ padding: "10px", color: "#ccc" }}>Нет диалогов</p>
       ) : (
         <ul>
-          {friendChats.map((chat) => {
+          {displayChats.map((chat) => {
             const isUnread = unreadChats.has(chat.id);
 
             return (
               <li 
                 key={chat.id} 
                 onClick={() => enterChat(chat.id)}
-                className={isUnread ? "chat-item unread" : "chat-item"}
+                className="friend-item"
                 style={{ 
-                    cursor: "pointer", 
-                    padding: "10px", 
-                    borderBottom: "1px solid #333",
-                    backgroundColor: isUnread ? "rgba(255, 0, 0, 0.1)" : "transparent", // Легкая подсветка фона
-                    display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    backgroundColor: isUnread ? "rgba(88, 101, 242, 0.1)" : "transparent"
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: "bold", color: "#fff" }}>
-                        {chat.name || "Без названия"}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                     <span style={{ 
-                        fontSize: "12px", 
-                        color: isUnread ? "#fff" : "#aaa",
-                        fontWeight: isUnread ? "bold" : "normal" 
+                        fontWeight: isUnread ? "bold" : "normal", 
+                        color: isUnread ? "#fff" : "#8e9297" 
                     }}>
-                        {chat.lastMessage 
-                           ? (chat.lastMessage.length > 20 ? chat.lastMessage.slice(0,20)+"..." : chat.lastMessage) 
-                           : "Нет сообщений"}
+                        {chat.name || "Без названия"}
                     </span>
                 </div>
                 
@@ -50,9 +42,11 @@ export default function FriendChatList() {
                     <div style={{
                         width: "10px",
                         height: "10px",
-                        backgroundColor: "#ff4d4d",
+                        backgroundColor: "#ed4245", // Яркий красный
                         borderRadius: "50%",
-                        boxShadow: "0 0 5px #ff4d4d"
+                        boxShadow: "0 0 5px #ed4245",
+                        flexShrink: 0,
+                        marginLeft: "10px"
                     }}></div>
                 )}
               </li>

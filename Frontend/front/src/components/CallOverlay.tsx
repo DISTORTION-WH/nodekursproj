@@ -25,6 +25,7 @@ export default function CallOverlay() {
   
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
 
+  // Логика рингтона
   useEffect(() => {
     if (callState === "incoming") {
       if (!ringtoneRef.current) {
@@ -32,9 +33,10 @@ export default function CallOverlay() {
         ringtoneRef.current.loop = true; 
       }
       ringtoneRef.current.play().catch((err) => {
-        console.warn("Автовоспроизведение рингтона заблокировано браузером. Пользователь должен взаимодействовать со страницей.", err);
+        console.warn("Автовоспроизведение рингтона заблокировано. Нужно взаимодействие.", err);
       });
     } else {
+      // Останавливаем звук при любом другом состоянии (разговор, сброс и т.д.)
       if (ringtoneRef.current) {
         ringtoneRef.current.pause();
         ringtoneRef.current.currentTime = 0;
@@ -42,19 +44,22 @@ export default function CallOverlay() {
     }
   }, [callState]);
 
+  // Привязка локального стрима
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.muted = true; 
+      localVideoRef.current.muted = true; // Чтобы не слышать себя
     }
   }, [localStream, callState]);
 
+  // Привязка удаленного стрима
   useEffect(() => {
     if (remoteStream) {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
         remoteVideoRef.current.play().catch(console.error);
       }
+      // Если аудио-звонок или видео (звук всегда идет через audio или video тэг)
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
         remoteAudioRef.current.play().catch(console.error);
@@ -66,6 +71,7 @@ export default function CallOverlay() {
 
   return (
     <div className="call-overlay">
+      {/* Скрытый элемент для аудио собеседника (особенно важно для аудио-звонков) */}
       {callState === "connected" && (
          <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
       )}
@@ -114,7 +120,7 @@ export default function CallOverlay() {
                       {callerData?.name ? callerData.name[0].toUpperCase() : "?"}
                     </div>
                     <h3>{callerData?.name}</h3>
-                    <p>00:00</p> 
+                    <p>Идет разговор...</p> 
                 </div>
             )}
             
@@ -125,11 +131,11 @@ export default function CallOverlay() {
 
           <div className="call-controls">
             <button onClick={muteAudio} className={isAudioMuted ? "control-btn active" : "control-btn"}>
-               🎤 {isAudioMuted ? "Вкл Звук" : "Выкл Звук"}
+               {isAudioMuted ? "🔇" : "🎤"}
             </button>
             {isVideoCall && (
                 <button onClick={muteVideo} className={isVideoMuted ? "control-btn active" : "control-btn"}>
-                 📷 {isVideoMuted ? "Вкл Видео" : "Выкл Видео"}
+                 {isVideoMuted ? "❌" : "📷"}
                 </button>
             )}
             <button className="control-btn hangup" onClick={endCall}>📞</button>

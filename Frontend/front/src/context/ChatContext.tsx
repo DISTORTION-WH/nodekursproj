@@ -7,6 +7,8 @@ interface Chat {
   name?: string; 
   isGroup: boolean;
   participants?: any[]; 
+  avatarUrl?: string; // Добавлено для совместимости с ChatHeader
+  username?: string;  // Добавлено для совместимости с ChatHeader
   lastMessage?: string;
   updatedAt?: string;
 }
@@ -29,12 +31,24 @@ interface ChatContextType {
   currentChat: Chat | null;
   messages: Message[];
   loading: boolean;
-  unreadChats: Set<number>; 
+  unreadChats: Set<number>;
+  currentUser: any; // Добавили currentUser
   fetchChats: () => void;
   enterChat: (chatId: number) => void;
   sendMessage: (content: string) => void;
   createGroupChat: (name: string, participantIds: number[]) => void;
-  markChatAsRead: (chatId: number) => void; 
+  markChatAsRead: (chatId: number) => void;
+  deleteMessages: (allForEveryone: boolean) => void;
+  // Модальные окна
+  modalView: "invite" | "members" | null;
+  friendsForInvite: any[];
+  chatMembers: any[];
+  openInviteModal: () => void;
+  openMembersModal: () => void;
+  closeModal: () => void;
+  handleInvite: (friendId: number) => void;
+  handleKick: (userId: number) => void;
+  handleGetInviteCode: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -52,18 +66,33 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   
+  // Уведомления о непрочитанных
   const [unreadChats, setUnreadChats] = useState<Set<number>>(new Set());
 
+  // Модальные окна
+  const [modalView, setModalView] = useState<"invite" | "members" | null>(null);
+  const [friendsForInvite, setFriendsForInvite] = useState<any[]>([]);
+  const [chatMembers, setChatMembers] = useState<any[]>([]);
+
+  // Получение списка чатов и подписка на сокеты
   const fetchChats = async () => {
     if (!currentUser) return;
     try {
       const res = await api.get("/chats");
       setChats(res.data);
+
+      // ВАЖНО: Подписываемся на события всех чатов, чтобы получать уведомления
+      if (socket) {
+        res.data.forEach((c: Chat) => {
+          socket.emit("join_chat", c.id);
+        });
+      }
     } catch (error) {
       console.error("Error fetching chats", error);
     }
   };
 
+  // Вход в конкретный чат
   const enterChat = async (chatId: number) => {
     setLoading(true);
     try {
@@ -75,6 +104,7 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
 
       markChatAsRead(chatId);
 
+      // На всякий случай джойнимся (если новый чат)
       socket?.emit("join_chat", chatId);
     } catch (error) {
       console.error("Error entering chat", error);
@@ -94,63 +124,156 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
   const sendMessage = async (content: string) => {
     if (!currentChat || !socket) return;
     try {
-      const messageData = {
-        chatId: currentChat.id,
-        senderId: currentUser.id,
-        content,
-      };
-      socket.emit("send_message", messageData);
-
+      await api.post(`/chats/${currentChat.id}/messages`, { text: content });
     } catch (error) {
       console.error("Error sending message", error);
     }
   };
 
+  const deleteMessages = async (allForEveryone: boolean) => {
+    if (!currentChat) return;
+    try {
+      await api.post(`/chats/${currentChat.id}/messages/delete`, { allForEveryone });
+      if (!allForEveryone) {
+         setMessages([]);
+      }
+    } catch (error) {
+      console.error("Error deleting messages", error);
+    }
+  };
+
   const createGroupChat = async (name: string, participantIds: number[]) => {
     try {
-      await api.post("/chats/group", { name, participantIds });
+      const res = await api.post("/chats/group", { name });
       fetchChats();
+      enterChat(res.data.id);
     } catch (error) {
       console.error("Error creating group", error);
     }
   };
 
+  // --- Логика модалок ---
+  const openInviteModal = async () => {
+    if (!currentChat) return;
+    try {
+      const res = await api.get("/friends");
+      setFriendsForInvite(res.data);
+      setModalView("invite");
+    } catch (e) { console.error(e); }
+  };
+
+  const openMembersModal = async () => {
+    if (!currentChat) return;
+    try {
+      const res = await api.get(`/chats/${currentChat.id}/users`);
+      setChatMembers(res.data);
+      setModalView("members");
+    } catch (e) { console.error(e); }
+  };
+
+  const closeModal = () => setModalView(null);
+
+  const handleInvite = async (friendId: number) => {
+    if (!currentChat) return;
+    try {
+      await api.post(`/chats/${currentChat.id}/invite`, { friendId });
+      alert("Приглашение отправлено");
+      closeModal();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleKick = async (userId: number) => {
+    if (!currentChat) return;
+    try {
+      await api.post(`/chats/${currentChat.id}/kick`, { userIdToKick: userId });
+      if (userId === currentUser.id) {
+         setCurrentChat(null);
+         fetchChats();
+      } else {
+         openMembersModal();
+      }
+      closeModal();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleGetInviteCode = async () => {
+      if(!currentChat) return;
+      try {
+          const res = await api.post(`/chats/${currentChat.id}/invite-code`);
+          alert(`Код приглашения: ${res.data.inviteCode}`);
+      } catch(e) { console.error(e); }
+  }
+
+  // --- Эффекты ---
+
   useEffect(() => {
-    fetchChats();
+    if(currentUser) {
+        fetchChats();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   useEffect(() => {
+    if (socket && chats.length > 0) {
+        chats.forEach(c => socket.emit("join_chat", c.id));
+    }
+  }, [socket, chats.length]);
+
+  useEffect(() => {
     if (!socket) return;
 
-    const handleReceiveMessage = (msg: Message) => {
+    const handleReceiveMessage = (msg: any) => {
       console.log("📩 New message received:", msg);
-
-      if (currentChat && currentChat.id === msg.chatId) {
-        setMessages((prev) => [...prev, msg]);
-      } else {
-        setUnreadChats((prev) => new Set(prev).add(msg.chatId));
-        
-        // звук уведомления
-        // const audio = new Audio('/message_sound.mp3');
-        // audio.play().catch(()=>{});
-      }
 
       setChats((prevChats) => 
         prevChats.map(chat => 
-            chat.id === msg.chatId 
-            ? { ...chat, lastMessage: msg.content } 
+            chat.id === msg.chat_id 
+            ? { ...chat, lastMessage: msg.text } 
             : chat
         )
       );
+
+      if (currentChat && currentChat.id === msg.chat_id) {
+        setMessages((prev) => [...prev, {
+            id: msg.id,
+            chatId: msg.chat_id,
+            senderId: msg.sender_id,
+            content: msg.text,
+            createdAt: msg.created_at,
+            sender: {
+                id: msg.sender_id,
+                username: msg.sender_name || "User"
+            }
+        }]);
+      } else {
+        if (msg.sender_id !== currentUser?.id) {
+            setUnreadChats((prev) => new Set(prev).add(msg.chat_id));
+        }
+      }
     };
 
-    socket.on("receive_message", handleReceiveMessage);
+    const handleMessagesCleared = (data: { chatId: number }) => {
+        if (currentChat && currentChat.id === Number(data.chatId)) {
+            setMessages([]);
+        }
+    };
+
+    const handleChatMemberUpdated = (data: { chatId: number }) => {
+        if(currentChat && currentChat.id === Number(data.chatId)) {
+            // Можно обновить список
+        }
+    };
+
+    socket.on("new_message", handleReceiveMessage);
+    socket.on("messages_cleared", handleMessagesCleared);
+    socket.on("chat_member_updated", handleChatMemberUpdated);
 
     return () => {
-      socket.off("receive_message", handleReceiveMessage);
+      socket.off("new_message", handleReceiveMessage);
+      socket.off("messages_cleared", handleMessagesCleared);
+      socket.off("chat_member_updated", handleChatMemberUpdated);
     };
-  }, [socket, currentChat]);
+  }, [socket, currentChat, currentUser]);
 
   return (
     <ChatContext.Provider
@@ -160,11 +283,22 @@ export const ChatProvider = ({ children, currentUser }: { children: ReactNode; c
         messages,
         loading,
         unreadChats,
+        currentUser, // Передаем текущего пользователя
         fetchChats,
         enterChat,
         sendMessage,
         createGroupChat,
-        markChatAsRead
+        markChatAsRead,
+        deleteMessages,
+        modalView,
+        friendsForInvite,
+        chatMembers,
+        openInviteModal,
+        openMembersModal,
+        closeModal,
+        handleInvite,
+        handleKick,
+        handleGetInviteCode
       }}
     >
       {children}

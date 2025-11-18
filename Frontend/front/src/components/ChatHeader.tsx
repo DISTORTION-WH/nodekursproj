@@ -14,8 +14,8 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
 
   const {
-    activeChat,
-    currentUser,
+    currentChat, // Исправлено: activeChat -> currentChat
+    currentUser, // Теперь это доступно в ChatContext
     openInviteModal,
     openMembersModal,
     handleKick,
@@ -24,7 +24,11 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
 
   const { startCall } = useCall();
 
-  if (!activeChat || !currentUser) return null;
+  // Используем currentChat вместо activeChat
+  if (!currentChat || !currentUser) return null;
+
+  // Приводим к any, чтобы обойти различия в camelCase/snake_case, если API возвращает по-разному
+  const chatAny = currentChat as any;
 
   const handleLeave = () => {
     handleKick(currentUser.id);
@@ -36,25 +40,32 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   };
 
   const handleCall = (video: boolean) => {
-    if (activeChat.is_group) {
+    if (currentChat.isGroup) { // В интерфейсе ChatContext это isGroup (camelCase)
         alert("Звонки в группах не поддерживаются");
         return;
     }
 
     let targetId: number | undefined;
 
-    if (activeChat.participants && activeChat.participants.length > 0) {
-        const friend = activeChat.participants.find(p => Number(p.id) !== Number(currentUser.id));
+    // Пытаемся найти собеседника в списке участников
+    if (currentChat.participants && currentChat.participants.length > 0) {
+        // Явная типизация p: any для устранения ошибки
+        const friend = currentChat.participants.find((p: any) => Number(p.id) !== Number(currentUser.id));
         targetId = friend?.id;
     }
 
     if (!targetId) {
-       alert("Ошибка: Не удалось определить ID пользователя для звонка.");
+       alert("Ошибка: Не удалось определить ID собеседника. Попробуйте обновить страницу.");
        return;
     }
 
     startCall(Number(targetId), video);
   };
+
+  // Определяем правильные поля для отображения (поддержка и camelCase и snake_case)
+  const avatarUrl = chatAny.avatar_url || chatAny.avatarUrl;
+  const chatName = chatAny.username || chatAny.name || currentChat.name;
+  const isGroup = currentChat.isGroup || chatAny.is_group;
 
   return (
     <div className="chat-header">
@@ -65,22 +76,22 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
       )}
 
       <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
-        {!activeChat.is_group && (
+        {!isGroup && (
           <img
             src={
-              activeChat.avatar_url
-                ? api.defaults.baseURL + activeChat.avatar_url
+              avatarUrl
+                ? api.defaults.baseURL + avatarUrl
                 : "/default-avatar.png"
             }
             alt="avatar"
             className="chat-avatar"
           />
         )}
-        <h2 className="chat-title">{activeChat.username || activeChat.name}</h2>
+        <h2 className="chat-title">{chatName}</h2>
       </div>
 
       <div className="chat-actions">
-        {!activeChat.is_group && (
+        {!isGroup && (
             <>
                 <button className="chat-action-btn" onClick={() => handleCall(false)} title="Аудиозвонок">
                     <PhoneIcon />
@@ -91,18 +102,12 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
             </>
         )}
 
-        {activeChat.is_group ? (
+        {isGroup ? (
           <>
-            <button
-              onClick={openInviteModal}
-              className="chat-action-btn invite"
-            >
+            <button onClick={openInviteModal} className="chat-action-btn invite">
               Пригласить
             </button>
-            <button
-              onClick={openMembersModal}
-              className="chat-action-btn members"
-            >
+            <button onClick={openMembersModal} className="chat-action-btn members">
               Участники
             </button>
             <button onClick={handleLeave} className="chat-action-btn leave">
@@ -110,30 +115,18 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
             </button>
           </>
         ) : !showDeleteOptions ? (
-          <button
-            onClick={() => setShowDeleteOptions(true)}
-            className="chat-action-btn leave"
-          >
+          <button onClick={() => setShowDeleteOptions(true)} className="chat-action-btn leave">
             Очистить
           </button>
         ) : (
           <div className="delete-options">
-            <button
-              onClick={() => handleDelete(false)}
-              className="chat-action-btn members"
-            >
+            <button onClick={() => handleDelete(false)} className="chat-action-btn members">
               У себя
             </button>
-            <button
-              onClick={() => handleDelete(true)}
-              className="chat-action-btn leave"
-            >
+            <button onClick={() => handleDelete(true)} className="chat-action-btn leave">
               У всех
             </button>
-            <button
-              onClick={() => setShowDeleteOptions(false)}
-              className="chat-action-btn"
-            >
+            <button onClick={() => setShowDeleteOptions(false)} className="chat-action-btn">
               Отмена
             </button>
           </div>
