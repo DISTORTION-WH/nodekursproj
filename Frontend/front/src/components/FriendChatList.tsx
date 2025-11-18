@@ -1,95 +1,65 @@
-import React, { useState, useEffect } from "react";
-import type { Socket } from "socket.io-client";
-import api from "../services/api";
-import { useSocket } from "../context/SocketContext";
+import React from "react";
 import { useChat } from "../context/ChatContext";
-import { User } from "../types";
+import "./FriendsList.css"; 
 
-interface FriendChatListProps {
-  onOpenProfile: (id: number) => void;
-}
-
-export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
-  const [friends, setFriends] = useState<User[]>([]);
-
-  const { socket } = useSocket() as { socket: Socket | null };
-  const { selectChat } = useChat();
-
-  const fetchFriends = () => {
-    api
-      .get<User[]>("/friends")
-      .then((res) => setFriends(res.data))
-      .catch(console.error);
-  };
-
-  useEffect(() => {
-    fetchFriends();
-  }, []);
-
-  useEffect(() => {
-    if (socket) {
-      const onFriendRequestAccepted = () => fetchFriends();
-      const onFriendRemoved = () => fetchFriends();
-
-      socket.on("friend_request_accepted", onFriendRequestAccepted);
-      socket.on("friend_removed", onFriendRemoved);
-
-      return () => {
-        socket.off("friend_request_accepted", onFriendRequestAccepted);
-        socket.off("friend_removed", onFriendRemoved);
-      };
-    }
-  }, [socket]);
-
-  const openChat = async (friend: User) => {
-    try {
-      const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
-      
-      selectChat({
-        id: res.data.id,
-        username: friend.username,
-        avatar_url: friend.avatar_url || undefined,
-        is_group: false,
-        name: null,
-        participants: [{ id: friend.id, username: friend.username }] as any
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
+export default function FriendChatList() {
+  const { chats, enterChat, unreadChats } = useChat();
+  const friendChats = chats.filter(c => !c.isGroup);
 
   return (
-    <div className="friends-section">
-      <div className="section-header">
-        <h2>Друзья</h2>
-      </div>
-      {friends.map((f) => (
-        <div key={f.id} className="friend-item" onClick={() => openChat(f)}>
-          <img
-            src={
-              f.avatar_url
-                ? api.defaults.baseURL + f.avatar_url
-                : "/default-avatar.png"
-            }
-            alt="ava"
-            className="avatar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenProfile(f.id);
-            }}
-          />
-          <span>{f.username}</span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openChat(f);
-            }}
-          >
-            Чат
-          </button>
-        </div>
-      ))}
-      {friends.length === 0 && <p>Нет друзей</p>}
+    <div className="friends-list">
+      <h3>Диалоги</h3>
+      {friendChats.length === 0 ? (
+        <p style={{ padding: "10px", color: "#ccc" }}>Нет диалогов</p>
+      ) : (
+        <ul>
+          {friendChats.map((chat) => {
+            const isUnread = unreadChats.has(chat.id);
+
+            return (
+              <li 
+                key={chat.id} 
+                onClick={() => enterChat(chat.id)}
+                className={isUnread ? "chat-item unread" : "chat-item"}
+                style={{ 
+                    cursor: "pointer", 
+                    padding: "10px", 
+                    borderBottom: "1px solid #333",
+                    backgroundColor: isUnread ? "rgba(255, 0, 0, 0.1)" : "transparent", // Легкая подсветка фона
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: "bold", color: "#fff" }}>
+                        {chat.name || "Без названия"}
+                    </span>
+                    <span style={{ 
+                        fontSize: "12px", 
+                        color: isUnread ? "#fff" : "#aaa",
+                        fontWeight: isUnread ? "bold" : "normal" 
+                    }}>
+                        {chat.lastMessage 
+                           ? (chat.lastMessage.length > 20 ? chat.lastMessage.slice(0,20)+"..." : chat.lastMessage) 
+                           : "Нет сообщений"}
+                    </span>
+                </div>
+                
+                {isUnread && (
+                    <div style={{
+                        width: "10px",
+                        height: "10px",
+                        backgroundColor: "#ff4d4d",
+                        borderRadius: "50%",
+                        boxShadow: "0 0 5px #ff4d4d"
+                    }}></div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

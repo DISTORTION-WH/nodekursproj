@@ -1,93 +1,70 @@
 import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import Navbar from "./components/Navbar";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { SocketProvider } from "./context/SocketContext"; // Важно
+import { ChatProvider } from "./context/ChatContext";
+import { CallProvider } from "./context/CallContext";
+
+// Страницы
 import LoginPage from "./pages/LoginPage";
-import ZFRegisterPage from "./pages/RegisterPage";
+import RegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
-import AdminPage from "./pages/AdminPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
-import { SocketProvider } from "./context/SocketContext";
-import { ChatProvider } from "./context/ChatContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { CallProvider } from "./context/CallContext";
-import CallOverlay from "./components/CallOverlay";
+import AdminPage from "./pages/AdminPage";
+
+// Компоненты
+import Navbar from "./components/Navbar";
+import CallOverlay from "./components/CallOverlay"; // Наш глобальный оверлей
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import "./App.css";
 
 function AppRoutes() {
-  const { isAuth, role, currentUser, loading } = useAuth();
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
-    );
-  }
+  const { token, user, loading } = useAuth();
+
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <SocketProvider currentUser={currentUser}>
+    // 1. SocketProvider должен быть как можно выше, чтобы сокет жил при смене страниц
+    <SocketProvider currentUser={user}>
+      {/* 2. CallProvider внутри сокета, чтобы иметь доступ к нему */}
       <CallProvider>
-        <ChatProvider currentUser={currentUser}>
-          <Navbar />
+        {/* 3. ChatProvider для данных чата */}
+        <ChatProvider currentUser={user}>
+          
+          {token && <Navbar />}
+
           <div className="app-container">
             <div className="main-content">
               <Routes>
-                <Route
-                  path="/"
-                  element={
-                    isAuth ? (
-                      <HomePage currentUser={currentUser} />
-                    ) : (
-                      <Navigate to="/login" />
-                    )
-                  }
-                />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<ZFRegisterPage />} />
-                <Route
-                  path="/admin"
-                  element={
-                    isAuth && role === "ADMIN" ? (
-                      <AdminPage />
-                    ) : (
-                      <Navigate to="/" />
-                    )
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
-                />
-                <Route
-                  path="/profile/:userId"
-                  element={
-                    isAuth ? <UserProfilePage /> : <Navigate to="/login" />
-                  }
-                />
-                <Route
-                  path="*"
-                  element={
-                    isAuth ? (
-                      <HomePage currentUser={currentUser} />
-                    ) : (
-                      <Navigate to="/login" />
-                    )
-                  }
-                />
+                {/* Публичные */}
+                <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" />} />
+                <Route path="/register" element={!token ? <RegisterPage /> : <Navigate to="/" />} />
+
+                {/* Защищенные */}
+                <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/user/:id" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
+                
+                {/* Админка */}
+                <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+
+                <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </div>
           </div>
-          <CallOverlay />
+
+          {/* ГЛОБАЛЬНЫЙ ОВЕРЛЕЙ ЗВОНКА - БУДЕТ ВИДЕН ВЕЗДЕ */}
+          {token && <CallOverlay />}
+
         </ChatProvider>
       </CallProvider>
     </SocketProvider>
   );
 }
 
-export default function App() {
+function App() {
   return (
     <Router>
       <AuthProvider>
@@ -96,3 +73,5 @@ export default function App() {
     </Router>
   );
 }
+
+export default App;
