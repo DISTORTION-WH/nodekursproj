@@ -188,3 +188,40 @@
      padding: 10px 15px; 
   }
 }
+
+
+
+/* Добавьте эти стили в FriendsList.css */
+
+.friend-item {
+    /* Должен быть position: relative для корректного позиционирования бейджа */
+    position: relative; 
+    /* ... остальные стили ... */
+}
+
+/* 1. Визуальная пометка самого элемента списка */
+.friend-item.unread {
+    font-weight: bold; /* Выделяем текст */
+    background-color: #fffde7; /* Легкий фон */
+    border-left: 4px solid #f9a825; /* Яркая полоса слева */
+}
+
+/* 2. Стиль для бейджа с количеством непрочитанных */
+.unread-badge {
+    position: absolute;
+    right: 15px; /* Сдвиг от правого края */
+    top: 50%;
+    transform: translateY(-50%);
+    
+    background-color: #ff3860; /* Красный цвет */
+    color: white;
+    
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 0.75rem;
+    padding: 0 4px;
+    z-index: 10; /* Убедитесь, что он выше всего остального */
+}

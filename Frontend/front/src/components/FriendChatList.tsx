@@ -11,6 +11,7 @@ interface FriendChatListProps {
 
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [friends, setFriends] = useState<User[]>([]);
+  
   const [chatIdMap, setChatIdMap] = useState<Record<number, number>>({}); 
 
   const { socket } = useSocket() as { socket: Socket | null };
@@ -26,6 +27,31 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   useEffect(() => {
     fetchFriends();
   }, []);
+
+  useEffect(() => {
+    if (friends.length === 0) return;
+
+    const fetchChatIds = async () => {
+      const map: Record<number, number> = {};
+      
+      const promises = friends.map(async (friend) => {
+        try {
+      
+          const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
+          map[friend.id] = res.data.id;
+        } catch (err) {
+          console.error(`Error fetching chat ID for friend ${friend.id}:`, err);
+        }
+      });
+
+      await Promise.all(promises);
+      setChatIdMap(map);
+      console.log("Chat ID Map loaded:", map);
+    };
+
+    fetchChatIds();
+  }, [friends]); 
+
 
   useEffect(() => {
     if (socket) {
@@ -44,11 +70,14 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
 
   const openChat = async (friend: User) => {
     try {
-      const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
-      const chatId = res.data.id;
-   
-      setChatIdMap(prev => ({ ...prev, [friend.id]: chatId })); 
-
+      let chatId = chatIdMap[friend.id];
+      
+      if (!chatId) {
+          const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
+          chatId = res.data.id;
+          setChatIdMap(prev => ({ ...prev, [friend.id]: chatId! })); 
+      }
+      
       selectChat({
         id: chatId, 
         username: friend.username,
@@ -68,8 +97,8 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         <h2>Друзья</h2>
       </div>
       {friends.map((f) => {
-        const chatId = chatIdMap[f.id]; 
-        const unreadCount = chatId ? unreadCounts[chatId] || 0 : 0; 
+        const chatId = chatIdMap[f.id];
+        const unreadCount = chatId ? unreadCounts[chatId] || 0 : 0;
 
         return (
           <div 
