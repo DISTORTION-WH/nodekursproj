@@ -11,6 +11,7 @@ import api from "../services/api";
 import { useSocket } from "./SocketContext";
 import { Chat, Message, User, ChatParticipant } from "../types";
 
+// ОБНОВЛЕННЫЙ ИНТЕРФЕЙС КОНТЕКСТА
 interface ChatContextType {
   activeChat: Chat | null;
   messages: Message[];
@@ -18,6 +19,12 @@ interface ChatContextType {
   chatMembers: ChatParticipant[];
   friendsForInvite: User[];
   currentUser: User | null;
+  
+  // НОВЫЕ ПОЛЯ
+  unreadCounts: Record<number, number>; // { chatId: unreadCount }
+  markChatAsRead: (chatId: number) => void;
+  // КОНЕЦ НОВЫХ ПОЛЕЙ
+  
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
   sendMessage: (text: string) => void;
@@ -52,12 +59,26 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const [chatMembers, setChatMembers] = useState<ChatParticipant[]>([]);
   const [friendsForInvite, setFriendsForInvite] = useState<User[]>([]);
 
+  // НОВОЕ СОСТОЯНИЕ ДЛЯ СЧЕТЧИКОВ НЕПРОЧИТАННЫХ СООБЩЕНИЙ
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({}); 
+
   const fetchChatMembers = useCallback((chatId: number) => {
     api
       .get<ChatParticipant[]>(`/chats/${chatId}/users`)
       .then((res) => setChatMembers(res.data))
       .catch(console.error);
   }, []);
+
+  // НОВАЯ ФУНКЦИЯ: Сброс счетчика
+  const markChatAsRead = useCallback((chatId: number) => {
+    setUnreadCounts(prev => {
+        if (prev[chatId] > 0) {
+            return { ...prev, [chatId]: 0 };
+        }
+        return prev;
+    });
+  }, []);
+  // КОНЕЦ НОВОЙ ФУНКЦИИ
 
   useEffect(() => {
     if (!socket || !activeChat?.id) {
@@ -69,6 +90,10 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       .then((res) => setMessages(res.data))
       .catch(console.error);
 
+    // СБРОС СЧЕТЧИКА ПРИ ОТКРЫТИИ ЧАТА
+    markChatAsRead(activeChat.id); 
+    // КОНЕЦ СБРОСА
+
     if (activeChat.is_group) {
       fetchChatMembers(activeChat.id);
     }
@@ -76,11 +101,20 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     socket.emit("join_chat", activeChat.id);
     console.log(`Socket: Вступил в комнату chat_${activeChat.id}`);
 
+    // ОБНОВЛЕННЫЙ ОБРАБОТЧИК СООБЩЕНИЙ
     const handleNewMessage = (msg: Message) => {
+      // Если сообщение для активного чата
       if (Number(msg.chat_id) === Number(activeChat.id)) {
         setMessages((prev) => [...prev, msg]);
+      } else {
+        // Если сообщение для НЕАКТИВНОГО чата, увеличиваем счетчик
+        setUnreadCounts(prev => ({
+            ...prev,
+            [msg.chat_id]: (prev[msg.chat_id] || 0) + 1
+        }));
       }
     };
+    // КОНЕЦ ОБНОВЛЕННОГО ОБРАБОТЧИКА
 
     const handleMessagesCleared = (data: { chatId: number }) => {
       if (Number(data.chatId) === Number(activeChat.id)) {
@@ -117,7 +151,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       socket.off("chat_member_updated", handleChatMemberUpdated);
       socket.off("removed_from_chat", handleRemovedFromChat);
     };
-  }, [socket, activeChat, fetchChatMembers]);
+  }, [socket, activeChat, fetchChatMembers, markChatAsRead]); // Добавляем markChatAsRead в зависимости
 
   const selectChat = (chat: Chat) => {
     setMessages([]);
@@ -208,6 +242,12 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     chatMembers,
     friendsForInvite,
     currentUser,
+    
+    // ДОБАВЛЕНИЕ НОВЫХ ПОЛЕЙ В VALUE
+    unreadCounts,
+    markChatAsRead,
+    // КОНЕЦ ДОБАВЛЕНИЯ
+    
     selectChat,
     closeChat,
     sendMessage,

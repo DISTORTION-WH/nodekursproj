@@ -135,6 +135,41 @@
 }
 
 
+.friend-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    position: relative; 
+    transition: background-color 0.2s ease;
+}
+
+.friend-item.unread {
+    font-weight: bold; 
+    background-color: #fffde7; 
+    border-left: 4px solid #f9a825; 
+}
+
+.unread-badge {
+    position: absolute;
+    right: 15px; 
+    top: 50%;
+    transform: translateY(-50%);
+    
+    background-color: #ff3860;
+    color: white;
+    
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 0.75rem;
+    padding: 0 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 
 @media (max-width: 768px) {
   .friends-list {

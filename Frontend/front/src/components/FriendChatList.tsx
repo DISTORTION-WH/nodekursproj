@@ -11,9 +11,10 @@ interface FriendChatListProps {
 
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [friends, setFriends] = useState<User[]>([]);
+  const [chatIdMap, setChatIdMap] = useState<Record<number, number>>({}); 
 
   const { socket } = useSocket() as { socket: Socket | null };
-  const { selectChat } = useChat();
+  const { selectChat, unreadCounts } = useChat(); 
 
   const fetchFriends = () => {
     api
@@ -44,9 +45,12 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const openChat = async (friend: User) => {
     try {
       const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
-      
+      const chatId = res.data.id;
+   
+      setChatIdMap(prev => ({ ...prev, [friend.id]: chatId })); 
+
       selectChat({
-        id: res.data.id,
+        id: chatId, 
         username: friend.username,
         avatar_url: friend.avatar_url || undefined,
         is_group: false,
@@ -63,32 +67,46 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
       <div className="section-header">
         <h2>Друзья</h2>
       </div>
-      {friends.map((f) => (
-        <div key={f.id} className="friend-item" onClick={() => openChat(f)}>
-          <img
-            src={
-              f.avatar_url
-                ? api.defaults.baseURL + f.avatar_url
-                : "/default-avatar.png"
-            }
-            alt="ava"
-            className="avatar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenProfile(f.id);
-            }}
-          />
-          <span>{f.username}</span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openChat(f);
-            }}
+      {friends.map((f) => {
+        const chatId = chatIdMap[f.id]; 
+        const unreadCount = chatId ? unreadCounts[chatId] || 0 : 0; 
+
+        return (
+          <div 
+            key={f.id} 
+            className={`friend-item ${unreadCount > 0 ? 'unread' : ''}`} 
+            onClick={() => openChat(f)}
           >
-            Чат
-          </button>
-        </div>
-      ))}
+            <img
+              src={
+                f.avatar_url
+                  ? api.defaults.baseURL + f.avatar_url
+                  : "/default-avatar.png"
+              }
+              alt="ava"
+              className="avatar"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenProfile(f.id);
+              }}
+            />
+            <span>{f.username}</span>
+            
+            {unreadCount > 0 && ( 
+              <span className="unread-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openChat(f);
+              }}
+            >
+              Чат
+            </button>
+          </div>
+        )
+      })}
       {friends.length === 0 && <p>Нет друзей</p>}
     </div>
   );
