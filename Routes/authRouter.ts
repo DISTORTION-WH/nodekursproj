@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { secret } from '../config';
 import userService from "../Services/userService";
 import roleService from "../Services/roleService";
-import emailService from "../Services/emailService"; // ИСПРАВЛЕНО: правильный импорт
+import emailService from "../Services/emailService";
 import minioService from "../Services/minioService";
 
 interface CustomError extends Error {
@@ -72,7 +72,6 @@ class AuthController {
           code
         );
         
-        // ИСПРАВЛЕНО: Раскомментирована отправка
         await emailService.sendVerificationEmail(email, code);
 
         res.json({
@@ -89,7 +88,6 @@ class AuthController {
         code
       );
 
-      // ИСПРАВЛЕНО: Раскомментирована отправка
       await emailService.sendVerificationEmail(email, code);
 
       res.json({ message: "Код подтверждения отправлен на email" });
@@ -110,8 +108,7 @@ class AuthController {
         return next(err);
       }
 
-      // ИСПРАВЛЕНО: Критически важная проверка кода!
-      // Приводим к строке и чистим пробелы, чтобы избежать ошибок типов
+      // Проверка кода
       if (String(tempData.code).trim() !== String(code).trim()) {
           const err = new Error("Неверный код подтверждения") as CustomError;
           err.status = 400;

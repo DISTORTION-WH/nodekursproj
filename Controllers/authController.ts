@@ -6,6 +6,7 @@ import { secret } from '../config';
 import userService from "../Services/userService";
 import roleService from "../Services/roleService";
 import * as emailService from "../Services/emailService";
+import minioService from "../Services/minioService";
 
 interface CustomError extends Error {
   status?: number;
@@ -42,7 +43,7 @@ class AuthController {
 
       const { username, password, email } = req.body;
       
-      const avatar = req.file;
+      const avatarFile = req.file;
 
       const candidate = await userService.findUserByUsername(username);
       if (candidate) {
@@ -54,7 +55,11 @@ class AuthController {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const avatarUrl = avatar ? `/uploads/avatars/${avatar.filename}` : null;
+      
+      let avatarUrl = null;
+      if (avatarFile) {
+          avatarUrl = await minioService.uploadFile(avatarFile);
+      }
 
       const pending = await userService.getRegistrationCode(email);
       if (pending) {
@@ -66,7 +71,6 @@ class AuthController {
           code
         );
         
-        // Можно раскомментировать отправку email
         // await emailService.sendVerificationEmail(email, code);
 
         res.json({
@@ -83,7 +87,6 @@ class AuthController {
         code
       );
 
-      // Можно раскомментировать отправку email
       // await emailService.sendVerificationEmail(email, code);
 
       res.json({ message: "Код подтверждения отправлен на email" });

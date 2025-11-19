@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import api from "../services/api";
 import { User } from "../types";
+import { getImageUrl } from "../utils/imageUrl";
 
 interface UserSearchProps {
   onOpenProfile: (id: number) => void;
@@ -41,11 +42,7 @@ export default function UserSearch({ onOpenProfile }: UserSearchProps) {
       {results.map((u) => (
         <div key={u.id} className="search-item">
           <img
-            src={
-              u.avatar_url
-                ? api.defaults.baseURL + u.avatar_url
-                : "/default-avatar.png"
-            }
+            src={getImageUrl(u.avatar_url)}
             alt="ava"
             className="avatar"
             onClick={() => onOpenProfile(u.id)}
