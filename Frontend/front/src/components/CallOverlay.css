@@ -84,26 +84,41 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden; 
 }
 
 .remote-video {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+
+    object-fit: contain; 
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .local-video-pip {
     position: absolute;
     bottom: 100px;
     right: 20px;
-    width: 150px;
-    height: 100px;
+    width: 240px; 
+    height: 135px;
     object-fit: cover;
     border-radius: 10px;
     border: 2px solid #36393f;
     background: #000;
     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     z-index: 2;
+    
+    transform: scaleX(-1); 
+}
+
+@media (max-width: 768px) {
+    .local-video-pip {
+        width: 120px;
+        height: 67.5px; 
+        bottom: 90px;
+        right: 10px;
+    }
 }
 
 .audio-placeholder {
@@ -117,6 +132,7 @@
     justify-content: center;
     align-items: center;
     gap: 20px;
+    flex-shrink: 0;
 }
 
 .control-btn {
@@ -152,4 +168,5 @@
     object-fit: cover;
     border-radius: 8px;
     margin-bottom: 10px;
+    transform: scaleX(-1); 
 }
