@@ -1,51 +1,45 @@
-import { Resend } from "resend";
+class EmailService {
+  async sendVerificationEmail(to: string, code: string): Promise<void> {
+    const serviceId = process.env.EMAILJS_SERVICE_ID;
+    const templateId = process.env.EMAILJS_TEMPLATE_ID;
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+    const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
-const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY;
-
-const EMAIL_FROM_ADDRESS: string =
-  process.env.EMAIL_FROM_ADDRESS || "MyApp <onboarding@resend.dev>";
-
-let resend: Resend | null = null;
-
-if (RESEND_API_KEY) {
-  resend = new Resend(RESEND_API_KEY);
-} else {
-  console.error(
-    "!!! ВНИМАНИЕ: RESEND_API_KEY не установлен в переменных окружения."
-  );
-  console.error(
-    "!!! Добавьте RESEND_API_KEY в .env (локально) или в Environment на Render."
-  );
-}
-
-export async function sendVerificationEmail(to: string, code: string): Promise<any> {
-  if (!resend) {
-    console.error(
-      "Ошибка отправки: Resend не инициализирован. Проверьте RESEND_API_KEY."
-    );
-    throw new Error("Ошибка конфигурации сервиса email");
-  }
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: EMAIL_FROM_ADDRESS,
-      to: [to],
-      subject: "Подтверждение регистрации",
-      html: `<p>Ваш код подтверждения: <b>${code}</b></p>`,
-      text: `Ваш код подтверждения: ${code}`,
-    });
-
-    if (error) {
-      console.error("Ошибка от API Resend:", error);
-      throw new Error(error.message || "Ошибка при отправке email");
+    if (!serviceId || !templateId || !publicKey || !privateKey) {
+      console.error("⚠️ EmailJS не настроен (проверь .env)");
+      return;
     }
 
-    console.log(
-      `Email успешно отправлен на ${to} (через Resend), ID: ${data?.id}`
-    );
-    return data;
-  } catch (e: any) {
-    console.error("Критическая ошибка в sendVerificationEmail:", e.message);
-    throw e;
+    const data = {
+      service_id: serviceId,
+      template_id: templateId,
+      user_id: publicKey,
+      accessToken: privateKey, 
+      template_params: {
+        to_email: to,  
+        code: code,   
+      },
+    };
+
+    try {
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        console.log(`📧 Письмо отправлено на ${to}`);
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Ошибка EmailJS:", errorText);
+      }
+    } catch (error) {
+      console.error("❌ Ошибка сети при отправке письма:", error);
+    }
   }
 }
+
+export default new EmailService();
