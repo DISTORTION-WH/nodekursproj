@@ -1,8 +1,8 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Navbar.css";
-import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { getImageUrl } from "../utils/imageUrl";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -28,14 +28,7 @@ export default function Navbar() {
             {currentUser && (
               <div className="avatar-wrapper">
                 <img
-                  src={
-                    currentUser.avatar_url
-                      ? api.defaults.baseURL +
-                        currentUser.avatar_url +
-                        "?t=" +
-                        Date.now()
-                      : "/default-avatar.png"
-                  }
+                  src={getImageUrl(currentUser.avatar_url)}
                   alt="avatar"
                   className="avatar"
                   onClick={() => navigate("/profile")}

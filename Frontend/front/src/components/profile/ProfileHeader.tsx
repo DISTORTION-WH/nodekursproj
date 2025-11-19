@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import api from "../../services/api";
 import "../../pages/ProfilePage.css";
 import { User } from "../../types";
+import { getImageUrl } from "../../utils/imageUrl";
 
 interface ProfileHeaderProps {
   currentUser: User | null;
@@ -35,14 +35,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
     <div className="profile-header">
       <img
         className="profile-avatar"
-        src={
-          currentUser && currentUser.avatar_url
-            ? api.defaults.baseURL +
-              currentUser.avatar_url +
-              "?t=" +
-              new Date().getTime()
-            : "/default-avatar.png"
-        }
+        src={getImageUrl(currentUser?.avatar_url)}
         alt="avatar"
       />
       <div className="profile-info">

@@ -105,7 +105,6 @@ app.use("/auth", authRouter);
 app.use("/chats", chatRouter);
 app.use("/friends", friendsRouter);
 app.use("/users", usersRouter);
-app.use("/uploads/avatars", express.static("uploads/avatars"));
 app.use("/admin", adminRouter);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

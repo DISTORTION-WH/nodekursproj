@@ -4,6 +4,7 @@ import { useChat } from "../context/ChatContext";
 import { useCall } from "../context/CallContext";
 import { BackArrowIcon, PhoneIcon, VideoIcon } from "./icons";
 import "../pages/HomePage.css";
+import { getImageUrl } from "../utils/imageUrl";
 
 interface ChatHeaderProps {
   isMobile: boolean;
@@ -67,11 +68,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
       <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
         {!activeChat.is_group && (
           <img
-            src={
-              activeChat.avatar_url
-                ? api.defaults.baseURL + activeChat.avatar_url
-                : "/default-avatar.png"
-            }
+            src={getImageUrl(activeChat.avatar_url)}
             alt="avatar"
             className="chat-avatar"
           />

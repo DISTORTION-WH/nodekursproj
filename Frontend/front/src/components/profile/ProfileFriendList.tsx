@@ -3,6 +3,7 @@ import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import "../../pages/ProfilePage.css";
 import { User } from "../../types";
+import { getImageUrl } from "../../utils/imageUrl";
 
 export default function ProfileFriendList() {
   const [friends, setFriends] = useState<User[]>([]);
@@ -32,11 +33,7 @@ export default function ProfileFriendList() {
               style={{ cursor: "pointer" }}
             >
               <img
-                src={
-                  f.avatar_url
-                    ? api.defaults.baseURL + f.avatar_url
-                    : "/default-avatar.png"
-                }
+                src={getImageUrl(f.avatar_url)}
                 alt={f.username}
                 className="profile-friend-avatar"
               />
