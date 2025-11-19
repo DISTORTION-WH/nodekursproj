@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./UserProfilePage.css";
 import { User } from "../types";
+import { getImageUrl } from "../utils/imageUrl";
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -81,11 +82,7 @@ export default function UserProfilePage() {
 
       <div className="user-profile-header">
         <img
-          src={
-            user.avatar_url
-              ? api.defaults.baseURL + user.avatar_url
-              : "/default-avatar.png"
-          }
+          src={getImageUrl(user.avatar_url)}
           alt="avatar"
           className="user-profile-avatar"
         />
@@ -111,11 +108,7 @@ export default function UserProfilePage() {
                 onClick={() => navigate(`/profile/${friend.id}`)}
               >
                 <img
-                  src={
-                    friend.avatar_url
-                      ? api.defaults.baseURL + friend.avatar_url
-                      : "/default-avatar.png"
-                  }
+                  src={getImageUrl(friend.avatar_url)}
                   alt="friend-avatar"
                   className="user-profile-friend-avatar"
                 />

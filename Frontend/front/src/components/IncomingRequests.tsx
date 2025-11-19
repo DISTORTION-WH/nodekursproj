@@ -3,6 +3,7 @@ import { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { FriendRequest } from "../types";
+import { getImageUrl } from "../utils/imageUrl";
 
 interface IncomingRequestsProps {
   onOpenProfile: (id: number) => void;
@@ -51,11 +52,7 @@ export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProp
         requests.map((req) => (
           <div key={req.requester_id} className="incoming-item">
             <img
-              src={
-                req.requester_avatar
-                  ? api.defaults.baseURL + req.requester_avatar
-                  : "/default-avatar.png"
-              }
+              src={getImageUrl(req.requester_avatar)}
               alt="ava"
               className="avatar"
               onClick={() => onOpenProfile(req.requester_id)}
