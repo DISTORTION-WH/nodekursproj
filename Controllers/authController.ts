@@ -5,11 +5,7 @@ import bcrypt from 'bcryptjs';
 import { secret } from '../config';
 import userService from "../Services/userService";
 import roleService from "../Services/roleService";
-<<<<<<< HEAD
-import emailService from "../Services/emailService"; // Исправленный импорт
-=======
-import * as emailService from "../Services/emailService";
->>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
+import emailService from "../Services/emailService"; 
 import minioService from "../Services/minioService";
 
 interface CustomError extends Error {
@@ -46,10 +42,6 @@ class AuthController {
       }
 
       const { username, password, email } = req.body;
-<<<<<<< HEAD
-=======
-      
->>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
       const avatarFile = req.file;
 
       const candidate = await userService.findUserByUsername(username);
@@ -61,7 +53,6 @@ class AuthController {
 
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
-      // Генерируем 6-значный код
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
       let avatarUrl = null;
@@ -80,12 +71,7 @@ class AuthController {
           code
         );
         
-<<<<<<< HEAD
-        // Отправляем письмо (раскомментировано)
         await emailService.sendVerificationEmail(email, code);
-=======
-        // await emailService.sendVerificationEmail(email, code);
->>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
 
         res.json({
           message: "Код подтверждения отправлен повторно на email",
@@ -101,12 +87,7 @@ class AuthController {
         code
       );
 
-<<<<<<< HEAD
-      // Отправляем письмо (раскомментировано)
       await emailService.sendVerificationEmail(email, code);
-=======
-      // await emailService.sendVerificationEmail(email, code);
->>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
 
       res.json({ message: "Код подтверждения отправлен на email" });
     } catch (e: any) {
@@ -126,7 +107,7 @@ class AuthController {
         return next(err);
       }
 
-      // ПРОВЕРКА КОДА (Была пропущена в твоем файле)
+      // Проверка кода (обязательно!)
       if (String(tempData.code).trim() !== String(code).trim()) {
           const err = new Error("Неверный код подтверждения") as CustomError;
           err.status = 400;
