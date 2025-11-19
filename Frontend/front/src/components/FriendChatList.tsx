@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
 import { User } from "../types";
+import { getImageUrl } from "../utils/imageUrl";
 
 interface FriendChatListProps {
   onOpenProfile: (id: number) => void;
@@ -66,11 +67,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
       {friends.map((f) => (
         <div key={f.id} className="friend-item" onClick={() => openChat(f)}>
           <img
-            src={
-              f.avatar_url
-                ? api.defaults.baseURL + f.avatar_url
-                : "/default-avatar.png"
-            }
+            src={getImageUrl(f.avatar_url)}
             alt="ava"
             className="avatar"
             onClick={(e) => {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import userService from "../Services/userService";
+import minioService from "../Services/minioService";
 
 interface AuthRequest extends Request {
   user?: {
@@ -21,7 +22,7 @@ class UserController {
         return res.status(401).json({ message: "Пользователь не авторизован" });
       }
 
-      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const avatarUrl = await minioService.uploadFile(req.file);
       
       const updatedUser = await userService.updateUserAvatar(
         authReq.user.id,

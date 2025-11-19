@@ -5,7 +5,11 @@ import bcrypt from 'bcryptjs';
 import { secret } from '../config';
 import userService from "../Services/userService";
 import roleService from "../Services/roleService";
+<<<<<<< HEAD
 import emailService from "../Services/emailService"; // Исправленный импорт
+=======
+import * as emailService from "../Services/emailService";
+>>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
 import minioService from "../Services/minioService";
 
 interface CustomError extends Error {
@@ -42,6 +46,10 @@ class AuthController {
       }
 
       const { username, password, email } = req.body;
+<<<<<<< HEAD
+=======
+      
+>>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
       const avatarFile = req.file;
 
       const candidate = await userService.findUserByUsername(username);
@@ -72,8 +80,12 @@ class AuthController {
           code
         );
         
+<<<<<<< HEAD
         // Отправляем письмо (раскомментировано)
         await emailService.sendVerificationEmail(email, code);
+=======
+        // await emailService.sendVerificationEmail(email, code);
+>>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
 
         res.json({
           message: "Код подтверждения отправлен повторно на email",
@@ -89,8 +101,12 @@ class AuthController {
         code
       );
 
+<<<<<<< HEAD
       // Отправляем письмо (раскомментировано)
       await emailService.sendVerificationEmail(email, code);
+=======
+      // await emailService.sendVerificationEmail(email, code);
+>>>>>>> 48554d2fe43e17b5bc063b9694e36cb7cf4de2b6
 
       res.json({ message: "Код подтверждения отправлен на email" });
     } catch (e: any) {
