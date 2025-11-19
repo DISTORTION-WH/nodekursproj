@@ -1,6 +1,6 @@
 import * as Minio from "minio";
 
-const BUCKET_NAME = "lume-avatars";
+const BUCKET_NAME = "node-kurs";
 const PUBLIC_URL_PREFIX = "https://pub-41f206f40fda4a2da449b717be51aa11.r2.dev";
 
 const minioClient = new Minio.Client({
