@@ -20,7 +20,9 @@ export default function FriendsList({ currentUser }: FriendsListProps) {
   };
 
   return (
-    <div className="w-[280px] min-w-[250px] bg-bg flex flex-col border-r border-bg-block overflow-y-auto h-full shrink-0 scrollbar-thin md:w-full md:border-r-0 md:absolute md:top-0 md:left-0 md:z-10 md:transition-transform md:duration-300">
+    // Ширина и позиционирование контролируются в HomePage.tsx. 
+    // Здесь только внутреннее наполнение: flex-col, скролл, фон.
+    <div className="flex flex-col w-full h-full bg-bg overflow-y-auto scrollbar-thin">
       
       <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
          <GroupChatList onOpenGroupChat={openGroupChat} />

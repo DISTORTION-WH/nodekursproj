@@ -17,7 +17,6 @@ import CallOverlay from "./components/CallOverlay";
 function AppRoutes() {
   const { isAuth, isLoading, role, currentUser } = useAuth();
 
-
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen text-white bg-bg">Загрузка...</div>;
   }
@@ -30,7 +29,18 @@ function AppRoutes() {
           <div className="flex h-[calc(100vh-50px)] mt-[50px] overflow-hidden">
             <div className="flex-1 flex overflow-hidden">
               <Routes>
-                <Route path="/" element={<HomePage currentUser={currentUser} />} />
+                {/* ЗАЩИТА ГЛАВНОЙ СТРАНИЦЫ: Если не авторизован -> на логин */}
+                <Route 
+                  path="/" 
+                  element={
+                    isAuth ? (
+                      <HomePage currentUser={currentUser} />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
+                  } 
+                />
+                
                 <Route
                   path="/login"
                   element={!isAuth ? <LoginPage /> : <Navigate to="/" />}
