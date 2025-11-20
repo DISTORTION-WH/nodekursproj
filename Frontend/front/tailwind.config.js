@@ -20,7 +20,6 @@ module.exports = {
         logo: ["MyFont", "sans-serif"],
         sans: ['"Segoe UI"', "Roboto", "Arial", "sans-serif"],
       },
-      // Добавляем анимацию звонка
       keyframes: {
         fadeIn: {
           "0%": { opacity: "0", transform: "translateY(-20px)" },
