@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'MyFont';
+  src: url('../public/blrrpix.strict.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+html, body, #root {
+  @apply h-full m-0 p-0 bg-bg text-text-main font-sans overflow-hidden;
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-bg-block rounded;
+  }
+}

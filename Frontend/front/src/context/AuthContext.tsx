@@ -15,13 +15,12 @@ interface AuthContextType {
   isAuth: boolean;
   role: string | null;
   currentUser: User | null;
-  loading: boolean;
+  isLoading: boolean; 
+  error: string | null; 
   login: (username: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>; 
   logout: () => void;
   handleAvatarChange: (file: File) => Promise<void>;
-  setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
-  setIsAuth: React.Dispatch<React.SetStateAction<boolean>>;
-  setRole: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -42,7 +41,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuth, setIsAuth] = useState<boolean>(false);
   const [role, setRole] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const logout = useCallback(() => {
@@ -56,14 +56,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
     try {
-      if (token.split(".").length !== 3) throw new Error("Invalid token");
-
       const decoded = jwtDecode<JwtPayload>(token);
+      if (decoded.exp * 1000 < Date.now()) {
+         throw new Error("Token expired");
+      }
+
       setIsAuth(true);
       setRole(decoded.role || "USER");
 
@@ -74,25 +76,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.error("Ошибка получения текущего пользователя:", err);
           logout();
         })
-        .finally(() => setLoading(false));
+        .finally(() => setIsLoading(false));
     } catch (err) {
       console.error("Ошибка токена:", err);
       logout();
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [logout]);
 
-  useEffect(() => {
-    const handleAuthError = () => {
-      logout();
-    };
-    window.addEventListener("auth-error", handleAuthError);
-    return () => {
-      window.removeEventListener("auth-error", handleAuthError);
-    };
-  }, [logout]);
-
   const login = async (username: string, password: string) => {
+    setError(null);
     try {
       const res = await api.post("/auth/login", { username, password });
       const token = res.data.accessToken;
@@ -108,21 +101,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       navigate("/");
     } catch (err: any) {
       console.error(err);
-      throw err.response?.data?.message || "Ошибка входа";
+      setError(err.response?.data?.message || "Ошибка входа");
+    }
+  };
+
+  const register = async (username: string, email: string, password: string) => {
+    setError(null);
+    try {
+      await api.post("/auth/register", { username, email, password });
+      await login(username, password);
+    } catch (err: any) {
+        console.error(err);
+        setError(err.response?.data?.message || "Ошибка регистрации");
     }
   };
 
   const handleAvatarChange = async (file: File) => {
     if (!file) return;
-
     const formData = new FormData();
     formData.append("avatar", file);
 
     try {
       await api.put("/users/avatar", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
       const res = await api.get<User>("/users/me");
       setCurrentUser(res.data);
@@ -135,13 +136,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAuth,
     role,
     currentUser,
-    loading,
+    isLoading,
+    error,
     login,
+    register,
     logout,
     handleAvatarChange,
-    setCurrentUser,
-    setIsAuth,
-    setRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

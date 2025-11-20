@@ -1,7 +1,6 @@
 import React, { useState, KeyboardEvent } from "react";
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
-import "../pages/HomePage.css";
 
 export default function MessageInput() {
   const [newMessage, setNewMessage] = useState("");
@@ -17,7 +16,7 @@ export default function MessageInput() {
   };
 
   const onEmojiClick = (emojiData: EmojiClickData) => {
-    setNewMessage((prevMessage) => prevMessage + emojiData.emoji);
+    setNewMessage((prev) => prev + emojiData.emoji);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -27,21 +26,24 @@ export default function MessageInput() {
   };
 
   return (
-    <form className="chat-input" onSubmit={handleSend}>
+    <form 
+      className="p-4 bg-[#36393f] flex gap-2.5 items-center border-t border-[#202225] relative shrink-0 md:p-2.5" 
+      onSubmit={handleSend}
+    >
       {showEmojiPicker && (
-        <div className="emoji-picker-container">
+        <div className="absolute bottom-[70px] left-5 z-50 shadow-xl rounded-lg overflow-hidden">
           <EmojiPicker
             onEmojiClick={onEmojiClick}
             theme={Theme.DARK}
             lazyLoadEmojis={true}
-            style={{ width: "100%" }}
             skinTonesDisabled={true}
           />
         </div>
       )}
+      
       <button
         type="button"
-        className="emoji-btn"
+        className="bg-transparent border-none text-2xl cursor-pointer grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100 hover:scale-110 p-0"
         onClick={(e) => {
           e.stopPropagation();
           setShowEmojiPicker(!showEmojiPicker);
@@ -49,14 +51,22 @@ export default function MessageInput() {
       >
         😀
       </button>
+      
       <input
         value={newMessage}
         onChange={(e) => setNewMessage(e.target.value)}
         placeholder="Написать сообщение..."
         onKeyDown={handleKeyDown}
         onClick={() => setShowEmojiPicker(false)}
+        className="flex-1 bg-[#40444b] border-none rounded-lg p-2.5 text-white text-[0.95rem] outline-none transition-colors focus:bg-[#4f545c] placeholder-[#72767d]"
       />
-      <button type="submit">Go</button>
+      
+      <button 
+        type="submit"
+        className="bg-transparent border-none text-accent font-bold cursor-pointer px-2.5 transition-colors hover:text-white"
+      >
+        Go
+      </button>
     </form>
   );
 }

@@ -1,92 +1,65 @@
-import React, { useState, useEffect } from "react";
-import type { Socket } from "socket.io-client";
-import api from "../services/api";
-import { useSocket } from "../context/SocketContext";
+import React, { useEffect, useState } from "react";
 import { useChat } from "../context/ChatContext";
-import { User } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
 
 interface FriendChatListProps {
-  onOpenProfile: (id: number) => void;
+  onOpenProfile: (userId: number) => void;
 }
 
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
-  const [friends, setFriends] = useState<User[]>([]);
-
-  const { socket } = useSocket() as { socket: Socket | null };
-  const { selectChat } = useChat();
-
-  const fetchFriends = () => {
-    api
-      .get<User[]>("/friends")
-      .then((res) => setFriends(res.data))
-      .catch(console.error);
-  };
+  const { friends, startPrivateChat, onlineUsers } = useChat();
+  const [localFriends, setLocalFriends] = useState(friends);
 
   useEffect(() => {
-    fetchFriends();
-  }, []);
+    setLocalFriends(friends);
+  }, [friends]);
 
-  useEffect(() => {
-    if (socket) {
-      const onFriendRequestAccepted = () => fetchFriends();
-      const onFriendRemoved = () => fetchFriends();
-
-      socket.on("friend_request_accepted", onFriendRequestAccepted);
-      socket.on("friend_removed", onFriendRemoved);
-
-      return () => {
-        socket.off("friend_request_accepted", onFriendRequestAccepted);
-        socket.off("friend_removed", onFriendRemoved);
-      };
-    }
-  }, [socket]);
-
-  const openChat = async (friend: User) => {
-    try {
-      const res = await api.post<{ id: number }>("/chats/private", { friendId: friend.id });
-      
-      selectChat({
-        id: res.data.id,
-        username: friend.username,
-        avatar_url: friend.avatar_url || undefined,
-        is_group: false,
-        name: null,
-        participants: [{ id: friend.id, username: friend.username }] as any
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  if (localFriends.length === 0) {
+    return (
+      <div>
+        <h3 className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
+          Личные сообщения
+        </h3>
+        <p className="text-text-muted text-sm italic">Нет друзей</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="friends-section">
-      <div className="section-header">
-        <h2>Друзья</h2>
-      </div>
-      {friends.map((f) => (
-        <div key={f.id} className="friend-item" onClick={() => openChat(f)}>
-          <img
-            src={getImageUrl(f.avatar_url)}
-            alt="ava"
-            className="avatar"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenProfile(f.id);
-            }}
-          />
-          <span>{f.username}</span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openChat(f);
-            }}
-          >
-            Чат
-          </button>
-        </div>
-      ))}
-      {friends.length === 0 && <p>Нет друзей</p>}
+    <div className="flex flex-col">
+      <h3 className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
+        Личные сообщения
+      </h3>
+      <ul className="list-none p-0 m-0">
+        {localFriends.map((f) => {
+          const isOnline = onlineUsers.has(f.id);
+          return (
+            <li 
+              key={f.id} 
+              className="flex items-center p-2 rounded cursor-pointer transition-colors text-[#8e9297] mb-0.5 hover:bg-bg-hover hover:text-white relative group"
+              onClick={() => startPrivateChat(f.id)}
+            >
+              <div className="relative mr-2.5 shrink-0">
+                <img
+                  src={getImageUrl(f.avatar_url)}
+                  alt={f.username}
+                  className="w-8 h-8 rounded-full object-cover block"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenProfile(f.id);
+                  }}
+                />
+                <span 
+                  className={`absolute bottom-[-2px] right-[-2px] w-3 h-3 rounded-full border-2 border-bg group-hover:border-bg-hover ${isOnline ? 'bg-success' : 'bg-text-muted'}`}
+                />
+              </div>
+              <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+                {f.username}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

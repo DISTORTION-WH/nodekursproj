@@ -25,18 +25,12 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
 
   useEffect(() => {
     if (socket) {
-      const onAddedToChat = () => {
-        fetchGroupChats();
-      };
+      const onAddedToChat = () => { fetchGroupChats(); };
       const onRemovedFromChat = (data: { chatId: number }) => {
-        setGroupChats((prev) =>
-          prev.filter((c) => Number(c.id) !== Number(data.chatId))
-        );
+        setGroupChats((prev) => prev.filter((c) => Number(c.id) !== Number(data.chatId)));
       };
-
       socket.on("added_to_chat", onAddedToChat);
       socket.on("removed_from_chat", onRemovedFromChat);
-
       return () => {
         socket.off("added_to_chat", onAddedToChat);
         socket.off("removed_from_chat", onRemovedFromChat);
@@ -68,16 +62,17 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
     }
   };
 
+  const btnClass = "bg-transparent border-none text-text-muted cursor-pointer text-lg p-1 hover:text-white transition-colors";
+
   return (
-    <div className="friends-section">
-      <div className="section-header">
+    <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
+      <div className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
         <h2>Комнаты</h2>
-        <div className="section-header-actions">
-          <button onClick={joinByCode} className="group-action-btn">
+        <div className="flex gap-2">
+          <button onClick={joinByCode} className={btnClass} title="Вступить по коду">
             Join
           </button>
-
-          <button onClick={createGroupChat} className="group-action-btn create">
+          <button onClick={createGroupChat} className={`${btnClass} text-xl font-bold`} title="Создать">
             +
           </button>
         </div>
@@ -85,13 +80,13 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
       {groupChats.map((chat) => (
         <div
           key={chat.id}
-          className="friend-item group-item"
+          className="flex items-center p-2 rounded cursor-pointer transition-colors text-[#8e9297] mb-0.5 hover:bg-bg-hover hover:text-white"
           onClick={() => onOpenGroupChat(chat)}
         >
-          <span>{chat.name}</span>
+          <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap"># {chat.name}</span>
         </div>
       ))}
-      {groupChats.length === 0 && <p>Нет комнат</p>}
+      {groupChats.length === 0 && <p className="text-text-muted text-sm italic">Нет комнат</p>}
     </div>
   );
 }

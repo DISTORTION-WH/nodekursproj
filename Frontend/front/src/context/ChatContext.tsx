@@ -18,10 +18,18 @@ interface ChatContextType {
   chatMembers: ChatParticipant[];
   friendsForInvite: User[];
   currentUser: User | null;
+  friends: User[]; 
+  onlineUsers: Set<number>; 
+  
+  setActiveChat: (chat: Chat | null) => void; 
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
+  startPrivateChat: (friendId: number) => Promise<void>; 
+  openGroupChat: (chat: Chat) => void; 
+  
   sendMessage: (text: string) => void;
   deleteMessages: (allForEveryone: boolean) => Promise<void>;
+  
   openInviteModal: () => void;
   openMembersModal: () => void;
   closeModal: () => void;
@@ -51,6 +59,17 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const [modalView, setModalView] = useState<"invite" | "members" | null>(null);
   const [chatMembers, setChatMembers] = useState<ChatParticipant[]>([]);
   const [friendsForInvite, setFriendsForInvite] = useState<User[]>([]);
+  
+  const [friends, setFriends] = useState<User[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (currentUser) {
+        api.get<User[]>("/friends")
+           .then(res => setFriends(res.data || []))
+           .catch(console.error);
+    }
+  }, [currentUser]);
 
   const fetchChatMembers = useCallback((chatId: number) => {
     api
@@ -60,9 +79,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   }, []);
 
   useEffect(() => {
-    if (!socket || !activeChat?.id) {
-      return;
-    }
+    if (!socket || !activeChat?.id) return;
 
     api
       .get<Message[]>(`/chats/${activeChat.id}/messages`)
@@ -74,7 +91,6 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     }
 
     socket.emit("join_chat", activeChat.id);
-    console.log(`Socket: Вступил в комнату chat_${activeChat.id}`);
 
     const handleNewMessage = (msg: Message) => {
       if (Number(msg.chat_id) === Number(activeChat.id)) {
@@ -89,10 +105,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleChatMemberUpdated = (data: { chatId: number }) => {
-      if (
-        Number(data.chatId) === Number(activeChat.id) &&
-        activeChat.is_group
-      ) {
+      if (Number(data.chatId) === Number(activeChat.id) && activeChat.is_group) {
         fetchChatMembers(activeChat.id);
       }
     };
@@ -110,7 +123,6 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     socket.on("removed_from_chat", handleRemovedFromChat);
 
     return () => {
-      console.log(`Socket: Покинул комнату chat_${activeChat.id}`);
       socket.emit("leave_chat", activeChat.id);
       socket.off("new_message", handleNewMessage);
       socket.off("messages_cleared", handleMessagesCleared);
@@ -119,6 +131,37 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
   }, [socket, activeChat, fetchChatMembers]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const onOnlineUsers = (userIds: number[]) => {
+        setOnlineUsers(new Set(userIds));
+    };
+    const onUserConnected = (userId: number) => {
+        setOnlineUsers(prev => new Set(prev).add(userId));
+    };
+    const onUserDisconnected = (userId: number) => {
+        setOnlineUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(userId);
+            return newSet;
+        });
+    };
+
+    socket.emit("get_online_users"); 
+
+    socket.on("online_users", onOnlineUsers); 
+    socket.on("user_connected", onUserConnected);
+    socket.on("user_disconnected", onUserDisconnected);
+
+    return () => {
+        socket.off("online_users", onOnlineUsers);
+        socket.off("user_connected", onUserConnected);
+        socket.off("user_disconnected", onUserDisconnected);
+    };
+  }, [socket]);
+
+
   const selectChat = (chat: Chat) => {
     setMessages([]);
     setChatMembers([]);
@@ -126,8 +169,23 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     setActiveChat(chat);
   };
 
+  const openGroupChat = (chat: Chat) => {
+      selectChat(chat);
+  };
+
   const closeChat = () => {
     setActiveChat(null);
+  };
+
+  const startPrivateChat = async (friendId: number) => {
+    try {
+        const res = await api.post<{id: number}>("/chats/private", { friendId });
+
+        const chatRes = await api.get<Chat>(`/chats/${res.data.id}`);
+        selectChat(chatRes.data);
+    } catch (e) {
+        console.error(e);
+    }
   };
 
   const sendMessage = (text: string) => {
@@ -140,9 +198,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?"))
       return;
     try {
-      await api.post(`/chats/${activeChat.id}/messages/delete`, {
-        allForEveryone,
-      });
+      await api.post(`/chats/${activeChat.id}/messages/delete`, { allForEveryone });
       if (!allForEveryone) setMessages([]);
     } catch (err) {
       console.error(err);
@@ -160,13 +216,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     }
   };
 
-  const openMembersModal = () => {
-    setModalView("members");
-  };
-
-  const closeModal = () => {
-    setModalView(null);
-  };
+  const openMembersModal = () => setModalView("members");
+  const closeModal = () => setModalView(null);
 
   const handleInvite = async (friendId: number) => {
     try {
@@ -181,8 +232,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const handleKick = async (userIdToKick: number) => {
     if (!activeChat || !currentUser) return;
     const isLeaving = currentUser.id === userIdToKick;
-    if (!window.confirm(isLeaving ? "Выйти из группы?" : "Удалить участника?"))
-      return;
+    if (!window.confirm(isLeaving ? "Выйти из группы?" : "Удалить участника?")) return;
     try {
       await api.post(`/chats/${activeChat.id}/kick`, { userIdToKick });
       if (isLeaving) closeChat();
@@ -208,8 +258,13 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     chatMembers,
     friendsForInvite,
     currentUser,
+    friends,
+    onlineUsers,
+    setActiveChat,
     selectChat,
     closeChat,
+    startPrivateChat,
+    openGroupChat,
     sendMessage,
     deleteMessages,
     openInviteModal,

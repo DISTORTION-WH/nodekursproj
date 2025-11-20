@@ -1,42 +1,37 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./FriendsList.css";
 import { useChat } from "../context/ChatContext";
-import { User, Chat } from "../types";
-
-import GroupChatList from "./GroupChatList";
-import FriendChatList from "./FriendChatList";
 import IncomingRequests from "./IncomingRequests";
 import UserSearch from "./UserSearch";
+import GroupChatList from "./GroupChatList";
+import FriendChatList from "./FriendChatList";
+import { User } from "../types";
 
 interface FriendsListProps {
   currentUser: User | null;
 }
 
 export default function FriendsList({ currentUser }: FriendsListProps) {
+  const { openGroupChat } = useChat();
   const navigate = useNavigate();
-  const { selectChat } = useChat();
 
-  const openProfile = (id: number) => navigate(`/profile/${id}`);
-
-  const openGroupChat = (chat: Chat) =>
-    selectChat({
-      id: chat.id,
-      name: chat.name,
-      is_group: true,
-      creator_id: chat.creator_id,
-      participants: chat.participants,
-    });
+  const openProfile = (userId: number) => {
+    navigate(`/profile/${userId}`);
+  };
 
   return (
-    <div className="friends-list">
-      <GroupChatList onOpenGroupChat={openGroupChat} />
+    <div className="w-[280px] min-w-[250px] bg-bg flex flex-col border-r border-bg-block overflow-y-auto h-full shrink-0 scrollbar-thin md:w-full md:border-r-0 md:absolute md:top-0 md:left-0 md:z-10 md:transition-transform md:duration-300">
+      
+      <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
+         <GroupChatList onOpenGroupChat={openGroupChat} />
+      </div>
 
-      <FriendChatList onOpenProfile={openProfile} />
+      <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
+        <FriendChatList onOpenProfile={openProfile} />
+      </div>
 
-      <div className="bottom-sections">
+      <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
         <IncomingRequests onOpenProfile={openProfile} />
-
         <UserSearch onOpenProfile={openProfile} />
       </div>
     </div>

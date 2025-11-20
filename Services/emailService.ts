@@ -6,7 +6,7 @@ class EmailService {
     const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
     if (!serviceId || !templateId || !publicKey || !privateKey) {
-      console.error("⚠️ EmailJS не настроен (проверь .env)");
+      console.error("⚠️ EmailJS не настроен ");
       return;
     }
 

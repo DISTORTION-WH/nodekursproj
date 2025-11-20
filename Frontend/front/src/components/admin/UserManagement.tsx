@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
-import "../../pages/AdminPage.css";
 import { User } from "../../types";
 
 export default function UserManagement() {
@@ -13,8 +12,7 @@ export default function UserManagement() {
   }, []);
 
   const fetchUsers = () => {
-    api
-      .get<User[]>("/admin/users")
+    api.get<User[]>("/admin/users")
       .then((res) => setUsers(res.data))
       .catch((err) => console.error("Ошибка загрузки пользователей:", err));
   };
@@ -39,9 +37,7 @@ export default function UserManagement() {
         email: editingUser.email,
         roleId: editingUser.role === "ADMIN" ? 2 : 1, 
       };
-
       await api.put(`/admin/users/${editingUser.id}`, dataToUpdate);
-
       setUsers((prev) =>
         prev.map((u) =>
           Number(u.id) === Number(editingUser.id)
@@ -64,48 +60,40 @@ export default function UserManagement() {
     );
   });
 
+  const btnBase = "border-none py-1.5 px-2.5 rounded cursor-pointer mr-1.5 font-semibold text-sm";
+
   return (
-    <div className="admin-section">
-      <h3 className="admin-subtitle">Пользователи</h3>
+    <div className="bg-[#202225] p-5 rounded-xl mb-5 md:p-4">
+      <h3 className="text-xl mb-4">Пользователи</h3>
       <input
         type="text"
         placeholder="Поиск по имени или email..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="admin-search"
+        className="p-2.5 mb-4 rounded-lg w-full max-w-[300px] bg-white/10 text-white outline-none focus:ring-2 focus:ring-accent"
       />
 
-      <div className="admin-table-wrapper">
-        <table className="admin-table">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse mb-4 min-w-[600px]">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Имя</th>
-              <th>Email</th>
-              <th>Роль</th>
-              <th>Действия</th>
+              <th className="bg-black/20 font-semibold text-[#b9bbbe] p-3 text-left border-b border-white/10">ID</th>
+              <th className="bg-black/20 font-semibold text-[#b9bbbe] p-3 text-left border-b border-white/10">Имя</th>
+              <th className="bg-black/20 font-semibold text-[#b9bbbe] p-3 text-left border-b border-white/10">Email</th>
+              <th className="bg-black/20 font-semibold text-[#b9bbbe] p-3 text-left border-b border-white/10">Роль</th>
+              <th className="bg-black/20 font-semibold text-[#b9bbbe] p-3 text-left border-b border-white/10">Действия</th>
             </tr>
           </thead>
           <tbody>
             {filteredUsers.map((user) => (
               <tr key={user.id}>
-                <td>{user.id}</td>
-                <td>{user.username || "—"}</td>
-                <td>{user.email || "—"}</td>
-                <td>{user.roles?.join(", ") || user.role || "—"}</td>
-                <td>
-                  <button
-                    className="admin-btn edit"
-                    onClick={() => handleEditUser(user)}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="admin-btn delete"
-                    onClick={() => handleDeleteUser(user.id)}
-                  >
-                    ❌
-                  </button>
+                <td className="p-3 border-b border-white/10">{user.id}</td>
+                <td className="p-3 border-b border-white/10">{user.username || "—"}</td>
+                <td className="p-3 border-b border-white/10">{user.email || "—"}</td>
+                <td className="p-3 border-b border-white/10">{user.roles?.join(", ") || user.role || "—"}</td>
+                <td className="p-3 border-b border-white/10">
+                  <button className={`${btnBase} bg-accent text-white hover:bg-accent-hover`} onClick={() => handleEditUser(user)}>✏️</button>
+                  <button className={`${btnBase} bg-danger text-white hover:bg-danger-hover`} onClick={() => handleDeleteUser(user.id)}>❌</button>
                 </td>
               </tr>
             ))}
@@ -114,42 +102,14 @@ export default function UserManagement() {
       </div>
 
       {editingUser && (
-        <div className="edit-form">
-          <h4>Редактировать пользователя</h4>
-          <input
-            type="text"
-            value={editingUser.username}
-            onChange={(e) =>
-              setEditingUser({ ...editingUser, username: e.target.value })
-            }
-            placeholder="Имя"
-          />
-          <input
-            type="email"
-            value={editingUser.email || ""}
-            onChange={(e) =>
-              setEditingUser({ ...editingUser, email: e.target.value })
-            }
-            placeholder="Email"
-          />
-          <input
-            type="text"
-            value={editingUser.role || ""}
-            onChange={(e) =>
-              setEditingUser({ ...editingUser, role: e.target.value })
-            }
-            placeholder="Роль (USER, ADMIN)"
-          />
-          <div style={{ marginTop: 10 }}>
-            <button className="admin-btn save" onClick={handleSaveUser}>
-              💾 Сохранить
-            </button>
-            <button
-              className="admin-btn cancel"
-              onClick={() => setEditingUser(null)}
-            >
-              ❌ Отмена
-            </button>
+        <div className="flex flex-col gap-2.5 bg-white/5 p-4 rounded-lg mt-5">
+          <h4 className="m-0 mb-2">Редактировать пользователя</h4>
+          <input className="p-2 rounded-md bg-white/10 text-white border-none" type="text" value={editingUser.username} onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })} placeholder="Имя" />
+          <input className="p-2 rounded-md bg-white/10 text-white border-none" type="email" value={editingUser.email || ""} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} placeholder="Email" />
+          <input className="p-2 rounded-md bg-white/10 text-white border-none" type="text" value={editingUser.role || ""} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })} placeholder="Роль (USER, ADMIN)" />
+          <div className="mt-2.5">
+            <button className={`${btnBase} bg-success text-white hover:opacity-90`} onClick={handleSaveUser}>💾 Сохранить</button>
+            <button className={`${btnBase} bg-danger text-white hover:bg-danger-hover`} onClick={() => setEditingUser(null)}>❌ Отмена</button>
           </div>
         </div>
       )}

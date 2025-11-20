@@ -11,12 +11,10 @@ interface IncomingRequestsProps {
 
 export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProps) {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  
   const { socket } = useSocket() as { socket: Socket | null };
 
   const fetchRequests = () => {
-    api
-      .get<FriendRequest[]>("/friends/incoming")
+    api.get<FriendRequest[]>("/friends/incoming")
       .then((res) => setRequests(res.data))
       .catch(console.error);
   };
@@ -35,35 +33,37 @@ export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProp
   }, [socket]);
 
   const acceptRequest = (id: number) => {
-    api
-      .post("/friends/accept", { friendId: id })
+    api.post("/friends/accept", { friendId: id })
       .then(() => {
         setRequests((prev) => prev.filter((req) => req.requester_id !== id));
       })
       .catch(console.error);
   };
 
+  if (requests.length === 0) return null;
+
   return (
-    <div className="incoming-section">
-      <h3>Входящие</h3>
-      {requests.length === 0 ? (
-        <p>Нет запросов</p>
-      ) : (
-        requests.map((req) => (
-          <div key={req.requester_id} className="incoming-item">
-            <img
+    <div className="mb-4">
+      <h3 className="text-[#b9bbbe] text-xs font-bold uppercase mb-2">Входящие</h3>
+      {requests.map((req) => (
+        <div key={req.requester_id} className="flex items-center justify-between p-2 rounded hover:bg-[#36393f] group">
+          <div className="flex items-center gap-2 overflow-hidden">
+             <img
               src={getImageUrl(req.requester_avatar)}
               alt="ava"
-              className="avatar"
+              className="w-6 h-6 rounded-full object-cover cursor-pointer"
               onClick={() => onOpenProfile(req.requester_id)}
             />
-            <span>{req.requester_name}</span>
-            <button onClick={() => acceptRequest(req.requester_id)}>
-              Принять
-            </button>
+            <span className="text-[#dcddde] text-sm truncate">{req.requester_name}</span>
           </div>
-        ))
-      )}
+          <button 
+            onClick={() => acceptRequest(req.requester_id)}
+            className="bg-success text-white border-none py-1 px-2 rounded text-xs cursor-pointer hover:bg-[#3ba55d]"
+          >
+            Принять
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

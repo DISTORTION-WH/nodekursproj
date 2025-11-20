@@ -1,30 +1,25 @@
 import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import LoginPage from "./pages/LoginPage";
-import ZFRegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import AdminPage from "./pages/AdminPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CallProvider } from "./context/CallContext";
 import CallOverlay from "./components/CallOverlay";
-import "./App.css";
 
 function AppRoutes() {
-  const { isAuth, role, currentUser, loading } = useAuth();
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
-    );
+  const { isAuth, isLoading, role, currentUser } = useAuth();
+
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen text-white bg-bg">Загрузка...</div>;
   }
 
   return (
@@ -32,49 +27,40 @@ function AppRoutes() {
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
           <Navbar />
-          <div className="app-container">
-            <div className="main-content">
+          <div className="flex h-[calc(100vh-50px)] mt-[50px] overflow-hidden">
+            <div className="flex-1 flex overflow-hidden">
               <Routes>
+                <Route path="/" element={<HomePage currentUser={currentUser} />} />
                 <Route
-                  path="/"
-                  element={
-                    isAuth ? (
-                      <HomePage currentUser={currentUser} />
-                    ) : (
-                      <Navigate to="/login" />
-                    )
-                  }
+                  path="/login"
+                  element={!isAuth ? <LoginPage /> : <Navigate to="/" />}
                 />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<ZFRegisterPage />} />
+                <Route
+                  path="/register"
+                  element={!isAuth ? <RegisterPage /> : <Navigate to="/" />}
+                />
                 <Route
                   path="/admin"
                   element={
-                    isAuth && role === "ADMIN" ? (
+                    <ProtectedRoute isAuth={isAuth} role={role} requiredRole="ADMIN">
                       <AdminPage />
-                    ) : (
-                      <Navigate to="/" />
-                    )
+                    </ProtectedRoute>
                   }
                 />
                 <Route
                   path="/profile"
-                  element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
+                  element={
+                    <ProtectedRoute isAuth={isAuth}>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/profile/:userId"
                   element={
-                    isAuth ? <UserProfilePage /> : <Navigate to="/login" />
-                  }
-                />
-                <Route
-                  path="*"
-                  element={
-                    isAuth ? (
-                      <HomePage currentUser={currentUser} />
-                    ) : (
-                      <Navigate to="/login" />
-                    )
+                    <ProtectedRoute isAuth={isAuth}>
+                      <UserProfilePage />
+                    </ProtectedRoute>
                   }
                 />
               </Routes>
@@ -89,10 +75,8 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </Router>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }

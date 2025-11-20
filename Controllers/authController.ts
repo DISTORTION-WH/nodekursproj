@@ -107,7 +107,6 @@ class AuthController {
         return next(err);
       }
 
-      // Проверка кода (обязательно!)
       if (String(tempData.code).trim() !== String(code).trim()) {
           const err = new Error("Неверный код подтверждения") as CustomError;
           err.status = 400;
