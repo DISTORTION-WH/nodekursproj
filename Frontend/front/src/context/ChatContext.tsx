@@ -18,14 +18,14 @@ interface ChatContextType {
   chatMembers: ChatParticipant[];
   friendsForInvite: User[];
   currentUser: User | null;
-  friends: User[]; 
-  onlineUsers: Set<number>; 
+  friends: User[];
+  onlineUsers: Set<number>;
   
-  setActiveChat: (chat: Chat | null) => void; 
+  setActiveChat: (chat: Chat | null) => void;
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
-  startPrivateChat: (friendId: number) => Promise<void>; 
-  openGroupChat: (chat: Chat) => void; 
+  startPrivateChat: (friendId: number) => Promise<void>;
+  openGroupChat: (chat: Chat) => void;
   
   sendMessage: (text: string) => void;
   deleteMessages: (allForEveryone: boolean) => Promise<void>;
@@ -149,8 +149,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     socket.emit("get_online_users"); 
-
-    socket.on("online_users", onOnlineUsers); 
+    socket.on("online_users", onOnlineUsers);
     socket.on("user_connected", onUserConnected);
     socket.on("user_disconnected", onUserDisconnected);
 
@@ -161,8 +160,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
   }, [socket]);
 
-
   const selectChat = (chat: Chat) => {
+    console.log("Selecting chat:", chat);
     setMessages([]);
     setChatMembers([]);
     setModalView(null);
@@ -179,12 +178,21 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
 
   const startPrivateChat = async (friendId: number) => {
     try {
+        console.log("Attempting to start private chat with friendId:", friendId);
         const res = await api.post<{id: number}>("/chats/private", { friendId });
+        
+        if (!res.data || !res.data.id) {
+            throw new Error("Сервер не вернул ID чата");
+        }
 
+        console.log("Chat created/found, loading details for ID:", res.data.id);
         const chatRes = await api.get<Chat>(`/chats/${res.data.id}`);
+        
         selectChat(chatRes.data);
-    } catch (e) {
-        console.error(e);
+    } catch (e: any) {
+        console.error("Error in startPrivateChat:", e);
+        // Показываем ошибку пользователю
+        alert(`Не удалось открыть чат: ${e.response?.data?.message || e.message || "Ошибка сети"}`);
     }
   };
 
