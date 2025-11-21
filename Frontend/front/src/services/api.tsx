@@ -8,7 +8,7 @@ const API_URL = process.env.NODE_ENV === 'production'
 console.log("API Base URL:", API_URL);
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: process.env.REACT_APP_API_URL,
   withCredentials: true, // Важно для кук/сессий если используются
 });
 
