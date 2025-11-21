@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useChat } from "../context/ChatContext";
 import { getImageUrl } from "../utils/imageUrl";
 
@@ -8,52 +8,53 @@ interface FriendChatListProps {
 
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const { friends, startPrivateChat, onlineUsers } = useChat();
-  const [localFriends, setLocalFriends] = useState(friends);
 
-  useEffect(() => {
-    setLocalFriends(friends);
-  }, [friends]);
-
-  if (localFriends.length === 0) {
+  if (!friends || friends.length === 0) {
     return (
-      <div>
-        <h3 className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
-          Личные сообщения
-        </h3>
-        <p className="text-text-muted text-sm italic">Нет друзей</p>
+      <div className="flex flex-col gap-1">
+        <div className="flex justify-between items-center mb-2 px-2">
+           <h3 className="text-[#b9bbbe] text-xs font-bold uppercase m-0">Личные сообщения</h3>
+        </div>
+        <p className="text-[#b9bbbe] text-xs px-2 italic">Нет друзей</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
-      <h3 className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
-        Личные сообщения
-      </h3>
-      <ul className="list-none p-0 m-0">
-        {localFriends.map((f) => {
+    <div className="flex flex-col gap-1">
+      <div className="flex justify-between items-center mb-2 px-2">
+        <h3 className="text-[#b9bbbe] text-xs font-bold uppercase m-0">Личные сообщения</h3>
+      </div>
+      
+      <ul className="list-none p-0 m-0 flex flex-col gap-0.5">
+        {friends.map((f) => {
           const isOnline = onlineUsers.has(f.id);
+          
           return (
             <li 
               key={f.id} 
-              className="flex items-center p-2 rounded cursor-pointer transition-colors text-[#8e9297] mb-0.5 hover:bg-bg-hover hover:text-white relative group"
-              onClick={() => startPrivateChat(f.id)}
+              className="flex items-center p-2 rounded cursor-pointer text-[#8e9297] hover:bg-[#40444b] hover:text-white transition-colors group relative"
+              onClick={() => {
+                  console.log("Starting chat with:", f.username);
+                  startPrivateChat(f.id);
+              }}
             >
-              <div className="relative mr-2.5 shrink-0">
+              <div className="relative mr-3 shrink-0 w-8 h-8">
                 <img
                   src={getImageUrl(f.avatar_url)}
                   alt={f.username}
-                  className="w-8 h-8 rounded-full object-cover block"
+                  className="w-full h-full rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenProfile(f.id);
                   }}
                 />
                 <span 
-                  className={`absolute bottom-[-2px] right-[-2px] w-3 h-3 rounded-full border-2 border-bg group-hover:border-bg-hover ${isOnline ? 'bg-success' : 'bg-text-muted'}`}
+                  className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-[3px] border-[#2f3136] ${isOnline ? 'bg-success' : 'bg-[#747f8d]'}`}
                 />
               </div>
-              <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+
+              <span className="font-medium truncate flex-1 select-none">
                 {f.username}
               </span>
             </li>

@@ -25,17 +25,13 @@ export default function HomePage({ currentUser }: HomePageProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Логика CSS-трансформации для мобильной навигации
-  // Если мобильный и чат открыт -> сдвигаем всё влево на 100%
+
   const mobileTranslateClass = (isMobile && activeChat) ? "-translate-x-full" : "translate-x-0";
 
   return (
     <div className="flex w-full h-full bg-[#36393f] overflow-hidden relative">
       
-      {/* ЛЕВАЯ КОЛОНКА (Список друзей) */}
-      {/* Mobile (default): absolute, width 100%, z-index 10. 
-         Desktop (md): relative, width 280px, z-index 0, всегда на месте (translate-x-0).
-      */}
+    
       <div 
         className={`
           absolute top-0 left-0 w-full h-full bg-bg z-10 transition-transform duration-300 ease-in-out
@@ -46,10 +42,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
          <FriendsList currentUser={currentUser} />
       </div>
 
-      {/* ПРАВАЯ КОЛОНКА (Чат) */}
-      {/* Mobile (default): absolute, width 100%, left 100% (справа за экраном).
-         Desktop (md): relative, flex-1, left 0 (на своем месте).
-      */}
+   
       <div 
         className={`
           absolute top-0 left-full w-full h-full bg-[#36393f] transition-transform duration-300 ease-in-out

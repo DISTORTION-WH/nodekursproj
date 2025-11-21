@@ -25,12 +25,16 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
 
   useEffect(() => {
     if (socket) {
-      const onAddedToChat = () => { fetchGroupChats(); };
+      const onAddedToChat = () => fetchGroupChats();
       const onRemovedFromChat = (data: { chatId: number }) => {
-        setGroupChats((prev) => prev.filter((c) => Number(c.id) !== Number(data.chatId)));
+        setGroupChats((prev) =>
+          prev.filter((c) => Number(c.id) !== Number(data.chatId))
+        );
       };
+
       socket.on("added_to_chat", onAddedToChat);
       socket.on("removed_from_chat", onRemovedFromChat);
+
       return () => {
         socket.off("added_to_chat", onAddedToChat);
         socket.off("removed_from_chat", onRemovedFromChat);
@@ -62,31 +66,41 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
     }
   };
 
-  const btnClass = "bg-transparent border-none text-text-muted cursor-pointer text-lg p-1 hover:text-white transition-colors";
+  // Стили кнопок (Join / +)
+  const actionBtnClass = "text-[#b9bbbe] hover:text-white cursor-pointer bg-transparent border-none p-1 transition-colors";
 
   return (
-    <div className="p-4 border-b border-bg-block md:p-2.5 md:px-4">
-      <div className="flex justify-between items-center mb-2.5 text-text-muted text-sm uppercase font-bold">
-        <h2>Комнаты</h2>
-        <div className="flex gap-2">
-          <button onClick={joinByCode} className={btnClass} title="Вступить по коду">
+    <div className="flex flex-col gap-1">
+      {/* Заголовок секции */}
+      <div className="flex justify-between items-center mb-2 px-2">
+        <h2 className="text-[#b9bbbe] text-xs font-bold uppercase m-0">Комнаты</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={joinByCode} className={`${actionBtnClass} text-xs`} title="Вступить">
             Join
           </button>
-          <button onClick={createGroupChat} className={`${btnClass} text-xl font-bold`} title="Создать">
+          <button onClick={createGroupChat} className={`${actionBtnClass} text-lg leading-none`} title="Создать">
             +
           </button>
         </div>
       </div>
+
+      {/* Список комнат */}
       {groupChats.map((chat) => (
         <div
           key={chat.id}
-          className="flex items-center p-2 rounded cursor-pointer transition-colors text-[#8e9297] mb-0.5 hover:bg-bg-hover hover:text-white"
-          onClick={() => onOpenGroupChat(chat)}
+          className="flex items-center p-2 rounded cursor-pointer text-[#8e9297] hover:bg-[#40444b] hover:text-white transition-colors"
+          onClick={() => {
+            console.log("Opening group chat:", chat.id);
+            onOpenGroupChat(chat);
+          }}
         >
-          <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap"># {chat.name}</span>
+          <span className="font-medium truncate"># {chat.name}</span>
         </div>
       ))}
-      {groupChats.length === 0 && <p className="text-text-muted text-sm italic">Нет комнат</p>}
+
+      {groupChats.length === 0 && (
+        <p className="text-[#b9bbbe] text-xs px-2 italic">Нет комнат</p>
+      )}
     </div>
   );
 }

@@ -29,7 +29,6 @@ function AppRoutes() {
           <div className="flex h-[calc(100vh-50px)] mt-[50px] overflow-hidden">
             <div className="flex-1 flex overflow-hidden">
               <Routes>
-                {/* ЗАЩИТА ГЛАВНОЙ СТРАНИЦЫ: Если не авторизован -> на логин */}
                 <Route 
                   path="/" 
                   element={
