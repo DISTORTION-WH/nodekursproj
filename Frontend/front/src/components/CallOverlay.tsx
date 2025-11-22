@@ -19,45 +19,45 @@ export default function CallOverlay() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  // Создаем отдельный ref для аудио, чтобы гарантировать звук
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
-  // 1. Настройка ЛОКАЛЬНОГО видео (Моя камера)
+  // 1. Настройка ЛОКАЛЬНОГО видео
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.muted = true; // Всегда глушим себя
+      localVideoRef.current.muted = true; // Всегда глушим себя локально
     }
   }, [localStream, callState]);
 
-  // 2. Настройка УДАЛЕННОГО потока (Звук + Видео)
+  // 2. Настройка УДАЛЕННОГО потока
   useEffect(() => {
     if (remoteStream) {
-        // А) Если есть видео-элемент, подключаем к нему
+        // Пытаемся прикрепить к видео (если это видеозвонок)
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
-            remoteVideoRef.current.muted = false; // ВАЖНО: Звук включен
-            remoteVideoRef.current.play().catch(console.error);
+            remoteVideoRef.current.onloadedmetadata = () => {
+                remoteVideoRef.current?.play().catch(e => console.error("Auto-play failed (video)", e));
+            };
         }
 
-        // Б) ДОПОЛНИТЕЛЬНО: Подключаем к скрытому аудио-элементу для надежности
-        // Это хак, который часто спасает, если видео-тег глючит со звуком
+        // ИЛИ прикрепляем к скрытому аудио (если это аудиозвонок или для подстраховки)
         if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remoteStream;
-            remoteAudioRef.current.muted = false;
-            remoteAudioRef.current.play().catch(console.error);
+            remoteAudioRef.current.onloadedmetadata = () => {
+                remoteAudioRef.current?.play().catch(e => console.error("Auto-play failed (audio)", e));
+            };
         }
     }
-  }, [remoteStream, callState]);
+  }, [remoteStream, isVideoCall]); // Зависимость от isVideoCall важна для ре-рендера
 
   if (callState === "idle") return null;
 
   return (
     <div className="call-overlay">
       
-      {/* СКРЫТЫЙ АУДИО ПЛЕЕР (Всегда включен во время звонка) */}
+      {/* СКРЫТЫЙ АУДИО ПЛЕЕР (Для гарантии звука, даже если видео глючит) */}
       {callState === "connected" && (
-          <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
+          <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
       )}
 
       {/* --- Входящий звонок --- */}
@@ -79,11 +79,13 @@ export default function CallOverlay() {
       {callState === "calling" && (
         <div className="call-card calling">
           <div className="video-preview">
-             {isVideoCall && localStream && (
+             {isVideoCall && localStream ? (
                 <video ref={localVideoRef} autoPlay muted playsInline className="local-preview" />
+             ) : (
+                <div className="call-avatar-placeholder" style={{marginBottom: 0}}>You</div>
              )}
           </div>
-          <h3>Звонок...</h3>
+          <h3 style={{ marginTop: 10 }}>Звонок...</h3>
           <div className="call-actions">
             <button className="btn-decline" onClick={endCall}>Отмена</button>
           </div>
@@ -102,7 +104,6 @@ export default function CallOverlay() {
                     autoPlay 
                     playsInline 
                     className="remote-video" 
-                    // volume={1.0} // React не поддерживает атрибут volume, это делается через ref
                  />
             ) : (
                 <div className="audio-placeholder">
@@ -114,7 +115,7 @@ export default function CallOverlay() {
                 </div>
             )}
 
-            {/* Мое маленькое видео */}
+            {/* Мое маленькое видео (PiP) */}
             {isVideoCall && (
                 <video ref={localVideoRef} autoPlay muted playsInline className="local-video-pip" />
             )}
@@ -122,16 +123,16 @@ export default function CallOverlay() {
 
           <div className="call-controls">
             <button onClick={muteAudio} className={isAudioMuted ? "control-btn active" : "control-btn"}>
-               🎤 {isAudioMuted ? "Вкл" : ""}
+               {isAudioMuted ? "🔇" : "🎤"}
             </button>
             
             {isVideoCall && (
                 <button onClick={muteVideo} className={isVideoMuted ? "control-btn active" : "control-btn"}>
-                 📷 {isVideoMuted ? "Вкл" : ""}
+                 {isVideoMuted ? "🚫" : "📷"}
                 </button>
             )}
             
-            <button className="control-btn hangup" onClick={endCall}>📞 Завершить</button>
+            <button className="control-btn hangup" onClick={endCall}>📞</button>
           </div>
         </div>
       )}
