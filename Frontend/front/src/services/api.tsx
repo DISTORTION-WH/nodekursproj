@@ -1,23 +1,35 @@
-import axios from 'axios';
+import axios, { InternalAxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_URL,
-  withCredentials: true,
+  // УБРАНО: withCredentials: true (Не нужно для Bearer токенов)
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token');
-  if (token) {
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      window.dispatchEvent(new Event("auth-error")); 
+    }
+    return Promise.reject(error);
+  }
+);
+
+
 export const login = (data: any) => api.post('/auth/login', data);
 export const register = (data: any) => api.post('/auth/register', data);
-export const getProfile = () => api.get('/auth/me');
+export const getProfile = () => api.get('/auth/me'); 
 
 export const getUserChats = () => api.get('/chats');
 export const getChatMessages = (chatId: number) => api.get(`/chats/${chatId}/messages`);
