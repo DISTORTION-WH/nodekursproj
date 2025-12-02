@@ -10,7 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import ZFRegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
 import AdminPage from "./pages/AdminPage";
-import ModeratorPage from "./pages/ModeratorPage"; // Импорт
+import ModeratorPage from "./pages/ModeratorPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
@@ -30,7 +30,8 @@ function AppRoutes() {
   }
 
   const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
-  const isModerator = currentUser?.roles?.includes('MODERATOR');
+  
+  const isModerator = currentUser?.roles?.includes('MODERATOR') || currentUser?.role === 'MODERATOR'; 
 
   return (
     <SocketProvider currentUser={currentUser}>
