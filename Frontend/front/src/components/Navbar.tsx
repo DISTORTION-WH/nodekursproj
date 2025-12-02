@@ -14,8 +14,7 @@ export default function Navbar() {
   };
 
   const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
-  const isModerator = currentUser?.roles?.includes('MODERATOR');
-
+const isModerator = currentUser?.roles?.includes('MODERATOR') || currentUser?.role === 'MODERATOR';
   return (
     <nav className="navbar">
       <Link to="/" className="logo" style={{ textDecoration: "none" }}>
