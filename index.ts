@@ -3,6 +3,7 @@ import cors from "cors";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import client from "./databasepg"; 
+import bcrypt from "bcryptjs"; 
 
 import authRouter from "./Routes/authRouter";
 import chatRouter from "./Routes/chatRouter";
@@ -154,6 +155,18 @@ async function initializeDatabase() {
     await client.query(
       `CREATE TABLE IF NOT EXISTS registration_codes (email VARCHAR(255) PRIMARY KEY NOT NULL, username VARCHAR(50) NOT NULL, password TEXT NOT NULL, avatar_url TEXT, code VARCHAR(6) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
+
+    const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
+    if (sysUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("super_secure_system_password_ChangeMe!", 10);
+      await client.query(
+        `INSERT INTO users (username, password, role_id, email, avatar_url) 
+         VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), $3, NULL)`,
+        ["LumeOfficial", hashedPassword, "system@lume.app"]
+      );
+      console.log("✅ System user 'LumeOfficial' created.");
+    }
+
     console.log("DB initialized.");
   } catch (e) {
     console.error("DB Init Error:", e);

@@ -4,7 +4,7 @@ import UserManagement from "../components/admin/UserManagement";
 import ChatManagement from "../components/admin/ChatManagement";
 import StatsDashboard from "../components/admin/StatsDashboard";
 import LogsViewer from "../components/admin/LogsViewer";
-
+import BroadcastPanel from "../components/admin/BroadcastPanel"; 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("users");
 
@@ -40,6 +40,9 @@ export default function AdminPage() {
         >
           Чаты
         </button>
+        <div className="admin-section">
+            <BroadcastPanel />
+        </div>
         <button
           className={activeTab === "stats" ? "active" : ""}
           onClick={() => setActiveTab("stats")}

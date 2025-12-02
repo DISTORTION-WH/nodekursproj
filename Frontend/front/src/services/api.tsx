@@ -32,4 +32,14 @@ api.interceptors.response.use(
   }
 );
 
+export const adminApi = {
+  broadcastMessage: async (text: string) => {
+    const response = await api.post("/admin/broadcast", { text });
+    return response.data;
+  },
+  
+  getStats: () => api.get("/admin/stats"),
+  getLogs: () => api.get("/admin/logs"),
+};
+
 export default api;
