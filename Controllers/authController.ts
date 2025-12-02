@@ -8,6 +8,7 @@ import roleService from "../Services/roleService";
 import emailService from "../Services/emailService"; 
 import minioService from "../Services/minioService";
 import chatService from "../Services/chatService"; 
+import client from "../databasepg"; 
 
 interface CustomError extends Error {
   status?: number;
@@ -143,11 +144,17 @@ class AuthController {
             "Приятного общения!";
             
           await chatService.postMessage(chat.id, systemUser.id, welcomeMessage);
+
+          await client.query(
+            `INSERT INTO friends (user_id, friend_id, status) 
+             VALUES ($1, $2, 'accepted'), ($2, $1, 'accepted') 
+             ON CONFLICT DO NOTHING`,
+            [newUser.id, systemUser.id]
+          );
         }
       } catch (chatError) {
         console.error("Ошибка при создании системного чата:", chatError);
       }
-    
 
       const accessToken = generateAccessToken(newUser.id, role.value);
       const refreshToken = generateRefreshToken(newUser.id, role.value);
