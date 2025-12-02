@@ -10,6 +10,7 @@ import chatRouter from "./Routes/chatRouter";
 import usersRouter from "./Routes/usersRouter";
 import friendsRouter from "./Routes/friendsRouter";
 import adminRouter from "./Routes/adminRouter";
+import moderatorRouter from "./Routes/moderatorRouter";
 import logger from "./Services/logService";
 
 process.on("uncaughtException", (err: Error, origin: string) => {
@@ -107,6 +108,7 @@ app.use("/chats", chatRouter);
 app.use("/friends", friendsRouter);
 app.use("/users", usersRouter);
 app.use("/admin", adminRouter);
+app.use("/moderator", moderatorRouter);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logger.error(
@@ -125,7 +127,7 @@ async function initializeDatabase() {
       `CREATE TABLE IF NOT EXISTS roles (id SERIAL PRIMARY KEY, value VARCHAR(50) UNIQUE NOT NULL DEFAULT 'USER');`
     );
     await client.query(
-      `INSERT INTO roles (value) VALUES ('USER'), ('ADMIN') ON CONFLICT (value) DO NOTHING;`
+      `INSERT INTO roles (value) VALUES ('USER'), ('ADMIN'), ('MODERATOR') ON CONFLICT (value) DO NOTHING;`
     );
     await client.query(
       `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL, avatar_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
@@ -137,6 +139,14 @@ async function initializeDatabase() {
     } catch (e: any) {
       if (e.code !== "42701") throw e;
     }
+    try {
+        await client.query(
+          `ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false;`
+        );
+      } catch (e: any) {
+        if (e.code !== "42701") throw e;
+      }
+
     await client.query(
       `CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, name VARCHAR(50), is_group BOOLEAN DEFAULT false, creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL, invite_code VARCHAR(16) UNIQUE);`
     );

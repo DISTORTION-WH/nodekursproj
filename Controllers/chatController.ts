@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import chatService from "../Services/chatService";
+import client from "../databasepg";
 
 interface AuthRequest extends Request {
   user?: {
@@ -45,8 +46,8 @@ class ChatController {
       const userId = authReq.user?.id;
 
       if (!userId) {
-         res.status(401).json({ message: "Пользователь не авторизован" });
-         return;
+          res.status(401).json({ message: "Пользователь не авторизован" });
+          return;
       }
 
       const chat = await chatService.joinWithInviteCode(inviteCode, userId);
@@ -88,8 +89,8 @@ class ChatController {
       const { friendId } = req.body;
 
       if (!inviterId) {
-         res.status(401).json({ message: "Пользователь не авторизован" });
-         return;
+          res.status(401).json({ message: "Пользователь не авторизован" });
+          return;
       }
 
       await chatService.inviteToGroup(chatId, friendId, inviterId);
@@ -111,10 +112,18 @@ class ChatController {
 
   async kickFromGroup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const authReq = req as AuthRequest;
       const chatId = req.params.id;
       const { userIdToKick } = req.body;
+      const requesterRole = authReq.user?.role;
       
-      await chatService.kickFromGroup(chatId, userIdToKick);
+      const isPrivileged = requesterRole === 'ADMIN' || requesterRole === 'MODERATOR';
+
+      if (isPrivileged) {
+        await client.query("DELETE FROM chat_users WHERE chat_id = $1 AND user_id = $2", [chatId, userIdToKick]);
+      } else {
+        await chatService.kickFromGroup(chatId, userIdToKick);
+      }
 
       req.app
         .get("io")
@@ -174,8 +183,8 @@ class ChatController {
       const { text } = req.body;
 
       if (!senderId || !authReq.user) {
-         res.status(401).json({ message: "Пользователь не авторизован" });
-         return;
+          res.status(401).json({ message: "Пользователь не авторизован" });
+          return;
       }
 
       const msg = await chatService.postMessage(chatId, senderId, text);
@@ -213,16 +222,23 @@ class ChatController {
       const authReq = req as AuthRequest;
       const chatId = req.params.id;
       const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
       const { allForEveryone } = req.body;
 
       if (!userId) {
-         res.status(401).json({ message: "Пользователь не авторизован" });
-         return;
+          res.status(401).json({ message: "Пользователь не авторизован" });
+          return;
       }
 
-      await chatService.deleteMessages(chatId, userId, allForEveryone);
+      const isPrivileged = userRole === 'ADMIN' || userRole === 'MODERATOR';
 
-      if (allForEveryone) {
+      if (isPrivileged) {
+          await chatService.deleteMessages(chatId, userId, true);
+      } else {
+          await chatService.deleteMessages(chatId, userId, allForEveryone);
+      }
+
+      if (allForEveryone || isPrivileged) {
         req.app
           .get("io")
           .to(`chat_${chatId}`)
