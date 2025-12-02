@@ -13,6 +13,9 @@ import adminRouter from "./Routes/adminRouter";
 import moderatorRouter from "./Routes/moderatorRouter";
 import logger from "./Services/logService";
 
+
+const AUTO_MODERATOR_NAME = "USER2"; 
+
 process.on("uncaughtException", (err: Error, origin: string) => {
   logger.error(`UNCAUGHT EXCEPTION at ${origin}`, err).finally(() => {
     process.exit(1);
@@ -123,6 +126,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 async function initializeDatabase() {
   try {
+    console.log("🔄 Starting Database Initialization...");
+
     await client.query(
       `CREATE TABLE IF NOT EXISTS roles (id SERIAL PRIMARY KEY, value VARCHAR(50) UNIQUE NOT NULL DEFAULT 'USER');`
     );
@@ -132,20 +137,15 @@ async function initializeDatabase() {
     await client.query(
       `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL, avatar_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
+    
     try {
-      await client.query(
-        `ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`
-      );
-    } catch (e: any) {
-      if (e.code !== "42701") throw e;
-    }
+      await client.query(`ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`);
+    } catch (e: any) { if (e.code !== "42701") throw e; }
+    
     try {
-        await client.query(
-          `ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false;`
-        );
-      } catch (e: any) {
-        if (e.code !== "42701") throw e;
-      }
+        await client.query(`ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false;`);
+        console.log("ℹ️  Column 'is_banned' added or already exists.");
+    } catch (e: any) { if (e.code !== "42701") throw e; }
 
     await client.query(
       `CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, name VARCHAR(50), is_group BOOLEAN DEFAULT false, creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL, invite_code VARCHAR(16) UNIQUE);`
@@ -177,16 +177,42 @@ async function initializeDatabase() {
       console.log("✅ System user 'LumeOfficial' created.");
     }
 
-    console.log("DB initialized.");
+    if (AUTO_MODERATOR_NAME) {
+      const roleRes = await client.query("SELECT id FROM roles WHERE value = 'MODERATOR'");
+      if (roleRes.rows.length > 0) {
+        const modRoleId = roleRes.rows[0].id;
+        
+        const updateRes = await client.query(
+          `UPDATE users 
+           SET role_id = $1 
+           WHERE username = $2 AND role_id != $1 AND role_id != (SELECT id FROM roles WHERE value='ADMIN')
+           RETURNING id`,
+          [modRoleId, AUTO_MODERATOR_NAME]
+        );
+        
+        if (updateRes.rowCount && updateRes.rowCount > 0) {
+          console.log(`🎉 User '${AUTO_MODERATOR_NAME}' has been successfully promoted to MODERATOR!`);
+        } else {
+            const checkUser = await client.query("SELECT role_id FROM users WHERE username = $1", [AUTO_MODERATOR_NAME]);
+            if (checkUser.rows.length > 0) {
+                console.log(`User '${AUTO_MODERATOR_NAME}' is already configured (Moderator or Admin).`);
+            } else {
+                console.log(`User '${AUTO_MODERATOR_NAME}' not found. Please register this user to make them a moderator.`);
+            }
+        }
+      }
+    }
+
+    console.log("DB initialized successfully.");
   } catch (e) {
-    console.error("DB Init Error:", e);
+    console.error("❌ DB Init Error:", e);
     process.exit(1);
   }
 }
 
 async function start() {
   await initializeDatabase();
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
 start();
