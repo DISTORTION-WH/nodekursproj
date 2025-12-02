@@ -3,7 +3,7 @@ import userService from "../Services/userService";
 import chatService from "../Services/chatService";
 import adminService from "../Services/adminService";
 import logService from "../Services/logService";
-
+import client from "../databasepg";
 class AdminController {
   async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -87,6 +87,58 @@ class AdminController {
       next(e);
     }
   }
-}
+
+
+
+  async broadcastMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        res.status(400).json({ message: "Текст сообщения обязателен" });
+        return;
+      }
+
+      const systemUser = await userService.findUserByUsername("LumeOfficial");
+      if (!systemUser) {
+        res.status(500).json({ message: "Системный пользователь не найден" });
+        return;
+      }
+
+      const allUsersResult = await client.query(
+        "SELECT id FROM users WHERE id != $1",
+        [systemUser.id]
+      );
+      const allUsers = allUsersResult.rows;
+
+      const io = req.app.get("io");
+      let count = 0;
+
+      for (const user of allUsers) {
+        try {
+          const chat = await chatService.findOrCreatePrivateChat(systemUser.id, user.id);
+          
+          const savedMessage = await chatService.postMessage(chat.id, systemUser.id, text);
+
+          if (io) {
+            io.to(`user_${user.id}`).emit("update_chat_list", {
+               chatId: chat.id,
+               lastMessage: savedMessage
+            });
+            
+            io.to(`chat_${chat.id}`).emit("receive_message", savedMessage);
+          }
+          
+          count++;
+        } catch (err) {
+          console.error(`Ошибка отправки пользователю ${user.id}:`, err);
+        }
+      }
+
+      res.json({ message: `Рассылка успешно выполнена для ${count} пользователей` });
+    } catch (e: any) {
+      console.error("Broadcast Error:", e);
+      next(e);
+    }
+}}
 
 export default new AdminController();

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import adminController from "../Controllers/adminController";
 import roleMiddleware from "../middleware/roleMiddleware";
-
+import authMiddleware from "../middleware/authMiddleware";
 const router = Router();
 
 router.use(roleMiddleware("ADMIN"));
@@ -17,4 +17,5 @@ router.delete("/chats/:id", adminController.deleteChat);
 router.get("/stats", adminController.getStats);
 router.get("/logs", adminController.getLogs);
 
+router.post("/broadcast", authMiddleware, roleMiddleware(["ADMIN"]), adminController.broadcastMessage);
 export default router;

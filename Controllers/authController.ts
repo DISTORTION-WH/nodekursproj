@@ -7,6 +7,7 @@ import userService from "../Services/userService";
 import roleService from "../Services/roleService";
 import emailService from "../Services/emailService"; 
 import minioService from "../Services/minioService";
+import chatService from "../Services/chatService"; 
 
 interface CustomError extends Error {
   status?: number;
@@ -107,7 +108,6 @@ class AuthController {
         return next(err);
       }
 
-      // Проверка кода (обязательно!)
       if (String(tempData.code).trim() !== String(code).trim()) {
           const err = new Error("Неверный код подтверждения") as CustomError;
           err.status = 400;
@@ -130,6 +130,24 @@ class AuthController {
       );
 
       await userService.deleteRegistrationCode(email);
+
+      try {
+        const systemUser = await userService.findUserByUsername("LumeOfficial");
+        if (systemUser) {
+          const chat = await chatService.findOrCreatePrivateChat(systemUser.id, newUser.id);
+          
+          const welcomeMessage = 
+            "👋 Добро пожаловать в Lume!\n\n" +
+            "Это официальный чат приложения. Здесь мы будем сообщать о важных обновлениях, " +
+            "технических работах и нововведениях.\n\n" +
+            "Приятного общения!";
+            
+          await chatService.postMessage(chat.id, systemUser.id, welcomeMessage);
+        }
+      } catch (chatError) {
+        console.error("Ошибка при создании системного чата:", chatError);
+      }
+    
 
       const accessToken = generateAccessToken(newUser.id, role.value);
       const refreshToken = generateRefreshToken(newUser.id, role.value);
