@@ -10,6 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import ZFRegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
 import AdminPage from "./pages/AdminPage";
+import ModeratorPage from "./pages/ModeratorPage"; // Импорт
 import ProfilePage from "./pages/ProfilePage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
@@ -20,12 +21,16 @@ import CallOverlay from "./components/CallOverlay";
 import "./App.css";
 
 function AppRoutes() {
-  const { isAuth, role, currentUser, loading } = useAuth();
+  const { isAuth, currentUser, loading } = useAuth();
+  
   if (loading) {
     return (
       <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
     );
   }
+
+  const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
+  const isModerator = currentUser?.roles?.includes('MODERATOR');
 
   return (
     <SocketProvider currentUser={currentUser}>
@@ -47,16 +52,29 @@ function AppRoutes() {
                 />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<ZFRegisterPage />} />
+                
                 <Route
                   path="/admin"
                   element={
-                    isAuth && role === "ADMIN" ? (
+                    isAuth && isAdmin ? (
                       <AdminPage />
                     ) : (
                       <Navigate to="/" />
                     )
                   }
                 />
+                
+                <Route
+                  path="/moderator"
+                  element={
+                    isAuth && (isAdmin || isModerator) ? (
+                      <ModeratorPage />
+                    ) : (
+                      <Navigate to="/" />
+                    )
+                  }
+                />
+
                 <Route
                   path="/profile"
                   element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}

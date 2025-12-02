@@ -1,6 +1,7 @@
 import React from "react";
 import { useChat } from "../context/ChatContext";
 import "../pages/HomePage.css";
+import { kickUserFromGroup } from "../services/api";
 
 export default function ChatModals() {
   const {
@@ -11,15 +12,28 @@ export default function ChatModals() {
     activeChat,
     currentUser,
     handleInvite,
-    handleKick,
     handleGetInviteCode,
+    setChatMembers // Теперь это свойство существует в типе контекста
   } = useChat();
 
   if (!modalView || !activeChat || !currentUser) return null;
 
   const isInvite = modalView === "invite";
-
   const list: any[] = isInvite ? friendsForInvite : chatMembers;
+
+  const isModerator = currentUser.roles?.includes('MODERATOR') || currentUser.role === 'ADMIN' || currentUser.roles?.includes('ADMIN');
+
+  const onKick = async (userId: number) => {
+      if(!window.confirm("Исключить пользователя?")) return;
+      try {
+          await kickUserFromGroup(activeChat.id, userId);
+          // Типы prev и m теперь выводятся автоматически из контекста
+          setChatMembers(prev => prev.filter(m => m.id !== userId));
+      } catch(e) {
+          console.error(e);
+          alert("Не удалось исключить пользователя");
+      }
+  };
 
   return (
     <div className="modal-backdrop" onClick={closeModal}>
@@ -43,6 +57,7 @@ export default function ChatModals() {
               <span>
                 {item.username}{" "}
                 {item.id === activeChat.creator_id && !isInvite ? "👑" : ""}
+                {item.roles?.includes('MODERATOR') && <span style={{color:'gold', fontSize:'0.8em'}}> [MOD]</span>}
               </span>
               {isInvite ? (
                 <button
@@ -52,12 +67,12 @@ export default function ChatModals() {
                   Пригласить
                 </button>
               ) : (
-                ((currentUser.id === activeChat.creator_id &&
-                  item.id !== currentUser.id) ||
-                  item.invited_by_user_id === currentUser.id) && (
+                ((currentUser.id === activeChat.creator_id && item.id !== currentUser.id) ||
+                 (isModerator && item.id !== currentUser.id) ||
+                 (item.invited_by_user_id === currentUser.id && item.id !== currentUser.id)) && (
                   <button
                     className="modal-btn kick"
-                    onClick={() => handleKick(item.id)}
+                    onClick={() => onKick(item.id)}
                   >
                     Удалить
                   </button>

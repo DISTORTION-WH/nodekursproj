@@ -5,8 +5,10 @@ import React, {
   useEffect,
   useCallback,
   ReactNode,
+  Dispatch,
+  SetStateAction,
 } from "react";
-import { Socket } from "socket.io-client"; 
+import { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "./SocketContext";
 import { Chat, Message, User, ChatParticipant } from "../types";
@@ -18,6 +20,10 @@ interface ChatContextType {
   chatMembers: ChatParticipant[];
   friendsForInvite: User[];
   currentUser: User | null;
+  
+  // Добавлено для доступа из ChatModals
+  setChatMembers: Dispatch<SetStateAction<ChatParticipant[]>>;
+
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
   sendMessage: (text: string) => void;
@@ -208,6 +214,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     chatMembers,
     friendsForInvite,
     currentUser,
+    setChatMembers, // Добавлено сюда
     selectChat,
     closeChat,
     sendMessage,
