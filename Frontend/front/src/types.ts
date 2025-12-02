@@ -8,12 +8,13 @@ export interface User {
   id: number;
   username: string;
   email?: string;
-  role?: string;
+  role?: string; 
+  roles?: string[]; 
   avatar_url?: string | null;
   created_at?: string;
-  friends?: User[]; 
-  roles?: string[];
-  token?: string; 
+  friends?: User[];
+  token?: string;
+  is_banned?: boolean;
 }
 
 export interface Message {
@@ -35,6 +36,7 @@ export interface ChatParticipant {
   username: string;
   avatar_url?: string | null;
   invited_by_user_id?: number;
+  roles?: string[];
 }
 
 export interface Chat {
@@ -44,13 +46,13 @@ export interface Chat {
   creator_id?: number;
   invite_code?: string;
   username?: string;
-  avatar_url?: string; 
+  avatar_url?: string;
   last_message?: {
     text: string;
     created_at: string;
   };
   participants?: User[];
-  messages?: Message[]; 
+  messages?: Message[];
 }
 
 export interface AuthResponse {

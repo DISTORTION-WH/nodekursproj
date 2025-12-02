@@ -250,6 +250,47 @@ class ChatController {
       next(e);
     }
   }
+
+
+
+async deleteMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const { id } = req.params; 
+      const userId = authReq.user?.id;
+      const userRole = authReq.user?.role;
+
+      if (!userId) {
+        res.status(401).json({ message: "Не авторизован" });
+        return;
+      }
+
+      const msgRes = await client.query("SELECT chat_id, sender_id FROM messages WHERE id = $1", [id]);
+      if (msgRes.rows.length === 0) {
+        res.status(404).json({ message: "Сообщение не найдено" });
+        return;
+      }
+      const { chat_id, sender_id } = msgRes.rows[0];
+
+      const isAuthor = sender_id === userId;
+      const isPrivileged = userRole === 'ADMIN' || userRole === 'MODERATOR';
+
+      if (!isAuthor && !isPrivileged) {
+        res.status(403).json({ message: "Нет прав" });
+        return;
+      }
+
+      await client.query("DELETE FROM messages WHERE id = $1", [id]);
+
+      req.app.get("io").to(`chat_${chat_id}`).emit("message_deleted", { messageId: id, chatId: chat_id });
+
+      res.json({ message: "Сообщение удалено" });
+    } catch (e) {
+      next(e);
+    }
+  }
+
+
 }
 
 export default new ChatController();

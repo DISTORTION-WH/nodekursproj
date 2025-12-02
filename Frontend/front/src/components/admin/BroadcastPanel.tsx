@@ -1,68 +1,35 @@
 import React, { useState } from 'react';
-import { adminApi } from '../../services/api';
+import { broadcastMessage } from '../../services/api';
 
 const BroadcastPanel: React.FC = () => {
-  const [message, setMessage] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [text, setText] = useState('');
+  const [status, setStatus] = useState('');
 
-  const handleSend = async () => {
-    if (!message.trim()) return;
-
-    const isConfirmed = window.confirm(
-      "ВНИМАНИЕ: Вы собираетесь отправить сообщение ВСЕМ пользователям приложения.\n\nПродолжить?"
-    );
-
-    if (!isConfirmed) return;
-
-    setStatus('loading');
+  const handleBroadcast = async () => {
+    if (!text) return;
     try {
-      await adminApi.broadcastMessage(message);
-      setStatus('success');
-      setMessage('');
-      setTimeout(() => setStatus('idle'), 5000);
-    } catch (error) {
-      console.error("Broadcast error:", error);
-      setStatus('error');
+      setStatus('Отправка...');
+      await broadcastMessage(text);
+      setStatus('Рассылка успешно выполнена!');
+      setText('');
+    } catch (e) {
+      console.error(e);
+      setStatus('Ошибка при рассылке');
     }
   };
 
   return (
-    <div className="broadcast-panel">
-      <div className="broadcast-header">
-        <h3 className="broadcast-title">
-          <span>📢</span> Официальная рассылка
-        </h3>
-        <p className="broadcast-desc">
-          Сообщение будет отправлено в системный чат каждому пользователю от имени Администратора (LumeOfficial).
-        </p>
-      </div>
-
+    <div className="admin-panel">
+      <h3>Системная рассылка</h3>
       <textarea
-        className="broadcast-textarea"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Введите текст новости, обновления или предупреждения..."
-        disabled={status === 'loading'}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Введите сообщение для всех пользователей..."
+        rows={4}
+        style={{ width: '100%', marginBottom: '10px' }}
       />
-
-      <div className="broadcast-footer">
-        <div className="broadcast-status">
-          {status === 'success' && (
-            <span className="status-success">✅ Сообщение успешно отправлено!</span>
-          )}
-          {status === 'error' && (
-            <span className="status-error">❌ Ошибка отправки. Проверьте консоль.</span>
-          )}
-        </div>
-
-        <button
-          className="broadcast-btn"
-          onClick={handleSend}
-          disabled={status === 'loading' || !message.trim()}
-        >
-          {status === 'loading' ? 'Отправка...' : 'Отправить всем'}
-        </button>
-      </div>
+      <button onClick={handleBroadcast}>Отправить всем</button>
+      {status && <p>{status}</p>}
     </div>
   );
 };

@@ -6,11 +6,15 @@ import { getImageUrl } from "../utils/imageUrl";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { isAuth, role, currentUser, logout } = useAuth();
+  const { isAuth, currentUser, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
+    navigate("/login");
   };
+
+  const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
+  const isModerator = currentUser?.roles?.includes('MODERATOR');
 
   return (
     <nav className="navbar">
@@ -20,10 +24,15 @@ export default function Navbar() {
       <div>
         {isAuth ? (
           <>
-            {role === "ADMIN" && (
+            {isAdmin && (
               <Link key="admin" to="/admin" className="btn">
                 Админка
               </Link>
+            )}
+            {(isModerator || isAdmin) && (
+               <Link key="moderator" to="/moderator" className="btn" style={{borderColor: '#ff9800', color: '#ff9800'}}>
+                 Модерация
+               </Link>
             )}
             {currentUser && (
               <div className="avatar-wrapper">
