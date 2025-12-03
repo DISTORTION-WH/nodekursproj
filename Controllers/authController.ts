@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { secret } from '../config';
 import userService from "../Services/userService";
@@ -187,8 +187,8 @@ class AuthController {
       }
 
       if (user.is_banned) {
-        const err = new Error("Ваш аккаунт заблокирован. Обратитесь к администрации.") as CustomError;
-        err.status = 403; 
+        const err = new Error("Ваш аккаунт заблокирован. Доступ запрещен.") as CustomError;
+        err.status = 403;
         return next(err);
       }
 
@@ -243,6 +243,13 @@ class AuthController {
 
       const userData = jwt.verify(refreshToken, secret) as TokenPayload;
       
+      const user = await userService.getUserById(userData.id);
+      if (user && user.is_banned) {
+         const err = new Error("Ваш аккаунт заблокирован.") as CustomError;
+         err.status = 403;
+         return next(err);
+      }
+
       const newAccessToken = generateAccessToken(userData.id, userData.role);
       const newRefreshToken = generateRefreshToken(userData.id, userData.role);
 

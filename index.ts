@@ -4,6 +4,8 @@ import http from "http";
 import { Server, Socket } from "socket.io";
 import client from "./databasepg"; 
 import bcrypt from "bcryptjs"; 
+import jwt from "jsonwebtoken"; 
+import { secret } from "./config"; 
 
 import authRouter from "./Routes/authRouter";
 import chatRouter from "./Routes/chatRouter";
@@ -62,6 +64,26 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, secret) as any;
+    
+    const userRes = await client.query("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
+    if (userRes.rows.length > 0 && userRes.rows[0].is_banned) {
+       console.log(`Rejected socket connection from banned user: ${decoded.id}`);
+       return next(new Error("User is banned"));
+    }
+
+    (socket as any).userId = decoded.id;
+    next();
+  } catch (err) {
+    next(new Error("Authentication error"));
+  }
+});
 
 io.on("connection", (socket: Socket) => {
   console.log("Socket connected:", socket.id);
@@ -133,18 +155,17 @@ async function initializeDatabase() {
     await client.query(
       `INSERT INTO roles (value) VALUES ('USER'), ('ADMIN'), ('MODERATOR') ON CONFLICT (value) DO NOTHING;`
     );
-
     await client.query(
       `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL, avatar_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
-
+    
     try {
       await client.query(`ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
     
     try {
         await client.query(`ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false;`);
-        console.log("ℹ️  Checked 'is_banned' column.");
+        console.log("ℹ️  Column 'is_banned' checked.");
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     await client.query(
@@ -215,7 +236,7 @@ async function initializeDatabase() {
 
 async function start() {
   await initializeDatabase();
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
 start();

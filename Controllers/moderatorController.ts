@@ -73,8 +73,16 @@ class ModeratorController {
 
       await client.query("UPDATE users SET is_banned = true WHERE id = $1", [userId]);
       
+      const io = req.app.get("io");
+      if (io) {
+        io.to(`user_${userId}`).emit("auth_error", { message: "Ваш аккаунт был забанен." });
+        
+        io.in(`user_${userId}`).disconnectSockets(true);
+        console.log(`🔌 Sockets for user ${userId} have been disconnected.`);
+      }
+
       logger.warn(`Пользователь ${userId} был забанен модератором ${req.user?.id}`);
-      res.json({ message: `Пользователь (ID: ${userId}) забанен.` });
+      res.json({ message: `Пользователь (ID: ${userId}) забанен и отключен от системы.` });
     } catch (e: any) {
       next(e);
     }
