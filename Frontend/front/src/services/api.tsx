@@ -63,8 +63,8 @@ export const unbanUser = (userId: number) =>
     api.post('/moderator/unban', { userId });
 
 export const reportMessage = (messageId: number, reason: string) =>
-    api.post('/chat/report', { messageId, reason });
-  
+    api.post('/chats/report', { messageId, reason });
+
 export const getReports = () => api.get<Report[]>('/moderator/reports');
 
 export const dismissReport = (reportId: number) => 
