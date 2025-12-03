@@ -28,7 +28,6 @@ router.post("/:id/invite", chatController.inviteToGroup);
 
 router.post("/:id/kick", chatController.kickFromGroup);
 
-// ДОБАВИТЬ ЭТУ СТРОКУ:
 router.delete("/messages/:id", chatController.deleteMessage); 
-
+router.post("/report", authMiddleware, chatController.reportMessage);
 export default router;

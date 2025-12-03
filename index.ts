@@ -197,6 +197,19 @@ async function initializeDatabase() {
       );`
     );
 
+    // --- ДОБАВЛЕН КОД ДЛЯ СОЗДАНИЯ ТАБЛИЦЫ REPORTS ---
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS reports (
+        id SERIAL PRIMARY KEY,
+        reporter_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+        reason TEXT NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending', 
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );`
+    );
+    // -------------------------------------------------
+
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
       const hashedPassword = await bcrypt.hash("super_secure_system_password_ChangeMe!", 10);

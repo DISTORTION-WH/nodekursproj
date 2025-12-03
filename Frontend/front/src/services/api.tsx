@@ -1,10 +1,10 @@
 import axios, { InternalAxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
+import { Report } from '../types'; 
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_URL,
-  // УБРАНО: withCredentials: true (Не нужно для Bearer токенов)
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -61,6 +61,17 @@ export const banUser = (userId: number) =>
 
 export const unbanUser = (userId: number) => 
     api.post('/moderator/unban', { userId });
+
+export const reportMessage = (messageId: number, reason: string) =>
+    api.post('/chat/report', { messageId, reason });
+  
+export const getReports = () => api.get<Report[]>('/moderator/reports');
+
+export const dismissReport = (reportId: number) => 
+    api.post('/moderator/reports/dismiss', { reportId });
+
+export const deleteMessageByMod = (messageId: number, reportId?: number) => 
+    api.post('/moderator/delete-message', { messageId, reportId });
 
 export const searchUsers = (query: string) => 
     api.get(`/admin/users/search?q=${query}`);

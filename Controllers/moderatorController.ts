@@ -106,6 +106,68 @@ class ModeratorController {
       next(e);
     }
   }
+
+
+
+
+async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await client.query(`
+        SELECT 
+          r.id, 
+          r.reason, 
+          r.status, 
+          r.created_at,
+          r.message_id,
+          m.text as message_text,
+          u_sender.id as sender_id,
+          u_sender.username as sender_name,
+          u_reporter.username as reporter_name
+        FROM reports r
+        JOIN messages m ON r.message_id = m.id
+        JOIN users u_sender ON m.sender_id = u_sender.id
+        JOIN users u_reporter ON r.reporter_id = u_reporter.id
+        WHERE r.status = 'pending'
+        ORDER BY r.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      next(e);
+    }
+  }
+
+  async dismissReport(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { reportId } = req.body;
+      await client.query("UPDATE reports SET status = 'dismissed' WHERE id = $1", [reportId]);
+      res.json({ message: "Жалоба отклонена" });
+    } catch (e: any) {
+      next(e);
+    }
+  }
+
+  async deleteMessage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { messageId, reportId } = req.body;
+
+      await client.query("DELETE FROM messages WHERE id = $1", [messageId]);
+      
+      if (reportId) {
+        await client.query("UPDATE reports SET status = 'resolved' WHERE id = $1", [reportId]);
+      }
+
+      const io = req.app.get("io");
+      if (io) {
+      }
+
+      logger.warn(`Модератор ${req.user?.id} удалил сообщение ${messageId}`);
+      res.json({ message: "Сообщение удалено" });
+    } catch (e: any) {
+      next(e);
+    }
+  }
+
+
 }
 
 export default new ModeratorController();
