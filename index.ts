@@ -13,8 +13,7 @@ import adminRouter from "./Routes/adminRouter";
 import moderatorRouter from "./Routes/moderatorRouter";
 import logger from "./Services/logService";
 
-// !!! ВАЖНО: Впишите сюда никнейм пользователя, который должен стать Модератором !!!
-const AUTO_MODERATOR_NAME = "MyNickname"; 
+const AUTO_MODERATOR_NAME = "USER2"; 
 
 process.on("uncaughtException", (err: Error, origin: string) => {
   logger.error(`UNCAUGHT EXCEPTION at ${origin}`, err).finally(() => {
@@ -128,7 +127,6 @@ async function initializeDatabase() {
   try {
     console.log("🔄 Initializing Database...");
 
-    // 1. Таблица ролей и сами роли
     await client.query(
       `CREATE TABLE IF NOT EXISTS roles (id SERIAL PRIMARY KEY, value VARCHAR(50) UNIQUE NOT NULL DEFAULT 'USER');`
     );
@@ -136,12 +134,10 @@ async function initializeDatabase() {
       `INSERT INTO roles (value) VALUES ('USER'), ('ADMIN'), ('MODERATOR') ON CONFLICT (value) DO NOTHING;`
     );
 
-    // 2. Таблица пользователей
     await client.query(
       `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL, avatar_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
 
-    // 3. Миграции (добавление колонок)
     try {
       await client.query(`ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
@@ -151,7 +147,6 @@ async function initializeDatabase() {
         console.log("ℹ️  Checked 'is_banned' column.");
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    // 4. Остальные таблицы
     await client.query(
       `CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, name VARCHAR(50), is_group BOOLEAN DEFAULT false, creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL, invite_code VARCHAR(16) UNIQUE);`
     );
@@ -171,7 +166,16 @@ async function initializeDatabase() {
       `CREATE TABLE IF NOT EXISTS registration_codes (email VARCHAR(255) PRIMARY KEY NOT NULL, username VARCHAR(50) NOT NULL, password TEXT NOT NULL, avatar_url TEXT, code VARCHAR(6) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());`
     );
 
-    // 5. Создание системного пользователя LumeOfficial
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS warnings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        moderator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        reason TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );`
+    );
+
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
       const hashedPassword = await bcrypt.hash("super_secure_system_password_ChangeMe!", 10);
@@ -183,13 +187,11 @@ async function initializeDatabase() {
       console.log("✅ System user 'LumeOfficial' created.");
     }
 
-    // 6. Авто-назначение модератора
     if (AUTO_MODERATOR_NAME) {
       const roleRes = await client.query("SELECT id FROM roles WHERE value = 'MODERATOR'");
       if (roleRes.rows.length > 0) {
         const modRoleId = roleRes.rows[0].id;
         
-        // Пытаемся обновить роль (если юзер существует и еще не модератор/админ)
         const updateRes = await client.query(
           `UPDATE users 
            SET role_id = $1 
