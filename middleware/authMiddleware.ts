@@ -34,10 +34,11 @@ export default async function authMiddleware(req: Request, res: Response, next: 
     try {
       const userRes = await client.query("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
       if (userRes.rows.length > 0 && userRes.rows[0].is_banned) {
+          console.warn(`Blocked request from BANNED user: ${decoded.id}`);
           return res.status(403).json({ message: "Ваш аккаунт заблокирован" });
       }
     } catch (dbErr) {
-      console.error("Ошибка проверки бана в middleware:", dbErr);
+      console.error("AuthMiddleware DB Error:", dbErr);
     }
 
     next();
