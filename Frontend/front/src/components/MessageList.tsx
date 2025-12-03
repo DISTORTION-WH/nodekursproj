@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useChat } from "../context/ChatContext";
-import { deleteMessage } from "../services/api";
+import { deleteMessage, reportMessage } from "../services/api"; //
 import "../pages/HomePage.css";
 
 export default function MessageList() {
@@ -22,6 +22,20 @@ export default function MessageList() {
     } catch(e) {
         console.error(e);
         alert("Ошибка удаления");
+    }
+  };
+
+  // Логика отправки жалобы
+  const handleReport = async (msgId: number) => {
+    const reason = window.prompt("Укажите причину жалобы:");
+    if (!reason) return; // Если отмена или пусто
+
+    try {
+        await reportMessage(msgId, reason);
+        alert("Жалоба отправлена модераторам.");
+    } catch(e) {
+        console.error(e);
+        alert("Ошибка отправки жалобы");
     }
   };
 
@@ -51,23 +65,47 @@ export default function MessageList() {
             )}
             {msg.text}
             
-            {canDelete && (
-                <button 
-                    onClick={() => handleDelete(msg.id)}
-                    style={{
-                        marginLeft: '10px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'red',
-                        cursor: 'pointer',
-                        opacity: 0.5,
-                        fontSize: '12px'
-                    }}
-                    title="Удалить"
-                >
-                    🗑️
-                </button>
-            )}
+            {/* Контейнер для кнопок действий */}
+            <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '10px', gap: '5px' }}>
+                
+                {/* Кнопка репорта: показываем только если сообщение НЕ наше */}
+                {!isMine && (
+                    <button 
+                        onClick={() => handleReport(msg.id)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            opacity: 0.6,
+                            fontSize: '14px',
+                            padding: 0
+                        }}
+                        title="Пожаловаться"
+                    >
+                        🚩
+                    </button>
+                )}
+
+                {/* Кнопка удаления: показываем автору или модератору */}
+                {canDelete && (
+                    <button 
+                        onClick={() => handleDelete(msg.id)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'red',
+                            cursor: 'pointer',
+                            opacity: 0.6,
+                            fontSize: '14px',
+                            padding: 0
+                        }}
+                        title="Удалить"
+                    >
+                        🗑️
+                    </button>
+                )}
+            </span>
+
             </div>
         );
       })}

@@ -80,3 +80,15 @@ export interface AppStats {
   messagesCount: number;
   logsCount: number;
 }
+
+export interface Report {
+  id: number;
+  reason: string;
+  status: string;
+  created_at: string;
+  message_id: number;
+  message_text: string;
+  sender_id: number;
+  sender_name: string;
+  reporter_name: string;
+}

@@ -290,7 +290,26 @@ async deleteMessage(req: Request, res: Response, next: NextFunction): Promise<vo
     }
   }
 
+async reportMessage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { messageId, reason } = req.body;
+      const reporterId = req.user?.id;
 
+      if (!messageId || !reason) {
+        res.status(400).json({ message: "Не указано сообщение или причина" });
+        return;
+      }
+
+      await client.query(
+        "INSERT INTO reports (reporter_id, message_id, reason) VALUES ($1, $2, $3)",
+        [reporterId, messageId, reason]
+      );
+
+      res.json({ message: "Жалоба отправлена" });
+    } catch (e: any) {
+      next(e);
+    }
+  }
 }
 
 export default new ChatController();
