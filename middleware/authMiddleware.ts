@@ -1,12 +1,17 @@
 import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { secret } from "../config"; 
+import jwt from "jsonwebtoken";
+import { secret } from "../config";
+import client from "../databasepg"; 
 
 export interface AuthRequest extends Request {
-  user?: string | JwtPayload;
+  user?: {
+    id: number;
+    role: string;
+    [key: string]: any;
+  };
 }
 
-export default function (req: AuthRequest, res: Response, next: NextFunction) {
+export default async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   if (req.method === "OPTIONS") {
     return next();
   }
@@ -14,66 +19,30 @@ export default function (req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      const err: any = new Error("Нет токена");
-      err.status = 403;
-      return next(err);
+      return res.status(401).json({ message: "Пользователь не авторизован" });
     }
 
-    const [type, token] = authHeader.split(" ");
-    if (type !== "Bearer" || !token) {
-      const err: any = new Error("Неверный формат токена");
-      err.status = 403;
-      return next(err);
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ message: "Пользователь не авторизован" });
     }
+
+    const decoded = jwt.verify(token, secret) as any;
+    
+    (req as AuthRequest).user = decoded;
 
     try {
-      const decoded = jwt.verify(token, secret);
-      req.user = decoded;
-      return next();
-    } catch (e: any) {
-      if (e.name === "TokenExpiredError") {
-    
-        const refreshToken = req.headers["x-refresh-token"] as string;
-
-        if (!refreshToken) {
-          const err: any = new Error("Токен истёк, нужен refreshToken");
-          err.status = 401;
-          return next(err);
-        }
-
-        try {
-          const userData = jwt.verify(refreshToken, secret) as JwtPayload;
-
-          const newAccessToken = jwt.sign(
-            { id: userData.id, role: userData.role },
-            secret,
-            { expiresIn: "15m" }
-          );
-
-          res.setHeader("x-access-token", newAccessToken);
-          req.user = userData;
-          return next();
-        } catch (refreshError: any) {
-          console.warn(
-            `[AuthMiddleware] Ошибка Refresh-токена: ${refreshError.message}`
-          );
-          const err: any = new Error("Refresh токен недействителен");
-          err.status = 403;
-          return next(err);
-        }
-      } else {
-        console.warn(`[AuthMiddleware] Ошибка Access-токена: ${e.message}`);
-        const err: any = new Error("Пользователь не авторизован (токен невалиден)");
-        err.status = 403;
-        return next(err);
+      const userRes = await client.query("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
+      if (userRes.rows.length > 0 && userRes.rows[0].is_banned) {
+          return res.status(403).json({ message: "Ваш аккаунт заблокирован" });
       }
+    } catch (dbErr) {
+      console.error("Ошибка проверки бана в middleware:", dbErr);
     }
-  } catch (e: any) {
-    console.error(
-      "❗️ Критическая ошибка в authMiddleware:",
-      e.message,
-      e.stack
-    );
-    next(e);
+
+    next();
+  } catch (e) {
+    console.error(e);
+    return res.status(401).json({ message: "Пользователь не авторизован" });
   }
 }

@@ -186,6 +186,12 @@ class AuthController {
         return next(err);
       }
 
+      if (user.is_banned) {
+        const err = new Error("Ваш аккаунт заблокирован. Обратитесь к администрации.") as CustomError;
+        err.status = 403; 
+        return next(err);
+      }
+
       if (!user.password) {
         const err = new Error("Ошибка данных пользователя (отсутствует пароль)") as CustomError;
         err.status = 500;

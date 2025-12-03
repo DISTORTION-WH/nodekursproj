@@ -19,6 +19,7 @@ export interface User {
   email?: string | null;
   created_at?: Date;
   friends?: Friend[];
+  is_banned?: boolean; 
 }
 
 export interface RegistrationCode {
@@ -93,7 +94,7 @@ async function createUser(
 async function getAllUsers(): Promise<User[]> {
   try {
     const result = await client.query<User>(`
-      SELECT u.id, u.username, u.password, u.avatar_url, r.value as role, u.email, u.created_at
+      SELECT u.id, u.username, u.password, u.avatar_url, r.value as role, u.email, u.created_at, u.is_banned
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
     `);
@@ -107,7 +108,7 @@ async function getAllUsers(): Promise<User[]> {
 async function getUserById(id: string | number): Promise<User | null> {
   try {
     const userResult = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email
+      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,
@@ -173,7 +174,7 @@ async function updateUserAvatar(userId: string | number, avatarUrl: string): Pro
     ]);
 
     const res = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email
+      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
        FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
       [userId]
     );
@@ -253,7 +254,7 @@ async function updateUser(userId: string | number, { username, roleId, email }: 
            role_id = COALESCE($2, role_id),
            email = COALESCE($3, email)
        WHERE id = $4
-       RETURNING id, username, email, role_id, avatar_url, created_at`,
+       RETURNING id, username, email, role_id, avatar_url, created_at, is_banned`,
       [username, roleId, email, userId]
     );
     return res.rows[0];
@@ -283,7 +284,7 @@ async function deleteUser(userId: string | number): Promise<void> {
 async function searchUsers(query: string): Promise<User[]> {
   try {
     const res = await client.query<User>(
-      `SELECT u.id, u.username, u.email, u.avatar_url, r.value as role
+      `SELECT u.id, u.username, u.email, u.avatar_url, r.value as role, u.is_banned
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.username ILIKE $1 OR u.email ILIKE $1`,
