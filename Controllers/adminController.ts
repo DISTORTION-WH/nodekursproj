@@ -42,7 +42,7 @@ class AdminController {
   async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const usersRes = await client.query(`
-        SELECT u.id, u.username, u.email, u.created_at, u.avatar_url, r.value as role
+        SELECT u.id, u.username, u.email, u.created_at, u.avatar_url, r.value as role, u.is_banned
         FROM users u
         LEFT JOIN roles r ON u.role_id = r.id
         ORDER BY u.id ASC
@@ -62,7 +62,7 @@ class AdminController {
       }
       
       const usersRes = await client.query(`
-        SELECT u.id, u.username, u.email, u.avatar_url, r.value as role
+        SELECT u.id, u.username, u.email, u.avatar_url, r.value as role, u.is_banned
         FROM users u
         LEFT JOIN roles r ON u.role_id = r.id
         WHERE u.username ILIKE $1 OR u.email ILIKE $1
