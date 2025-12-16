@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+// Инициализация переменных окружения ДО всего остального
+dotenv.config(); 
+
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import http from "http";
@@ -34,19 +38,24 @@ const PORT = process.env.PORT || 5000;
 
 const app = express();
 
+// Список разрешенных источников
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL || "", 
-  "https://nodekursproj.vercel.app",
-];
+  "http://127.0.0.1:3000",
+  process.env.FRONTEND_URL, // URL фронтенда на деплое (если задан)
+  "https://nodekursproj.vercel.app", // Ваш хардкодный домен деплоя
+].filter(Boolean) as string[];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Разрешаем запросы без origin (например, мобильные приложения или curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.error(`CORS blocked origin: ${origin}`);
+        console.log(`CORS blocked: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -160,12 +169,11 @@ async function initializeDatabase() {
     );
     
     try {
-      await client.query(`ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
     
     try {
-        await client.query(`ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false;`);
-        console.log("ℹ️  Column 'is_banned' checked.");
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     await client.query(
@@ -197,7 +205,6 @@ async function initializeDatabase() {
       );`
     );
 
-    // --- ДОБАВЛЕН КОД ДЛЯ СОЗДАНИЯ ТАБЛИЦЫ REPORTS ---
     await client.query(
       `CREATE TABLE IF NOT EXISTS reports (
         id SERIAL PRIMARY KEY,
@@ -208,8 +215,15 @@ async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );`
     );
-    // -------------------------------------------------
-
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS app_logs (
+        id SERIAL PRIMARY KEY,
+        level VARCHAR(20) NOT NULL,
+        message TEXT NOT NULL,
+        meta TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );`
+    );
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
       const hashedPassword = await bcrypt.hash("super_secure_system_password_ChangeMe!", 10);
@@ -243,7 +257,8 @@ async function initializeDatabase() {
     console.log("✅ DB initialized successfully.");
   } catch (e) {
     console.error("❌ DB Init Error:", e);
-    process.exit(1);
+    // Не убиваем процесс, чтобы дать шанс перезапуститься или разобраться
+    // process.exit(1); 
   }
 }
 
