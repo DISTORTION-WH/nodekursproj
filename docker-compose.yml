@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  # --- База данных ---
+  db:
+    image: postgres:15
+    container_name: local_lume_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+      POSTGRES_DB: ${DB_DATABASE:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # --- Backend (API) ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lume_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # Переопределяем хост БД для Docker сети
+      - DB_HOST=host.docker.internal
+      # Остальные переменные берем из .env файла
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - JWT_SECRET=${JWT_SECRET}
+      # Настройки R2 (Cloudflare)
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
+      # Настройки почты
+      - EMAILJS_SERVICE_ID=${EMAILJS_SERVICE_ID}
+      - EMAILJS_TEMPLATE_ID=${EMAILJS_TEMPLATE_ID}
+      - EMAILJS_PUBLIC_KEY=${EMAILJS_PUBLIC_KEY}
+      - EMAILJS_PRIVATE_KEY=${EMAILJS_PRIVATE_KEY}
+      # URL клиента для CORS
+      - CLIENT_URL=http://localhost:3000
+    networks:
+      - app-network
+
+  # --- Frontend (Client) ---
+  client:
+    build:
+      context: ./Frontend/front
+      dockerfile: Dockerfile
+    container_name: lume_frontend
+    restart: always
+    ports:
+      - "3000:80" # Открываем на localhost:3000
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pg_data:

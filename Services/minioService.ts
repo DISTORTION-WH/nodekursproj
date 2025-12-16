@@ -1,13 +1,25 @@
 import * as Minio from "minio";
+import dotenv from "dotenv";
 
-const BUCKET_NAME = "node-kurs";
-const PUBLIC_URL_PREFIX = "https://pub-41f206f40fda4a2da449b717be51aa11.r2.dev";
+dotenv.config();
+
+// Берем настройки из .env
+const ENDPOINT = process.env.MINIO_ENDPOINT || "";
+const ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "";
+const SECRET_KEY = process.env.MINIO_SECRET_KEY || "";
+const BUCKET_NAME = process.env.MINIO_BUCKET_NAME || "node-kurs";
+const PUBLIC_URL_PREFIX = process.env.MINIO_PUBLIC_URL || "";
+
+// Проверка на наличие ключей, чтобы не падать с ошибкой "пустой host"
+if (!ENDPOINT || !ACCESS_KEY || !SECRET_KEY) {
+  console.warn("⚠️ Внимание: Не заданы настройки MINIO (R2) в .env. Загрузка файлов не будет работать.");
+}
 
 const minioClient = new Minio.Client({
-  endPoint: "a4b99c3eee7f6f5160d4572abc213e2d.r2.cloudflarestorage.com",
-  accessKey: "fdd0c5be5b0e48fcb4b78cf2932a34c6",
-  secretKey: "c8e5c47329aa89dffb735d259216f62a9babf537d35cd295b87c7eb106b36dc9",
-  useSSL: true,
+  endPoint: ENDPOINT,
+  accessKey: ACCESS_KEY,
+  secretKey: SECRET_KEY,
+  useSSL: true, // Для R2 всегда true
 });
 
 class MinioService {
@@ -17,13 +29,17 @@ class MinioService {
 
   private async init() {
     try {
+      // Для R2 bucketExists может требовать специфических прав,
+      // поэтому иногда этот блок лучше обернуть в try/catch или пропустить,
+      // если вы уверены, что бакет существует.
+      /*
       const exists = await minioClient.bucketExists(BUCKET_NAME);
       if (!exists) {
-        await minioClient.makeBucket(BUCKET_NAME, "us-east-1");
-        console.log(`Bucket ${BUCKET_NAME} created.`);
+        console.log(`Bucket ${BUCKET_NAME} not found (or access denied). Assuming it exists.`);
       }
+      */
     } catch (err) {
-      console.error("MinIO connection error:", err);
+      console.error("MinIO init warning:", err);
     }
   }
 
