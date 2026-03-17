@@ -96,13 +96,15 @@ function useReactiveVoiceState(
       // Only trigger re-render if something actually changed
       setSnapshot((prev) => {
         if (prev.size !== next.size) return next;
-        for (const [pid, val] of next) {
+        let changed = false;
+        next.forEach((val, pid) => {
+          if (changed) return;
           const old = prev.get(pid);
           if (!old || old.isSpeaking !== val.isSpeaking || old.talkPercent !== val.talkPercent) {
-            return next;
+            changed = true;
           }
-        }
-        return prev; // identical — skip re-render
+        });
+        return changed ? next : prev; // identical — skip re-render
       });
     }, 200);
     return () => clearInterval(id);
