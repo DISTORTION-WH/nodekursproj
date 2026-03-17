@@ -1,53 +1,67 @@
 version: "3.8"
 
 services:
-  # --- База данных ---
+  # --- Database ---
   db:
     image: postgres:15
-    container_name: local_lume_db
+    container_name: lume_db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
-      POSTGRES_DB: ${DB_DATABASE:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-lume}
     ports:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # --- Backend (API) ---
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: lume_backend
+    container_name: lume_api
     restart: always
     ports:
-      - "5000:5000"
+      - "${PORT:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      # Переопределяем хост БД для Docker сети
-      - DB_HOST=host.docker.internal
-      # Остальные переменные берем из .env файла
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_DATABASE=${DB_DATABASE}
+      - NODE_ENV=production
+      - PORT=5000
+      # Database — connect to the db service by service name
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_DATABASE=${DB_DATABASE:-lume}
+      # JWT
       - JWT_SECRET=${JWT_SECRET}
-      # Настройки R2 (Cloudflare)
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
-      # Настройки почты
-      - EMAILJS_SERVICE_ID=${EMAILJS_SERVICE_ID}
-      - EMAILJS_TEMPLATE_ID=${EMAILJS_TEMPLATE_ID}
-      - EMAILJS_PUBLIC_KEY=${EMAILJS_PUBLIC_KEY}
-      - EMAILJS_PRIVATE_KEY=${EMAILJS_PRIVATE_KEY}
-      # URL клиента для CORS
-      - CLIENT_URL=http://localhost:3000
+      # CORS — which frontend URL is allowed
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:3000}
+      - FRONTEND_URL=${FRONTEND_URL:-}
+      # Cloudflare R2 (file storage)
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-}
+      # Email (EmailJS)
+      - EMAILJS_SERVICE_ID=${EMAILJS_SERVICE_ID:-}
+      - EMAILJS_TEMPLATE_ID=${EMAILJS_TEMPLATE_ID:-}
+      - EMAILJS_PUBLIC_KEY=${EMAILJS_PUBLIC_KEY:-}
+      - EMAILJS_PRIVATE_KEY=${EMAILJS_PRIVATE_KEY:-}
+      # Mediasoup (WebRTC SFU)
+      - MEDIASOUP_LISTEN_IP=${MEDIASOUP_LISTEN_IP:-0.0.0.0}
+      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
     networks:
       - app-network
 
@@ -56,10 +70,13 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-    container_name: lume_frontend
+      args:
+        # Injected at build time so the React bundle knows the API URL
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:5000}
+    container_name: lume_web
     restart: always
     ports:
-      - "3000:80" # Открываем на localhost:3000
+      - "3000:80"
     depends_on:
       - api
     networks:

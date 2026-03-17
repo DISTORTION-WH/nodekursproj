@@ -1,37 +1,28 @@
-# Файл: ./Dockerfile
-
-# 1. Сборка (Builder stage)
+# Stage 1 — build TypeScript
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Копируем файлы зависимостей
 COPY package*.json ./
-
-# Устанавливаем зависимости
 RUN npm install
 
-# Копируем исходный код
 COPY . .
-
-# Собираем TypeScript в JavaScript (папка dist)
 RUN npm run build
 
-# 2. Запуск (Production stage)
+# Stage 2 — production runtime (lean image, no dev deps)
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Копируем собранный проект и зависимости из builder
+ENV NODE_ENV=production
+
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+RUN npm install --omit=dev
 
-# Создаем папку для локальных загрузок, если она нужна (на всякий случай)
+# Directory for local file uploads (used when R2 is not configured)
 RUN mkdir -p uploads
 
-# Открываем порт
 EXPOSE 5000
 
-# Запускаем приложение
 CMD ["npm", "start"]

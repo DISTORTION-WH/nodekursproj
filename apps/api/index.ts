@@ -40,12 +40,12 @@ const PORT = process.env.PORT || 5000;
 
 const app = express();
 
-// Список разрешенных источников
+// Allowed CORS origins — configure via env vars, no hardcoded domains
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  process.env.FRONTEND_URL, // URL фронтенда на деплое (если задан)
-  "https://nodekursproj.vercel.app", // Ваш хардкодный домен деплоя
+  process.env.FRONTEND_URL,  // Primary production frontend URL
+  process.env.CLIENT_URL,    // Alias used in docker-compose
 ].filter(Boolean) as string[];
 
 app.use(
