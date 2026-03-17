@@ -206,7 +206,7 @@ class CallAnalyticsController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { callId } = req.params;
+      const callId = req.params.callId as string;
 
       // Validate UUID format to avoid passing garbage to DB
       const uuidRegex =

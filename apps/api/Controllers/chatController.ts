@@ -16,7 +16,7 @@ class ChatController {
   async getChatUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = authReq.params.id;
+      const chatId = authReq.params.id as string;
       const requesterId = authReq.user?.id;
 
       if (!requesterId) {
@@ -33,7 +33,7 @@ class ChatController {
 
   async createInviteCode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const inviteCode = await chatService.createInviteCode(chatId);
       res.status(201).json({ inviteCode });
     } catch (e) {
@@ -95,7 +95,7 @@ class ChatController {
   async inviteToGroup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const inviterId = authReq.user?.id;
       const { friendId } = req.body;
 
@@ -142,7 +142,7 @@ class ChatController {
   async kickFromGroup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const requesterId = authReq.user?.id;
       const { userIdToKick } = req.body;
 
@@ -217,9 +217,9 @@ class ChatController {
   async getChatMessages(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const userId = authReq.user?.id;
-      const beforeId = req.query.before ? Number(req.query.before) : undefined;
+      const beforeId = req.query.before ? Number(req.query.before as string) : undefined;
 
       if (!userId) {
         res.status(401).json({ message: "Пользователь не авторизован" });
@@ -379,7 +379,7 @@ class ChatController {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.user?.id;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const file = req.file;
       if (!userId || !authReq.user) { res.status(401).json({ message: "Не авторизован" }); return; }
       if (!file) { res.status(400).json({ message: "Файл не загружен" }); return; }
@@ -403,7 +403,7 @@ class ChatController {
   async postMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const senderId = authReq.user?.id;
       const { text, reply_to_id } = req.body;
 
@@ -496,9 +496,9 @@ class ChatController {
   async deleteMessages(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const chatId = req.params.id;
+      const chatId = req.params.id as string;
       const userId = authReq.user?.id;
-      
+
       if (!userId) {
           res.status(401).json({ message: "Пользователь не авторизован" });
           return;
@@ -583,8 +583,8 @@ class ChatController {
     try {
       const authReq = req as AuthRequest;
       const requesterId = authReq.user?.id;
-      const chatId = req.params.id;
-      const targetUserId = Number(req.params.userId);
+      const chatId = req.params.id as string;
+      const targetUserId = Number(req.params.userId as string);
       const { role } = req.body;
 
       if (!requesterId) { res.status(401).json({ message: "Не авторизован" }); return; }
