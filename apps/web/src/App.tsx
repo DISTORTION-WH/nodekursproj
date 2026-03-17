@@ -38,13 +38,23 @@ function AppRoutes() {
   const isModerator = currentUser?.role === "MODERATOR";
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
+  // Auth pages render standalone — no navbar, no layout constraints
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<ZFRegisterPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <SocketProvider currentUser={currentUser}>
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
           <div className="flex flex-col h-screen bg-discord-bg text-discord-text-primary">
-            {!isAuthPage && <Navbar />}
-            <div className={`flex flex-1 ${isAuthPage ? "" : "overflow-hidden mt-[50px]"}`}>
+            <Navbar />
+            <div className="flex flex-1 overflow-hidden mt-[50px]">
               <Routes>
                 <Route
                   path="/"
