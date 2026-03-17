@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function ForwardModal({ message, onClose, onForward }: Props) {
-  const { allChats, activeChat, currentUser } = useChat();
+  const { allChats } = useChat();
   const [search, setSearch] = useState("");
   const [forwarding, setForwarding] = useState<number | null>(null);
 

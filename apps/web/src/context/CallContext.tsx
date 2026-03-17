@@ -3,7 +3,7 @@ import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
 import { Socket } from "socket.io-client";
 import { Device } from "mediasoup-client";
-import type { Transport, Producer, Consumer } from "mediasoup-client/lib/types";
+import type { Transport, Consumer } from "mediasoup-client/lib/types";
 import { GroupCallParticipant } from "../types";
 
 interface CallContextType {

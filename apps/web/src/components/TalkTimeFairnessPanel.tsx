@@ -473,7 +473,7 @@ function TalkTimeFairnessPanel({
             <div className="border-t border-white/10 my-0.5" />
 
             {/* Participant rows */}
-            <ul className="flex flex-col gap-1.5" role="list">
+            <ul className="flex flex-col gap-1.5">
               {snapshot.length === 0 && (
                 <li className="text-[#72767d] text-[11px] text-center py-1">
                   Нет участников
@@ -514,7 +514,7 @@ const ParticipantRow = memo(function ParticipantRow({
   const sec = state.talkTime.toFixed(0);
 
   return (
-    <li className="flex items-center gap-2" role="listitem">
+    <li className="flex items-center gap-2">
       {/* Speaking indicator */}
       <SpeakingIndicator
         isSpeaking={state.isSpeaking}
