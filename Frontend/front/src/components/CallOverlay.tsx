@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { useCall } from "../context/CallContext";
 import { GroupCallParticipant } from "../types";
 import { useAuth } from "../context/AuthContext";
-import { useVoiceActivity } from "../hooks/useVoiceActivity";
-import type { VoiceActivityResult, StreamDescriptor } from "../hooks/useVoiceActivity";
-import TalkTimeFairnessPanel, { SpeakingIndicator } from "./TalkTimeFairnessPanel";
+import { SpeakingIndicator } from "./TalkTimeFairnessPanel";
+import TalkTimeFairnessPanel from "./TalkTimeFairnessPanel";
 import SubtitlesOverlay, { CCButton, SubtitleLangSelect } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
-import { usePredictiveQuality } from "../hooks/usePredictiveQuality";
-import { saveCallAnalytics } from "../services/api";
+import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
 
 // ─── Participant tile for group call ────────────────────────────────────────
 
@@ -83,257 +81,35 @@ function ParticipantTile({
   );
 }
 
-// ─── VoiceActivity bridge ────────────────────────────────────────────────────
-// Reads the ref-based VoiceActivityResult at 200ms intervals and exposes a
-// reactive snapshot so ParticipantTile ring highlights update in real time.
+// ─── Inner content (reads from CallFeaturesContext + CallContext) ─────────────
 
-function useReactiveVoiceState(
-  voiceActivity: VoiceActivityResult
-): Map<string, { isSpeaking: boolean; talkPercent: number }> {
-  const [snapshot, setSnapshot] = useState<
-    Map<string, { isSpeaking: boolean; talkPercent: number }>
-  >(new Map());
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const next = new Map<string, { isSpeaking: boolean; talkPercent: number }>();
-      voiceActivity.participants.forEach((s, id) => {
-        next.set(id, { isSpeaking: s.isSpeaking, talkPercent: s.talkPercent });
-      });
-      setSnapshot(next);
-    }, 200);
-    return () => clearInterval(id);
-    // voiceActivity is a stable ref — intentionally not in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return snapshot;
-}
-
-// ─── Analytics submission helper ─────────────────────────────────────────────
-
-function buildAnalyticsPayload(
-  voiceActivity: VoiceActivityResult,
-  startedAt: Date,
-  localUserId: number,
-  participantUserIds: Map<string, number> // participantId → userId
-) {
-  const endedAt = new Date();
-
-  const participants = Array.from(voiceActivity.participants.entries())
-    .map(([pid, state]) => {
-      // "local" maps to the caller's own userId; others use the Map
-      const userId =
-        pid === "local" ? localUserId : (participantUserIds.get(pid) ?? parseInt(pid, 10));
-
-      const interruptionsMade = voiceActivity.interruptions.filter(
-        (e) => e.interrupter === pid
-      ).length;
-      const interruptionsReceived = voiceActivity.interruptions.filter(
-        (e) => e.interrupted === pid
-      ).length;
-
-      return {
-        userId,
-        talkTimeSeconds: state.talkTime,
-        talkPercent: state.talkPercent,
-        interruptionsMade,
-        interruptionsReceived,
-        avgAudioLevel: state.audioLevel,
-      };
-    });
-
-  const interruptions = voiceActivity.interruptions.map((ev) => {
-    const interrupterUserId =
-      ev.interrupter === "local"
-        ? localUserId
-        : (participantUserIds.get(ev.interrupter) ?? parseInt(ev.interrupter, 10));
-    const interruptedUserId =
-      ev.interrupted === "local"
-        ? localUserId
-        : (participantUserIds.get(ev.interrupted) ?? parseInt(ev.interrupted, 10));
-    return {
-      interrupterUserId,
-      interruptedUserId,
-      occurredAt: new Date(ev.timestamp).toISOString(),
-    };
-  });
-
-  return {
-    startedAt: startedAt.toISOString(),
-    endedAt: endedAt.toISOString(),
-    participantCount: participants.length,
-    fairnessIndex: voiceActivity.fairnessIndex,
-    participants,
-    interruptions,
-  };
-}
-
-// ─── Main overlay component ──────────────────────────────────────────────────
-
-export default function CallOverlay() {
+function CallOverlayContent() {
   const {
     callState, isVideoCall, localStream, remoteStream, callerData,
     answerCall, endCall, muteAudio, muteVideo, isAudioMuted, isVideoMuted,
     groupCallState, groupCallParticipants, groupCallIsVideo,
     leaveGroupCall, muteGroupAudio, muteGroupVideo, isGroupAudioMuted, isGroupVideoMuted,
     incomingGroupCall, dismissGroupCallBanner, joinGroupCall,
-    p2pPeerConnection,
   } = useCall();
 
   const { currentUser } = useAuth();
 
-  // ─── Panel & subtitles visibility ───────────────────────────────────────
-  const [showFairnessPanel, setShowFairnessPanel] = useState(true);
-  const [showSubtitles, setShowSubtitles] = useState(false);
-  const [subtitleLang, setSubtitleLang] = useState("ru-RU");
-
-  // Reset panel visibility when a new group call starts
-  useEffect(() => {
-    if (groupCallState === "active") setShowFairnessPanel(true);
-  }, [groupCallState]);
-
-  // ─── Call start timestamps (for analytics duration) ──────────────────────
-  const groupCallStartedAtRef = useRef<Date | null>(null);
-  const p2pCallStartedAtRef   = useRef<Date | null>(null);
-
-  // Track group call start
-  useEffect(() => {
-    if (groupCallState === "active" && !groupCallStartedAtRef.current) {
-      groupCallStartedAtRef.current = new Date();
-    }
-    if (groupCallState === "idle") {
-      groupCallStartedAtRef.current = null;
-    }
-  }, [groupCallState]);
-
-  // Track p2p call connected
-  useEffect(() => {
-    if (callState === "connected" && !p2pCallStartedAtRef.current) {
-      p2pCallStartedAtRef.current = new Date();
-    }
-    if (callState === "idle") {
-      p2pCallStartedAtRef.current = null;
-    }
-  }, [callState]);
-
-  // ─── Voice activity — group call ─────────────────────────────────────────
-  // Build stream descriptors; kept stable-ish via useMemo equivalent inline.
-  // groupCallParticipants is a React state array → changes trigger re-render
-  // which rebuilds this array; useVoiceActivity handles stream changes via
-  // its own effect (re-creates AnalyserNode only when track id changes).
-  const groupStreams: StreamDescriptor[] = [
-    { participantId: "local", stream: groupCallState === "active" ? localStream : null },
-    ...groupCallParticipants.map((p) => ({
-      participantId: String(p.userId),
-      stream: p.stream,
-    })),
-  ];
-
-  const groupVoiceActivity = useVoiceActivity({
-    streams: groupCallState === "active" ? groupStreams : [],
-  });
-
-  // ─── Voice activity — 1-on-1 call ────────────────────────────────────────
-  const p2pStreams: StreamDescriptor[] = [
-    { participantId: "local", stream: callState === "connected" ? localStream : null },
-    {
-      participantId: callerData ? String(callerData.id) : "remote",
-      stream: callState === "connected" ? remoteStream : null,
-    },
-  ];
-
-  const p2pVoiceActivity = useVoiceActivity({
-    streams: callState === "connected" ? p2pStreams : [],
-  });
-
-  // ─── Network quality prediction (1-on-1 only) ────────────────────────────
-  const p2pVideoSender =
-    callState === "connected" && p2pPeerConnection
-      ? (p2pPeerConnection.getSenders().find(
-          (s) => s.track?.kind === "video"
-        ) ?? null)
-      : null;
-
-  const networkQuality = usePredictiveQuality({
-    pc: callState === "connected" ? p2pPeerConnection : null,
-    videoSender: p2pVideoSender,
-  });
-
-  // ─── Analytics: submit on call end ───────────────────────────────────────
-  // We capture a snapshot of the voice data just before state resets to idle.
-  // The useEffect below fires after render when state becomes idle; voice
-  // activity refs still hold the last computed values at that point.
-
-  // Stable ref to participant userId map for group calls (updated each render)
-  const groupParticipantUserIdsRef = useRef<Map<string, number>>(new Map());
-  useEffect(() => {
-    const m = new Map<string, number>();
-    groupCallParticipants.forEach((p) => m.set(String(p.userId), p.userId));
-    groupParticipantUserIdsRef.current = m;
-  }, [groupCallParticipants]);
-
-  const prevGroupCallStateRef = useRef(groupCallState);
-  useEffect(() => {
-    const wasActive = prevGroupCallStateRef.current === "active";
-    prevGroupCallStateRef.current = groupCallState;
-
-    if (wasActive && groupCallState === "idle" && currentUser && groupCallStartedAtRef.current) {
-      const startedAt = groupCallStartedAtRef.current;
-      const voiceSnap = groupVoiceActivity;
-      const userIdsMap = new Map(groupParticipantUserIdsRef.current);
-      // Fire-and-forget; do not block UI
-      saveCallAnalytics(
-        buildAnalyticsPayload(voiceSnap, startedAt, currentUser.id, userIdsMap)
-      ).catch(() => { /* silent — analytics are non-critical */ });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupCallState]);
-
-  const prevCallStateRef = useRef(callState);
-  useEffect(() => {
-    const wasConnected = prevCallStateRef.current === "connected";
-    prevCallStateRef.current = callState;
-
-    if (wasConnected && callState === "idle" && currentUser && p2pCallStartedAtRef.current) {
-      const startedAt = p2pCallStartedAtRef.current;
-      const voiceSnap = p2pVoiceActivity;
-      const remoteId = callerData ? String(callerData.id) : "remote";
-      const userIdsMap = new Map<string, number>();
-      if (callerData) userIdsMap.set(remoteId, callerData.id);
-      saveCallAnalytics(
-        buildAnalyticsPayload(voiceSnap, startedAt, currentUser.id, userIdsMap)
-      ).catch(() => { /* silent */ });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callState]);
-
-  // ─── Participant names maps ───────────────────────────────────────────────
-  const groupParticipantNames = new Map<string, string>([
-    ["local", currentUser?.username ?? "Вы"],
-    ...groupCallParticipants.map(
-      (p) => [String(p.userId), p.username] as [string, string]
-    ),
-  ]);
-
-  const p2pParticipantNames = new Map<string, string>([
-    ["local", currentUser?.username ?? "Вы"],
-    [
-      callerData ? String(callerData.id) : "remote",
-      callerData?.name ?? "Собеседник",
-    ],
-  ]);
-
-  // ─── Reactive speaking state for tile highlights ──────────────────────────
-  const groupSpeakingState = useReactiveVoiceState(groupVoiceActivity);
-  const p2pSpeakingState   = useReactiveVoiceState(p2pVoiceActivity);
+  const {
+    speakingState,
+    participantCount,
+    subtitlesEnabled,
+    subtitleLang,
+    toggleSubtitles,
+    setSubtitleLang,
+    fairnessPanelVisible,
+    toggleFairnessPanel,
+  } = useCallFeatures();
 
   // ─── Video refs ──────────────────────────────────────────────────────────
   const localVideoRef  = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
-  // 1-on-1: attach local stream
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
@@ -341,7 +117,6 @@ export default function CallOverlay() {
     }
   }, [localStream, callState]);
 
-  // 1-on-1: attach remote stream
   useEffect(() => {
     if (remoteStream) {
       if (remoteVideoRef.current) {
@@ -386,15 +161,9 @@ export default function CallOverlay() {
     </div>
   );
 
-  // ─── Incoming group call banner ──────────────────────────────────────────
   const showBanner =
     incomingGroupCall !== null && groupCallState === "idle" && callState === "idle";
 
-  // Derived: total participants for SpeakingIndicator fairShare calculation
-  const groupParticipantCount = groupCallParticipants.length + 1; // +1 for local
-  const p2pParticipantCount   = 2;
-
-  // p2p remote participant id key
   const remoteParticipantId = callerData ? String(callerData.id) : "remote";
 
   return (
@@ -429,12 +198,7 @@ export default function CallOverlay() {
         <div className="fixed inset-0 bg-discord-bg z-50 flex flex-col relative">
           {/* Network quality indicator — top-left */}
           <div className="absolute top-3 left-3 z-20">
-            <NetworkQualityIndicator
-              metrics={networkQuality.metrics}
-              prediction={networkQuality.prediction}
-              currentBitrate={networkQuality.currentBitrate}
-              isAdapting={networkQuality.isAdapting}
-            />
+            <NetworkQualityIndicator />
           </div>
 
           {/* Participant grid */}
@@ -458,15 +222,15 @@ export default function CallOverlay() {
                     key={`local-${localParticipant.userId}`}
                     participant={localParticipant}
                     isLocal
-                    voiceState={groupSpeakingState.get("local")}
-                    participantCount={groupParticipantCount}
+                    voiceState={speakingState.get("local")}
+                    participantCount={participantCount}
                   />
                   {groupCallParticipants.map((p) => (
                     <ParticipantTile
                       key={p.userId}
                       participant={p}
-                      voiceState={groupSpeakingState.get(String(p.userId))}
-                      participantCount={groupParticipantCount}
+                      voiceState={speakingState.get(String(p.userId))}
+                      participantCount={participantCount}
                     />
                   ))}
                 </div>
@@ -486,15 +250,15 @@ export default function CallOverlay() {
             )}
             {/* Fairness panel toggle */}
             <ControlBtn
-              onClick={() => setShowFairnessPanel((v) => !v)}
-              active={showFairnessPanel}
-              title={showFairnessPanel ? "Скрыть статистику речи" : "Показать статистику речи"}
+              onClick={toggleFairnessPanel}
+              active={fairnessPanelVisible}
+              title={fairnessPanelVisible ? "Скрыть статистику речи" : "Показать статистику речи"}
             >
               📊
             </ControlBtn>
             {/* Subtitles */}
-            <CCButton active={showSubtitles} onToggle={() => setShowSubtitles((v) => !v)} />
-            {showSubtitles && (
+            <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
+            {subtitlesEnabled && (
               <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
             )}
             <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
@@ -502,28 +266,18 @@ export default function CallOverlay() {
             </ControlBtn>
           </div>
 
-          {/* Fairness panel — only when toggled on and call is active */}
-          {showFairnessPanel && (
-            <TalkTimeFairnessPanel
-              voiceActivity={groupVoiceActivity}
-              participantNames={groupParticipantNames}
-              defaultCollapsed={false}
-            />
-          )}
+          {/* Fairness panel */}
+          {fairnessPanelVisible && <TalkTimeFairnessPanel defaultCollapsed={false} />}
 
-          {/* Subtitles overlay — sits above the control bar (88px), below grid */}
+          {/* Subtitles overlay */}
           <SubtitlesOverlay
             localStream={localStream}
             remoteStreams={groupCallParticipants.map((p) => ({
               participantId: String(p.userId),
               stream: p.stream,
             }))}
-            participantNames={groupParticipantNames}
             callActive
-            enabled={showSubtitles}
-            lang={subtitleLang}
             bottomOffset={88}
-            audioAdapting={networkQuality.isAdapting}
           />
         </div>
       )}
@@ -589,12 +343,7 @@ export default function CallOverlay() {
               >
                 {/* Network quality indicator — top-left of video area */}
                 <div className="absolute top-2 left-2 z-10">
-                  <NetworkQualityIndicator
-                    metrics={networkQuality.metrics}
-                    prediction={networkQuality.prediction}
-                    currentBitrate={networkQuality.currentBitrate}
-                    isAdapting={networkQuality.isAdapting}
-                  />
+                  <NetworkQualityIndicator />
                 </div>
 
                 {isVideoCall ? (
@@ -618,7 +367,7 @@ export default function CallOverlay() {
                     {/* Remote speaking indicator for audio-only 1-on-1 */}
                     <div className="relative">
                       <AvatarPlaceholder size="w-24 h-24" />
-                      {p2pSpeakingState.get(remoteParticipantId)?.isSpeaking && (
+                      {speakingState.get(remoteParticipantId)?.isSpeaking && (
                         <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#3ba55d] animate-pulse border-2 border-discord-secondary" />
                       )}
                     </div>
@@ -629,6 +378,8 @@ export default function CallOverlay() {
                   </div>
                 )}
               </div>
+
+              {/* Control bar */}
               <div className="flex items-center justify-center gap-4 p-4 bg-discord-secondary">
                 <ControlBtn onClick={muteAudio} active={isAudioMuted} title="Микрофон">
                   {isAudioMuted ? "🔇" : "🎤"}
@@ -638,17 +389,17 @@ export default function CallOverlay() {
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
-                {/* Fairness panel toggle for 1-on-1 */}
+                {/* Fairness panel toggle */}
                 <ControlBtn
-                  onClick={() => setShowFairnessPanel((v) => !v)}
-                  active={showFairnessPanel}
-                  title={showFairnessPanel ? "Скрыть статистику речи" : "Показать статистику речи"}
+                  onClick={toggleFairnessPanel}
+                  active={fairnessPanelVisible}
+                  title={fairnessPanelVisible ? "Скрыть статистику речи" : "Показать статистику речи"}
                 >
                   📊
                 </ControlBtn>
                 {/* Subtitles */}
-                <CCButton active={showSubtitles} onToggle={() => setShowSubtitles((v) => !v)} />
-                {showSubtitles && (
+                <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
+                {subtitlesEnabled && (
                   <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
                 )}
                 <ControlBtn onClick={endCall} danger title="Завершить">
@@ -656,34 +407,34 @@ export default function CallOverlay() {
                 </ControlBtn>
               </div>
 
-              {/* Fairness panel for 1-on-1 — positioned inside the card */}
-              {showFairnessPanel && (
-                <TalkTimeFairnessPanel
-                  voiceActivity={p2pVoiceActivity}
-                  participantNames={p2pParticipantNames}
-                  defaultCollapsed={false}
-                />
-              )}
+              {/* Fairness panel */}
+              {fairnessPanelVisible && <TalkTimeFairnessPanel defaultCollapsed={false} />}
 
-              {/* Subtitles overlay — above the control bar inside the card */}
+              {/* Subtitles overlay */}
               <SubtitlesOverlay
                 localStream={localStream}
                 remoteStreams={
                   remoteStream
-                    ? [{ participantId: callerData ? String(callerData.id) : "remote", stream: remoteStream }]
+                    ? [{ participantId: remoteParticipantId, stream: remoteStream }]
                     : []
                 }
-                participantNames={p2pParticipantNames}
                 callActive
-                enabled={showSubtitles}
-                lang={subtitleLang}
                 bottomOffset={76}
-                audioAdapting={networkQuality.isAdapting}
               />
             </div>
           )}
         </div>
       )}
     </>
+  );
+}
+
+// ─── Public export ────────────────────────────────────────────────────────────
+
+export default function CallOverlay() {
+  return (
+    <CallFeaturesProvider>
+      <CallOverlayContent />
+    </CallFeaturesProvider>
   );
 }

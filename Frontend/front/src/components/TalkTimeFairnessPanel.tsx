@@ -34,6 +34,7 @@ import type {
   VoiceActivityResult,
   ParticipantVoiceState,
 } from "../hooks/useVoiceActivity";
+import { useCallFeatures } from "../context/CallFeaturesContext";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -60,11 +61,14 @@ function colorForIndex(index: number): string {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TalkTimeFairnessPanelProps {
-  /** Result object from useVoiceActivity — passed by reference, updated each tick */
-  voiceActivity: VoiceActivityResult;
+  /**
+   * Result object from useVoiceActivity. Optional: if omitted, read from
+   * CallFeaturesContext (preferred when used inside CallFeaturesProvider).
+   */
+  voiceActivity?: VoiceActivityResult;
   /**
    * Human-readable names for each participantId.
-   * If a name is missing, the participantId itself is shown.
+   * If omitted, read from CallFeaturesContext.
    */
   participantNames?: Map<string, string>;
   /** Jain's Fairness Index threshold below which a nudge is shown. Default: 0.5 */
@@ -254,11 +258,14 @@ function buildSnapshot(
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function TalkTimeFairnessPanel({
-  voiceActivity,
-  participantNames,
+  voiceActivity: voiceActivityProp,
+  participantNames: participantNamesProp,
   nudgeThreshold = 0.5,
   defaultCollapsed = false,
 }: TalkTimeFairnessPanelProps) {
+  const ctx = useCallFeatures();
+  const voiceActivity = voiceActivityProp ?? ctx.voiceActivity;
+  const participantNames = participantNamesProp ?? ctx.participantNames;
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   // ── Throttled snapshot: update chart at most 1 Hz ─────────────────────────

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useLiveSubtitles, StreamDescriptor } from "../hooks/useLiveSubtitles";
 import type { Subtitle } from "../hooks/useLiveSubtitles";
+import { useCallFeatures } from "../context/CallFeaturesContext";
 
 // ─── Language options ─────────────────────────────────────────────────────────
 
@@ -19,20 +20,17 @@ export const SUBTITLE_LANGUAGES: { code: string; label: string }[] = [
 export interface SubtitlesOverlayProps {
   localStream: MediaStream | null;
   remoteStreams?: StreamDescriptor[];
-  /** Map of speakerId → display name shown in subtitles */
+  /** If omitted, read from CallFeaturesContext */
   participantNames?: Map<string, string>;
   /** Whether the call is active. When false, subtitles are hidden. */
   callActive: boolean;
-  /** Controlled: whether subtitles are enabled */
-  enabled: boolean;
-  /** BCP-47 language tag, e.g. "ru-RU" */
-  lang: string;
+  /** If omitted, read from CallFeaturesContext (subtitlesEnabled) */
+  enabled?: boolean;
+  /** If omitted, read from CallFeaturesContext (subtitleLang) */
+  lang?: string;
   /** px offset from bottom — lets caller push subtitles above the control bar */
   bottomOffset?: number;
-  /**
-   * When true, the network is under bitrate adaptation and audio quality may
-   * be degraded. Shows a ⚠️ warning inside the subtitle overlay.
-   */
+  /** If omitted, read from CallFeaturesContext (networkQuality.isAdapting) */
   audioAdapting?: boolean;
 }
 
@@ -153,15 +151,23 @@ function SubtitleLine({
 // ─── SubtitlesOverlay ────────────────────────────────────────────────────────
 
 export default function SubtitlesOverlay({
-  localStream,
-  remoteStreams = [],
-  participantNames = new Map(),
+  localStream: localStreamProp,
+  remoteStreams: remoteStreamsProp,
+  participantNames: participantNamesProp,
   callActive,
-  enabled,
-  lang,
+  enabled: enabledProp,
+  lang: langProp,
   bottomOffset = 80,
-  audioAdapting = false,
+  audioAdapting: audioAdaptingProp,
 }: SubtitlesOverlayProps) {
+  const ctx = useCallFeatures();
+  const localStream      = localStreamProp;
+  const remoteStreams     = remoteStreamsProp  !== undefined ? remoteStreamsProp  : [];
+  const participantNames = participantNamesProp !== undefined ? participantNamesProp : ctx.participantNames;
+  const enabled          = enabledProp         !== undefined ? enabledProp         : ctx.subtitlesEnabled;
+  const lang             = langProp            !== undefined ? langProp            : ctx.subtitleLang;
+  const audioAdapting    = audioAdaptingProp   !== undefined ? audioAdaptingProp   : ctx.networkQuality.isAdapting;
+
   // Pass streams to hook only when active + enabled
   const activeLocal = callActive && enabled ? localStream : null;
   const activeRemote = callActive && enabled ? remoteStreams : [];

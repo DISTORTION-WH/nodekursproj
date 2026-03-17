@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import type { NetworkMetrics, Prediction } from "../hooks/usePredictiveQuality";
+import { useCallFeatures } from "../context/CallFeaturesContext";
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Props (all optional — fall back to CallFeaturesContext when omitted) ─────
 
 export interface NetworkQualityIndicatorProps {
-  metrics: NetworkMetrics | null;
-  prediction: Prediction;
-  currentBitrate: number | null;
-  isAdapting: boolean;
+  metrics?: NetworkMetrics | null;
+  prediction?: Prediction;
+  currentBitrate?: number | null;
+  isAdapting?: boolean;
 }
 
 // ─── Quality level derivation ─────────────────────────────────────────────────
@@ -141,14 +142,20 @@ function Tooltip({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function NetworkQualityIndicator({
-  metrics,
-  prediction,
-  currentBitrate,
-  isAdapting,
+  metrics: metricsProp,
+  prediction: predictionProp,
+  currentBitrate: currentBitrateProp,
+  isAdapting: isAdaptingProp,
 }: NetworkQualityIndicatorProps) {
+  const ctx = useCallFeatures();
+  const metrics       = metricsProp       !== undefined ? metricsProp       : ctx.networkQuality.metrics;
+  const prediction    = predictionProp    !== undefined ? predictionProp    : ctx.networkQuality.prediction;
+  const currentBitrate = currentBitrateProp !== undefined ? currentBitrateProp : ctx.networkQuality.currentBitrate;
+  const isAdapting    = isAdaptingProp    !== undefined ? isAdaptingProp    : ctx.networkQuality.isAdapting;
+
   const [hovered, setHovered] = useState(false);
 
-  const level = getQualityLevel(metrics, prediction, isAdapting);
+  const level = getQualityLevel(metrics ?? null, prediction, isAdapting);
   const color = LEVEL_COLOR[level];
 
   return (
