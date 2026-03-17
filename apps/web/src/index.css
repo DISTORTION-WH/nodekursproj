@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'MyFont';
+  src: url('./blrrpix.strict.ttf') format('truetype');
+}
+
+/* === Theme Variables === */
+:root,
+[data-theme="discord"] {
+  --color-bg: #36393f;
+  --color-secondary: #2f3136;
+  --color-tertiary: #202225;
+  --color-accent: #5865f2;
+  --color-accent-hover: #4752c4;
+  --color-success: #3ba55d;
+  --color-success-hover: #2d7d4f;
+  --color-danger: #ed4245;
+  --color-danger-hover: #c03537;
+  --color-warn: #faa81a;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b9bbbe;
+  --color-text-muted: #72767d;
+  --color-input: #40444b;
+  --color-input-hover: #4f545c;
+}
+
+[data-theme="dark"] {
+  --color-bg: #0d1117;
+  --color-secondary: #161b22;
+  --color-tertiary: #010409;
+  --color-accent: #58a6ff;
+  --color-accent-hover: #388bfd;
+  --color-success: #3fb950;
+  --color-success-hover: #2ea043;
+  --color-danger: #f85149;
+  --color-danger-hover: #da3633;
+  --color-warn: #e3b341;
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-muted: #6e7681;
+  --color-input: #21262d;
+  --color-input-hover: #30363d;
+}
+
+[data-theme="light"] {
+  --color-bg: #ffffff;
+  --color-secondary: #f2f3f5;
+  --color-tertiary: #e3e5e8;
+  --color-accent: #5865f2;
+  --color-accent-hover: #4752c4;
+  --color-success: #3ba55d;
+  --color-success-hover: #2d7d4f;
+  --color-danger: #ed4245;
+  --color-danger-hover: #c03537;
+  --color-warn: #faa81a;
+  --color-text-primary: #060607;
+  --color-text-secondary: #4f5660;
+  --color-text-muted: #747f8d;
+  --color-input: #ebedef;
+  --color-input-hover: #d9dadb;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-tertiary);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-input);
+  }
+}
+
+@layer utilities {
+  .font-logo {
+    font-family: 'MyFont', sans-serif;
+  }
+}

@@ -1,10 +1,25 @@
-# Зависимости Сервера
-/node_modules
+# Dependencies
+node_modules/
+apps/*/node_modules/
 
-# Файлы окружения Сервера
+# Environment files
 .env
 .env.local
+apps/*/.env
+apps/*/.env.local
 
-# Логи
+# Logs
 logs/
 *.log
+
+# Build output
+dist/
+build/
+apps/*/dist/
+apps/*/build/
+
+# Turbo cache
+.turbo/
+
+# Local uploads (user-generated files, not part of the repo)
+uploads/

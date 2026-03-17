@@ -1,0 +1,328 @@
+import client from "../databasepg";
+import bcrypt from "bcryptjs";
+import { QueryResult } from "pg";
+
+
+export interface Friend {
+  id: number;
+  username: string;
+  avatar_url: string | null;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  password?: string; 
+  role_id?: number;
+  role?: string; 
+  avatar_url?: string | null;
+  email?: string | null;
+  created_at?: Date;
+  friends?: Friend[];
+  is_banned?: boolean; 
+}
+
+export interface RegistrationCode {
+  email: string;
+  username: string;
+  password?: string;
+  avatar_url?: string | null;
+  code: string;
+  created_at?: Date;
+}
+
+export interface UpdateUserPayload {
+  username?: string;
+  roleId?: number;
+  email?: string;
+}
+
+
+async function findUserByUsername(username: string): Promise<User | undefined> {
+  try {
+    const result = await client.query<User>(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
+    return result.rows[0];
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка findUserByUsername (${username}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function createUser(
+  username: string,
+  password: any, 
+  roleId: number,
+  avatarUrl: string | null = null,
+  email: string | null = null
+): Promise<User> {
+  try {
+    let hashed = password;
+    if (!hashed || typeof hashed !== "string") {
+      throw new Error("Password must be a string");
+    }
+
+    if (!/^\$2[abxy]\$/.test(hashed)) {
+      const saltRounds = 10;
+      hashed = await bcrypt.hash(hashed, saltRounds);
+    }
+
+    const result = await client.query<User>(
+      `INSERT INTO users (username, password, role_id, avatar_url, email)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, username, avatar_url, role_id, created_at, email`,
+      [username, hashed, roleId, avatarUrl, email]
+    );
+
+    return result.rows[0];
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка createUser (${username}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function getAllUsers(): Promise<User[]> {
+  try {
+    const result = await client.query<User>(`
+      SELECT u.id, u.username, u.password, u.avatar_url, r.value as role, u.email, u.created_at, u.is_banned
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+    `);
+    return result.rows;
+  } catch (err: any) {
+    console.error(`[UserService] Ошибка getAllUsers:`, err.message, err.stack);
+    throw err;
+  }
+}
+
+async function getUserById(id: string | number): Promise<User | null> {
+  try {
+    const userResult = await client.query<User>(
+      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.id = $1`,
+      [id]
+    );
+
+    if (userResult.rows.length === 0) return null;
+    const user = userResult.rows[0];
+
+    // ИЗМЕНЕНИЕ: Добавлен DISTINCT для исключения дубликатов друзей
+    const friendsResult = await client.query<Friend>(
+      `SELECT DISTINCT u.id, u.username, u.avatar_url
+       FROM users u
+       JOIN friends f
+         ON (u.id = f.friend_id OR u.id = f.user_id)
+       WHERE (f.user_id = $1 OR f.friend_id = $1)
+         AND f.status = 'accepted'
+         AND u.id != $1`,
+      [id]
+    );
+
+    user.friends = friendsResult.rows || [];
+    return user;
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка getUserById (${id}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function changeUserPassword(userId: string | number, oldPassword: string, newPassword: string): Promise<void> {
+  try {
+    const userRes = await client.query<{ password: string }>(
+      "SELECT password FROM users WHERE id = $1",
+      [userId]
+    );
+    if (userRes.rows.length === 0) throw new Error("Пользователь не найден");
+
+    const isValid = await bcrypt.compare(oldPassword, userRes.rows[0].password);
+    if (!isValid) throw new Error("Старый пароль неверный");
+
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    await client.query("UPDATE users SET password = $1 WHERE id = $2", [
+      hashedNew,
+      userId,
+    ]);
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка changeUserPassword (${userId}):`,
+      err.message
+    );
+    throw err;
+  }
+}
+
+async function updateUserAvatar(userId: string | number, avatarUrl: string): Promise<User> {
+  try {
+    await client.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [
+      avatarUrl,
+      userId,
+    ]);
+
+    const res = await client.query<User>(
+      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
+       FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
+      [userId]
+    );
+    return res.rows[0];
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка updateUserAvatar (${userId}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function saveRegistrationCode(
+  email: string,
+  username: string,
+  password: string, 
+  avatarUrl: string | null,
+  code: string
+): Promise<void> {
+  try {
+    await client.query(
+      `INSERT INTO registration_codes (email, username, password, avatar_url, code)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (email) DO UPDATE
+         SET username = $2, password = $3, avatar_url = $4, code = $5, created_at = NOW()`,
+      [email, username, password, avatarUrl, code]
+    );
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка saveRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function getRegistrationCode(email: string): Promise<RegistrationCode | undefined> {
+  try {
+    const res = await client.query<RegistrationCode>(
+      "SELECT * FROM registration_codes WHERE email = $1",
+      [email]
+    );
+    return res.rows[0];
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка getRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function deleteRegistrationCode(email: string): Promise<void> {
+  try {
+    await client.query("DELETE FROM registration_codes WHERE email = $1", [
+      email,
+    ]);
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка deleteRegistrationCode (${email}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function updateUser(userId: string | number, { username, roleId, email }: UpdateUserPayload): Promise<User> {
+  try {
+    const res = await client.query<User>(
+      `UPDATE users
+       SET username = COALESCE($1, username),
+           role_id = COALESCE($2, role_id),
+           email = COALESCE($3, email)
+       WHERE id = $4
+       RETURNING id, username, email, role_id, avatar_url, created_at, is_banned`,
+      [username, roleId, email, userId]
+    );
+    return res.rows[0];
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка updateUser (${userId}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function deleteUser(userId: string | number): Promise<void> {
+  try {
+    await client.query("DELETE FROM users WHERE id = $1", [userId]);
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка deleteUser (${userId}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function searchUsers(query: string): Promise<User[]> {
+  try {
+    const res = await client.query<User>(
+      `SELECT u.id, u.username, u.email, u.avatar_url, r.value as role, u.is_banned
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.username ILIKE $1 OR u.email ILIKE $1`,
+      [`%${query}%`]
+    );
+    return res.rows;
+  } catch (err: any) {
+    console.error(
+      `[UserService] Ошибка searchUsers (${query}):`,
+      err.message,
+      err.stack
+    );
+    throw err;
+  }
+}
+
+async function updateUserStatus(userId: string | number, status: string): Promise<void> {
+  await client.query("UPDATE users SET status = $1 WHERE id = $2", [status, userId]);
+}
+
+async function updateUserTheme(userId: string | number, theme: string): Promise<void> {
+  await client.query("UPDATE users SET theme = $1 WHERE id = $2", [theme, userId]);
+}
+
+export default {
+  findUserByUsername,
+  createUser,
+  getAllUsers,
+  getUserById,
+  updateUserAvatar,
+  saveRegistrationCode,
+  getRegistrationCode,
+  deleteRegistrationCode,
+  changeUserPassword,
+  updateUser,
+  deleteUser,
+  searchUsers,
+  updateUserStatus,
+  updateUserTheme,
+};
