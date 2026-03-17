@@ -122,7 +122,7 @@ function Tooltip({
             <div>Пропускная способность: <b>{fmt(metrics.availableOutgoingBitrate, "kbps", 0.001, 0)}</b></div>
           )}
           <div>Видео битрейт: <b>{bitrateLabel}</b></div>
-          {prediction.degradationPredicted && (
+          {prediction?.degradationPredicted && (
             <div style={{ color: "#faa81a", marginTop: 2 }}>
               Прогноз RTT: {fmt(prediction.predictedRTT, "мс", 1000, 0)},
               {" "}потери: {fmt(prediction.predictedLoss, "%", 100, 1)}

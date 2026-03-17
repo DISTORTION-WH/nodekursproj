@@ -272,10 +272,12 @@ function CallOverlayContent() {
           {/* Subtitles overlay */}
           <SubtitlesOverlay
             localStream={localStream}
-            remoteStreams={groupCallParticipants.map((p) => ({
-              participantId: String(p.userId),
-              stream: p.stream,
-            }))}
+            remoteStreams={groupCallParticipants
+              .filter((p) => p.stream !== null)
+              .map((p) => ({
+                participantId: String(p.userId),
+                stream: p.stream as MediaStream,
+              }))}
             callActive
             bottomOffset={88}
           />
