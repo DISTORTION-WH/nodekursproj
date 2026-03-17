@@ -20,3 +20,6 @@ apps/*/build/
 
 # Turbo cache
 .turbo/
+
+# Local uploads (user-generated files, not part of the repo)
+uploads/
