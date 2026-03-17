@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
@@ -23,6 +24,7 @@ import "./index.css";
 
 function AppRoutes() {
   const { isAuth, currentUser, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -34,14 +36,15 @@ function AppRoutes() {
 
   const isAdmin = currentUser?.role === "ADMIN";
   const isModerator = currentUser?.role === "MODERATOR";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
   return (
     <SocketProvider currentUser={currentUser}>
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
           <div className="flex flex-col h-screen bg-discord-bg text-discord-text-primary">
-            <Navbar />
-            <div className="flex flex-1 overflow-hidden mt-[50px]">
+            {!isAuthPage && <Navbar />}
+            <div className={`flex flex-1 ${isAuthPage ? "" : "overflow-hidden mt-[50px]"}`}>
               <Routes>
                 <Route
                   path="/"
