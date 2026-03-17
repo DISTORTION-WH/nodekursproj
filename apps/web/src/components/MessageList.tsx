@@ -160,8 +160,14 @@ export default function MessageList() {
             key={i}
             className={`flex flex-col max-w-[60%] gap-1 animate-pulse ${i % 2 === 0 ? "self-end items-end" : "self-start items-start"}`}
           >
-            <div className="h-3 w-16 bg-discord-input rounded" />
-            <div className={`h-9 rounded-xl bg-discord-input ${i % 2 === 0 ? "w-48" : "w-36"}`} />
+            <div
+              className="h-3 w-16 rounded"
+              style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }}
+            />
+            <div
+              className={`h-9 rounded-xl ${i % 2 === 0 ? "w-48" : "w-36"}`}
+              style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }}
+            />
           </div>
         ))}
       </div>
@@ -221,9 +227,10 @@ export default function MessageList() {
             {/* Reply quote above bubble */}
             {msg.reply_to && (
               <div
-                className={`flex items-center gap-1 mb-0.5 px-2 py-1 rounded border-l-2 border-discord-accent bg-white/5 max-w-full ${
+                className={`flex items-center gap-1 mb-0.5 px-2 py-1 rounded max-w-full ${
                   isMine ? "self-end" : "self-start"
                 }`}
+              style={{ borderLeft: "3px solid #5865f2", background: "rgba(88,101,242,0.08)" }}
               >
                 <span className="text-discord-accent text-xs">↩</span>
                 <span className="text-discord-accent text-xs font-semibold mr-1">
@@ -275,10 +282,13 @@ export default function MessageList() {
               ) : (
                 <div
                   className={`px-3 py-2 rounded-xl text-sm text-discord-text-primary break-words max-w-full ${
-                    isMine
-                      ? "bg-discord-accent rounded-br-sm"
-                      : "bg-discord-input rounded-bl-sm"
+                    isMine ? "rounded-br-sm" : "rounded-bl-sm"
                   }`}
+                  style={
+                    isMine
+                      ? { background: "linear-gradient(135deg, #5865f2, #7b68ee)" }
+                      : { background: "rgba(45,47,72,0.9)" }
+                  }
                 >
                   {imageUrl ? (
                     <img
@@ -409,9 +419,10 @@ export default function MessageList() {
                       onClick={() => handleReact(msg, reaction.emoji)}
                       className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
                         iReacted
-                          ? "bg-discord-accent/30 border border-discord-accent text-discord-text-primary"
+                          ? "text-discord-text-primary"
                           : "bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary"
                       }`}
+                      style={iReacted ? { background: "rgba(88,101,242,0.25)", border: "1px solid rgba(88,101,242,0.5)" } : undefined}
                       title={iReacted ? "Убрать реакцию" : "Добавить реакцию"}
                     >
                       <span>{reaction.emoji}</span>

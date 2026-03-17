@@ -23,7 +23,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [error, setError] = useState(false);
   const [friendChatIds, setFriendChatIds] = useState<Record<number, number>>({});
   const { socket, userStatuses } = useSocket() as { socket: Socket | null; userStatuses: Record<number, UserStatus> };
-  const { selectChat, unreadCounts } = useChat();
+  const { selectChat, unreadCounts, activeChat } = useChat();
 
   const fetchFriends = () => {
     setError(false);
@@ -70,20 +70,33 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   return (
     <div className="px-2 mb-2">
       <div className="flex items-center px-2 py-2">
-        <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
+        <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide flex-1">
           Друзья
         </span>
+        <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
 
       {friends.map((f) => {
         const chatId = friendChatIds[f.id];
         const unread = chatId ? (unreadCounts[chatId] || 0) : 0;
         const status: UserStatus = (userStatuses as Record<number, UserStatus>)[f.id] ?? (f.status ?? "offline");
+        const isActive = chatId !== undefined && activeChat?.id === chatId;
 
         return (
           <div
             key={f.id}
-            className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-discord-input transition group"
+            className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition group"
+            style={
+              isActive
+                ? { background: "rgba(88,101,242,0.15)", borderLeft: "2px solid #5865f2", paddingLeft: "6px" }
+                : {}
+            }
+            onMouseEnter={(e) => {
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "";
+            }}
             onClick={() => openChat(f)}
           >
             {/* Avatar with status dot */}
@@ -98,7 +111,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
                 }}
               />
               <span
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-discord-secondary ${statusColor[status]}`}
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-discord-secondary ${statusColor[status]}`}
               />
             </div>
 
@@ -108,7 +121,10 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
 
             {/* Unread badge */}
             {unread > 0 && (
-              <span className="bg-discord-danger text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center font-bold leading-none shrink-0">
+              <span
+                className="text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center font-bold leading-none shrink-0"
+                style={{ background: "linear-gradient(135deg, #eb3b5a, #fa7070)" }}
+              >
                 {unread > 99 ? "99+" : unread}
               </span>
             )}

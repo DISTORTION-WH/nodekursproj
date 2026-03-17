@@ -68,7 +68,7 @@ export default function MessageInput() {
     <div className="relative px-4 pb-4 shrink-0">
       {/* Reply preview bar */}
       {replyingTo && (
-        <div className="flex items-center gap-2 bg-discord-tertiary rounded-t-lg px-3 py-2 border-l-2 border-discord-accent mb-0.5">
+        <div className="flex items-center gap-2 rounded-t-lg px-3 py-2 mb-0.5" style={{ background: "rgba(88,101,242,0.08)", borderLeft: "3px solid #5865f2" }}>
           <span className="text-discord-accent text-xs">↩</span>
           <div className="flex-1 min-w-0">
             <span className="text-discord-accent text-xs font-semibold mr-1">
@@ -120,14 +120,17 @@ export default function MessageInput() {
 
       <form
         onSubmit={handleSend}
-        className={`flex items-center gap-2 bg-discord-input px-3 py-2 ${
+        className={`flex items-center gap-2 px-3 py-2 ${
           replyingTo ? "rounded-b-lg" : "rounded-lg"
         }`}
+        style={{ background: "rgba(40,42,65,0.9)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(10px)" }}
       >
         {/* Emoji button */}
         <button
           type="button"
-          className="text-xl text-discord-text-muted hover:text-discord-text-primary transition shrink-0"
+          className="text-xl text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0"
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={(e) => {
             e.stopPropagation();
             setShowEmojiPicker(!showEmojiPicker);
@@ -140,7 +143,9 @@ export default function MessageInput() {
         {/* File attach button */}
         <button
           type="button"
-          className="text-discord-text-muted hover:text-discord-text-primary transition shrink-0 text-base leading-none"
+          className="text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0 text-base leading-none"
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={() => fileInputRef.current?.click()}
           title="Прикрепить файл"
         >
@@ -150,7 +155,9 @@ export default function MessageInput() {
         {/* Voice recorder toggle */}
         <button
           type="button"
-          className={`text-discord-text-muted transition shrink-0 text-base leading-none ${showVoiceRecorder ? "text-discord-danger" : "hover:text-discord-text-primary"}`}
+          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVoiceRecorder ? "text-discord-danger" : "hover:text-discord-text-primary"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={() => {
             setShowVoiceRecorder(!showVoiceRecorder);
             setShowEmojiPicker(false);
@@ -170,9 +177,14 @@ export default function MessageInput() {
         />
         <button
           type="submit"
-          className="bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold px-3 py-1 rounded transition shrink-0"
+          className="text-white px-3 py-1.5 rounded transition shrink-0 flex items-center justify-center"
+          style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)", boxShadow: "0 2px 8px rgba(88,101,242,0.3)" }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
-          Go
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
         </button>
       </form>
     </div>

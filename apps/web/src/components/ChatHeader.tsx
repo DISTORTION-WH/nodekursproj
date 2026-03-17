@@ -113,10 +113,17 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     );
   };
 
-  const btnBase = "px-3 py-1 rounded text-sm font-medium transition";
+  const btnBase = "px-3 py-1 rounded text-sm font-medium transition border border-transparent";
 
   return (
-    <div className="shrink-0 bg-discord-bg border-b border-white/10 z-10">
+    <div
+      className="shrink-0 z-10"
+      style={{
+        background: "rgba(30,31,48,0.95)",
+        backdropFilter: "blur(10px)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
       {/* Main header row */}
       <div className="h-[60px] flex items-center px-4 gap-3">
         {isMobile && (
@@ -144,7 +151,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Поиск по сообщениям..."
               onKeyDown={(e) => { if (e.key === "Escape") setShowSearch(false); }}
-              className="w-full bg-discord-input text-discord-text-primary text-sm px-3 py-1.5 rounded-lg outline-none placeholder-discord-text-muted"
+              className="w-full bg-discord-input text-discord-text-primary text-sm px-3 py-1.5 rounded-lg outline-none placeholder-discord-text-muted focus:ring-1 focus:ring-discord-accent/60 transition"
             />
             {/* Search results dropdown */}
             {(searchResults.length > 0 || searching || searchError || searchQuery.trim()) && (
@@ -226,11 +233,14 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               {canInvite && (
               <button
                 onClick={openInviteModal}
-                className={`${btnBase} bg-discord-success/20 text-discord-success hover:bg-discord-success hover:text-white`}
+                className={`${btnBase} text-discord-success hover:text-white`}
+                style={{ background: "rgba(87,242,135,0.12)", borderColor: "rgba(87,242,135,0.3)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(87,242,135,0.85)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(87,242,135,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(87,242,135,0.3)"; }}
               >
                 Пригласить
               </button>
-              )}
+)}
               <button
                 onClick={openMembersModal}
                 className={`${btnBase} bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-discord-text-primary`}
@@ -239,7 +249,10 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               </button>
               <button
                 onClick={handleLeave}
-                className={`${btnBase} bg-discord-danger/20 text-discord-danger hover:bg-discord-danger hover:text-white`}
+                className={`${btnBase} text-discord-danger hover:text-white`}
+                style={{ background: "rgba(237,66,69,0.12)", borderColor: "rgba(237,66,69,0.3)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.85)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(237,66,69,0.3)"; }}
               >
                 Выйти
               </button>
@@ -247,7 +260,10 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
           ) : !showDeleteOptions ? (
             <button
               onClick={() => setShowDeleteOptions(true)}
-              className={`${btnBase} bg-discord-danger/20 text-discord-danger hover:bg-discord-danger hover:text-white`}
+              className={`${btnBase} text-discord-danger hover:text-white`}
+              style={{ background: "rgba(237,66,69,0.12)", borderColor: "rgba(237,66,69,0.3)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.85)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(237,66,69,0.3)"; }}
             >
               Очистить
             </button>
@@ -261,7 +277,10 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               </button>
               <button
                 onClick={() => handleDelete(true)}
-                className={`${btnBase} bg-discord-danger/20 text-discord-danger hover:bg-discord-danger hover:text-white`}
+                className={`${btnBase} text-discord-danger hover:text-white`}
+                style={{ background: "rgba(237,66,69,0.12)", borderColor: "rgba(237,66,69,0.3)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.85)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(237,66,69,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(237,66,69,0.3)"; }}
               >
                 У всех
               </button>

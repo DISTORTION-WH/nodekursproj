@@ -14,7 +14,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const { socket } = useSocket() as { socket: Socket | null };
-  const { unreadCounts } = useChat();
+  const { unreadCounts, activeChat } = useChat();
 
   const fetchGroupChats = () => {
     setError(false);
@@ -74,6 +74,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
           Комнаты
         </span>
+        <div className="flex-1 h-px mx-2" style={{ background: "rgba(255,255,255,0.06)" }} />
         <div className="flex gap-1">
           <button
             onClick={joinByCode}
@@ -94,18 +95,36 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
 
       {groupChats.map((chat) => {
         const unread = unreadCounts[Number(chat.id)] || 0;
+        const isActive = activeChat?.id === chat.id;
         return (
           <div
             key={chat.id}
-            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer hover:bg-discord-input transition text-discord-text-secondary hover:text-white"
+            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer transition text-discord-text-secondary hover:text-white"
+            style={
+              isActive
+                ? { background: "rgba(88,101,242,0.15)", borderLeft: "2px solid #5865f2", paddingLeft: "6px" }
+                : {}
+            }
+            onMouseEnter={(e) => {
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "";
+            }}
             onClick={() => onOpenGroupChat(chat)}
           >
-            <div className="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+              style={{ background: "linear-gradient(135deg, #5865f2, #eb459e)" }}
+            >
               {chat.name ? chat.name[0].toUpperCase() : "#"}
             </div>
             <span className="truncate text-sm flex-1">{chat.name}</span>
             {unread > 0 && (
-              <span className="bg-discord-danger text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center font-bold leading-none shrink-0">
+              <span
+                className="text-white text-xs rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center font-bold leading-none shrink-0"
+                style={{ background: "linear-gradient(135deg, #eb3b5a, #fa7070)" }}
+              >
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
