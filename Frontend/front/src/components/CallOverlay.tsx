@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useVoiceActivity } from "../hooks/useVoiceActivity";
 import type { VoiceActivityResult, StreamDescriptor } from "../hooks/useVoiceActivity";
 import TalkTimeFairnessPanel, { SpeakingIndicator } from "./TalkTimeFairnessPanel";
+import SubtitlesOverlay, { CCButton, SubtitleLangSelect } from "./SubtitlesOverlay";
 import { saveCallAnalytics } from "../services/api";
 
 // ─── Participant tile for group call ────────────────────────────────────────
@@ -179,8 +180,10 @@ export default function CallOverlay() {
 
   const { currentUser } = useAuth();
 
-  // ─── Panel visibility toggle ─────────────────────────────────────────────
+  // ─── Panel & subtitles visibility ───────────────────────────────────────
   const [showFairnessPanel, setShowFairnessPanel] = useState(true);
+  const [showSubtitles, setShowSubtitles] = useState(false);
+  const [subtitleLang, setSubtitleLang] = useState("ru-RU");
 
   // Reset panel visibility when a new group call starts
   useEffect(() => {
@@ -407,7 +410,7 @@ export default function CallOverlay() {
 
       {/* ─── Group call overlay ─── */}
       {groupCallState === "active" && (
-        <div className="fixed inset-0 bg-discord-bg z-50 flex flex-col">
+        <div className="fixed inset-0 bg-discord-bg z-50 flex flex-col relative">
           {/* Participant grid */}
           <div className="flex-1 overflow-auto p-4">
             {(() => {
@@ -463,6 +466,11 @@ export default function CallOverlay() {
             >
               📊
             </ControlBtn>
+            {/* Subtitles */}
+            <CCButton active={showSubtitles} onToggle={() => setShowSubtitles((v) => !v)} />
+            {showSubtitles && (
+              <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
+            )}
             <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
               📞
             </ControlBtn>
@@ -476,6 +484,20 @@ export default function CallOverlay() {
               defaultCollapsed={false}
             />
           )}
+
+          {/* Subtitles overlay — sits above the control bar (88px), below grid */}
+          <SubtitlesOverlay
+            localStream={localStream}
+            remoteStreams={groupCallParticipants.map((p) => ({
+              participantId: String(p.userId),
+              stream: p.stream,
+            }))}
+            participantNames={groupParticipantNames}
+            callActive
+            enabled={showSubtitles}
+            lang={subtitleLang}
+            bottomOffset={88}
+          />
         </div>
       )}
 
@@ -531,7 +553,7 @@ export default function CallOverlay() {
           {/* Connected */}
           {callState === "connected" && (
             <div
-              className="bg-discord-secondary rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+              className="relative bg-discord-secondary rounded-2xl overflow-hidden shadow-2xl flex flex-col"
               style={{ width: isVideoCall ? 640 : 360, maxWidth: "95vw" }}
             >
               <div
@@ -587,6 +609,11 @@ export default function CallOverlay() {
                 >
                   📊
                 </ControlBtn>
+                {/* Subtitles */}
+                <CCButton active={showSubtitles} onToggle={() => setShowSubtitles((v) => !v)} />
+                {showSubtitles && (
+                  <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
+                )}
                 <ControlBtn onClick={endCall} danger title="Завершить">
                   📞
                 </ControlBtn>
@@ -600,6 +627,21 @@ export default function CallOverlay() {
                   defaultCollapsed={false}
                 />
               )}
+
+              {/* Subtitles overlay — above the control bar inside the card */}
+              <SubtitlesOverlay
+                localStream={localStream}
+                remoteStreams={
+                  remoteStream
+                    ? [{ participantId: callerData ? String(callerData.id) : "remote", stream: remoteStream }]
+                    : []
+                }
+                participantNames={p2pParticipantNames}
+                callActive
+                enabled={showSubtitles}
+                lang={subtitleLang}
+                bottomOffset={76}
+              />
             </div>
           )}
         </div>
