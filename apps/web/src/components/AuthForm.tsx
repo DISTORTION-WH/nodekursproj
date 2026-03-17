@@ -28,7 +28,7 @@ export default function AuthForm({ type }: Props) {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden">
+    <div className="min-h-screen relative flex items-center justify-center overflow-hidden px-4">
       {/* Animated gradient background */}
       <div
         className="absolute inset-0 animate-gradient"
@@ -81,7 +81,7 @@ export default function AuthForm({ type }: Props) {
       />
 
       {/* Card */}
-      <div className="relative z-10 animate-fade-in-up w-full max-w-sm mx-4">
+      <div className="relative z-10 animate-fade-in-up w-full max-w-sm mx-auto">
         {/* Glow behind card */}
         <div
           className="absolute -inset-1 rounded-2xl opacity-30 blur-xl"

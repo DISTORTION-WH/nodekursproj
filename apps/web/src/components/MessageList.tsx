@@ -191,7 +191,7 @@ export default function MessageList() {
         </div>
       )}
 
-      {messages.map((msg) => {
+      {messages.map((msg, index) => {
         const isMine = msg.sender_id === currentUser?.id;
         const canDelete = isMine || isModerator;
         const canEdit = isMine;
@@ -206,9 +206,10 @@ export default function MessageList() {
         return (
           <div
             key={msg.id}
-            className={`flex flex-col max-w-[75%] group ${
+            className={`flex flex-col max-w-[75%] group animate-message-pop ${
               isMine ? "self-end items-end" : "self-start items-start"
             }`}
+            style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
             {/* Sender name in group chats */}
             {activeChat.is_group && !isMine && (
@@ -286,8 +287,8 @@ export default function MessageList() {
                   }`}
                   style={
                     isMine
-                      ? { background: "linear-gradient(135deg, #5865f2, #7b68ee)" }
-                      : { background: "rgba(45,47,72,0.9)" }
+                      ? { background: "linear-gradient(135deg, #5865f2, #7b68ee)", transition: "all 0.15s ease" }
+                      : { background: "rgba(45,47,72,0.9)", transition: "all 0.15s ease" }
                   }
                 >
                   {imageUrl ? (

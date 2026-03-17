@@ -93,18 +93,19 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
         </div>
       </div>
 
-      {groupChats.map((chat) => {
+      {groupChats.map((chat, index) => {
         const unread = unreadCounts[Number(chat.id)] || 0;
         const isActive = activeChat?.id === chat.id;
         return (
           <div
             key={chat.id}
-            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer transition text-discord-text-secondary hover:text-white"
-            style={
-              isActive
+            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer transition text-discord-text-secondary hover:text-white animate-fade-in-up"
+            style={{
+              animationDelay: `${index * 40}ms`,
+              ...(isActive
                 ? { background: "rgba(88,101,242,0.15)", borderLeft: "2px solid #5865f2", paddingLeft: "6px" }
-                : {}
-            }
+                : {}),
+            }}
             onMouseEnter={(e) => {
               if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
             }}

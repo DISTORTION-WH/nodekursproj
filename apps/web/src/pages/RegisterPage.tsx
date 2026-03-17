@@ -80,7 +80,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden">
+    <div className="min-h-screen relative flex items-center justify-center overflow-hidden px-4">
       {/* Animated gradient background */}
       <div
         className="absolute inset-0 animate-gradient"
@@ -98,7 +98,7 @@ export default function RegisterPage() {
       <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
 
       {/* Card */}
-      <div className="relative z-10 animate-fade-in-up w-full max-w-sm mx-4">
+      <div className="relative z-10 animate-fade-in-up w-full max-w-sm mx-auto">
         <div className="absolute -inset-1 rounded-2xl opacity-30 blur-xl" style={{ background: "linear-gradient(135deg, #5865f2, #eb459e)" }} />
 
         <div className="relative rounded-2xl p-8 flex flex-col gap-5" style={{ background: "rgba(30, 31, 48, 0.85)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>

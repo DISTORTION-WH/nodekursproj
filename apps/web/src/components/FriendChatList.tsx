@@ -76,7 +76,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
 
-      {friends.map((f) => {
+      {friends.map((f, index) => {
         const chatId = friendChatIds[f.id];
         const unread = chatId ? (unreadCounts[chatId] || 0) : 0;
         const status: UserStatus = (userStatuses as Record<number, UserStatus>)[f.id] ?? (f.status ?? "offline");
@@ -85,12 +85,13 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         return (
           <div
             key={f.id}
-            className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition group"
-            style={
-              isActive
+            className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition group animate-fade-in-up"
+            style={{
+              animationDelay: `${index * 40}ms`,
+              ...(isActive
                 ? { background: "rgba(88,101,242,0.15)", borderLeft: "2px solid #5865f2", paddingLeft: "6px" }
-                : {}
-            }
+                : {}),
+            }}
             onMouseEnter={(e) => {
               if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
             }}

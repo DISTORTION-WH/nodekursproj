@@ -40,7 +40,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
         className={`${
           isMobile && activeChat ? "hidden" : "flex"
         } w-[280px] min-w-[250px] flex-col overflow-y-auto shrink-0`}
-        style={{ background: "rgba(28,29,45,0.98)" }}
+        style={{ background: "rgba(28,29,45,0.98)", transition: "all 0.3s ease" }}
       >
         <FriendsList currentUser={currentUser} />
       </div>
@@ -50,6 +50,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
         className={`${
           isMobile && !activeChat ? "hidden" : "flex"
         } flex-1 flex-col bg-discord-bg min-w-0`}
+        style={{ transition: "all 0.3s ease" }}
       >
         {activeChat ? (
           <ChatWindow isMobile={isMobile} onCloseChat={closeChat} />
