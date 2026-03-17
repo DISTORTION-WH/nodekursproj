@@ -1,16 +1,6 @@
 {
-  "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "lib": ["es2020"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./",
-    "resolveJsonModule": true
-  },
-  "include": ["**/*.ts", "Frontend/front/src/components/MessageList.tsx"],
-  "exclude": ["node_modules", "Frontend"]
+  "files": [],
+  "references": [
+    { "path": "./apps/api" }
+  ]
 }

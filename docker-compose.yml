@@ -20,7 +20,7 @@ services:
   # --- Backend (API) ---
   api:
     build:
-      context: .
+      context: ./apps/api
       dockerfile: Dockerfile
     container_name: lume_backend
     restart: always
@@ -54,7 +54,7 @@ services:
   # --- Frontend (Client) ---
   client:
     build:
-      context: ./Frontend/front
+      context: ./apps/web
       dockerfile: Dockerfile
     container_name: lume_frontend
     restart: always

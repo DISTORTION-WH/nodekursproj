@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init -p)",
+      "Bash(\"e:/1LABS/kp/nodekursproj-main1/middleware/authMiddleware.ts\":*)",
+      "Bash(\"e:/1LABS/kp/nodekursproj-main1/Services/userService.ts\":*)",
+      "Bash(python3:*)",
+      "Bash(\"e:/1LABS/kp/nodekursproj-main1/Frontend/front/src/index.css\":*)",
+      "Bash(\"e:/1LABS/kp/nodekursproj-main1/Frontend/front/src/components/ChatWindow.tsx\":*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
+    ]
+  }
+}
