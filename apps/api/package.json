@@ -27,6 +27,9 @@
     "resend": "^6.4.1",
     "socket.io": "^4.8.1"
   },
+  "overrides": {
+    "@types/express": "^5.0.5"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
