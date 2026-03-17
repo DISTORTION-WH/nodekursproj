@@ -12,34 +12,36 @@ import HomePage from "./pages/HomePage";
 import AdminPage from "./pages/AdminPage";
 import ModeratorPage from "./pages/ModeratorPage";
 import ProfilePage from "./pages/ProfilePage";
+import CallHistoryPage from "./pages/CallHistoryPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CallProvider } from "./context/CallContext";
 import CallOverlay from "./components/CallOverlay";
-import "./App.css";
+import "./index.css";
 
 function AppRoutes() {
   const { isAuth, currentUser, loading } = useAuth();
-  
+
   if (loading) {
     return (
-      <div style={{ textAlign: "center", marginTop: "50px" }}>Загрузка...</div>
+      <div className="flex items-center justify-center h-screen bg-discord-bg text-discord-text-primary">
+        Загрузка...
+      </div>
     );
   }
 
-  const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
-  
-  const isModerator = currentUser?.roles?.includes('MODERATOR') || currentUser?.role === 'MODERATOR'; 
+  const isAdmin = currentUser?.role === "ADMIN";
+  const isModerator = currentUser?.role === "MODERATOR";
 
   return (
     <SocketProvider currentUser={currentUser}>
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
-          <Navbar />
-          <div className="app-container">
-            <div className="main-content">
+          <div className="flex flex-col h-screen bg-discord-bg text-discord-text-primary">
+            <Navbar />
+            <div className="flex flex-1 overflow-hidden mt-[50px]">
               <Routes>
                 <Route
                   path="/"
@@ -53,7 +55,6 @@ function AppRoutes() {
                 />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<ZFRegisterPage />} />
-                
                 <Route
                   path="/admin"
                   element={
@@ -64,7 +65,6 @@ function AppRoutes() {
                     )
                   }
                 />
-                
                 <Route
                   path="/moderator"
                   element={
@@ -75,7 +75,6 @@ function AppRoutes() {
                     )
                   }
                 />
-
                 <Route
                   path="/profile"
                   element={isAuth ? <ProfilePage /> : <Navigate to="/login" />}
@@ -85,6 +84,10 @@ function AppRoutes() {
                   element={
                     isAuth ? <UserProfilePage /> : <Navigate to="/login" />
                   }
+                />
+                <Route
+                  path="/calls"
+                  element={isAuth ? <CallHistoryPage /> : <Navigate to="/login" />}
                 />
                 <Route
                   path="*"

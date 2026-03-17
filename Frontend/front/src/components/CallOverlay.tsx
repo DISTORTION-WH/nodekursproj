@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useVoiceActivity } from "../hooks/useVoiceActivity";
 import type { VoiceActivityResult, StreamDescriptor } from "../hooks/useVoiceActivity";
 import TalkTimeFairnessPanel, { SpeakingIndicator } from "./TalkTimeFairnessPanel";
+import { saveCallAnalytics } from "../services/api";
 
 // ─── Participant tile for group call ────────────────────────────────────────
 
@@ -106,6 +107,65 @@ function useReactiveVoiceState(
   return snapshot;
 }
 
+// ─── Analytics submission helper ─────────────────────────────────────────────
+
+function buildAnalyticsPayload(
+  voiceActivity: VoiceActivityResult,
+  startedAt: Date,
+  localUserId: number,
+  participantUserIds: Map<string, number> // participantId → userId
+) {
+  const endedAt = new Date();
+
+  const participants = Array.from(voiceActivity.participants.entries())
+    .map(([pid, state]) => {
+      // "local" maps to the caller's own userId; others use the Map
+      const userId =
+        pid === "local" ? localUserId : (participantUserIds.get(pid) ?? parseInt(pid, 10));
+
+      const interruptionsMade = voiceActivity.interruptions.filter(
+        (e) => e.interrupter === pid
+      ).length;
+      const interruptionsReceived = voiceActivity.interruptions.filter(
+        (e) => e.interrupted === pid
+      ).length;
+
+      return {
+        userId,
+        talkTimeSeconds: state.talkTime,
+        talkPercent: state.talkPercent,
+        interruptionsMade,
+        interruptionsReceived,
+        avgAudioLevel: state.audioLevel,
+      };
+    });
+
+  const interruptions = voiceActivity.interruptions.map((ev) => {
+    const interrupterUserId =
+      ev.interrupter === "local"
+        ? localUserId
+        : (participantUserIds.get(ev.interrupter) ?? parseInt(ev.interrupter, 10));
+    const interruptedUserId =
+      ev.interrupted === "local"
+        ? localUserId
+        : (participantUserIds.get(ev.interrupted) ?? parseInt(ev.interrupted, 10));
+    return {
+      interrupterUserId,
+      interruptedUserId,
+      occurredAt: new Date(ev.timestamp).toISOString(),
+    };
+  });
+
+  return {
+    startedAt: startedAt.toISOString(),
+    endedAt: endedAt.toISOString(),
+    participantCount: participants.length,
+    fairnessIndex: voiceActivity.fairnessIndex,
+    participants,
+    interruptions,
+  };
+}
+
 // ─── Main overlay component ──────────────────────────────────────────────────
 
 export default function CallOverlay() {
@@ -126,6 +186,30 @@ export default function CallOverlay() {
   useEffect(() => {
     if (groupCallState === "active") setShowFairnessPanel(true);
   }, [groupCallState]);
+
+  // ─── Call start timestamps (for analytics duration) ──────────────────────
+  const groupCallStartedAtRef = useRef<Date | null>(null);
+  const p2pCallStartedAtRef   = useRef<Date | null>(null);
+
+  // Track group call start
+  useEffect(() => {
+    if (groupCallState === "active" && !groupCallStartedAtRef.current) {
+      groupCallStartedAtRef.current = new Date();
+    }
+    if (groupCallState === "idle") {
+      groupCallStartedAtRef.current = null;
+    }
+  }, [groupCallState]);
+
+  // Track p2p call connected
+  useEffect(() => {
+    if (callState === "connected" && !p2pCallStartedAtRef.current) {
+      p2pCallStartedAtRef.current = new Date();
+    }
+    if (callState === "idle") {
+      p2pCallStartedAtRef.current = null;
+    }
+  }, [callState]);
 
   // ─── Voice activity — group call ─────────────────────────────────────────
   // Build stream descriptors; kept stable-ish via useMemo equivalent inline.
@@ -156,6 +240,54 @@ export default function CallOverlay() {
   const p2pVoiceActivity = useVoiceActivity({
     streams: callState === "connected" ? p2pStreams : [],
   });
+
+  // ─── Analytics: submit on call end ───────────────────────────────────────
+  // We capture a snapshot of the voice data just before state resets to idle.
+  // The useEffect below fires after render when state becomes idle; voice
+  // activity refs still hold the last computed values at that point.
+
+  // Stable ref to participant userId map for group calls (updated each render)
+  const groupParticipantUserIdsRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const m = new Map<string, number>();
+    groupCallParticipants.forEach((p) => m.set(String(p.userId), p.userId));
+    groupParticipantUserIdsRef.current = m;
+  }, [groupCallParticipants]);
+
+  const prevGroupCallStateRef = useRef(groupCallState);
+  useEffect(() => {
+    const wasActive = prevGroupCallStateRef.current === "active";
+    prevGroupCallStateRef.current = groupCallState;
+
+    if (wasActive && groupCallState === "idle" && currentUser && groupCallStartedAtRef.current) {
+      const startedAt = groupCallStartedAtRef.current;
+      const voiceSnap = groupVoiceActivity;
+      const userIdsMap = new Map(groupParticipantUserIdsRef.current);
+      // Fire-and-forget; do not block UI
+      saveCallAnalytics(
+        buildAnalyticsPayload(voiceSnap, startedAt, currentUser.id, userIdsMap)
+      ).catch(() => { /* silent — analytics are non-critical */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupCallState]);
+
+  const prevCallStateRef = useRef(callState);
+  useEffect(() => {
+    const wasConnected = prevCallStateRef.current === "connected";
+    prevCallStateRef.current = callState;
+
+    if (wasConnected && callState === "idle" && currentUser && p2pCallStartedAtRef.current) {
+      const startedAt = p2pCallStartedAtRef.current;
+      const voiceSnap = p2pVoiceActivity;
+      const remoteId = callerData ? String(callerData.id) : "remote";
+      const userIdsMap = new Map<string, number>();
+      if (callerData) userIdsMap.set(remoteId, callerData.id);
+      saveCallAnalytics(
+        buildAnalyticsPayload(voiceSnap, startedAt, currentUser.id, userIdsMap)
+      ).catch(() => { /* silent */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callState]);
 
   // ─── Participant names maps ───────────────────────────────────────────────
   const groupParticipantNames = new Map<string, string>([

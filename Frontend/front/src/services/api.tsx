@@ -50,8 +50,17 @@ export const removeFriend = (friendId: number) => api.post('/friends/remove', { 
 
 export const deleteMessage = (messageId: number) => api.delete(`/chats/messages/${messageId}`);
 
-export const kickUserFromGroup = (chatId: number, userIdToKick: number) => 
+export const addReaction = (msgId: number, emoji: string) =>
+  api.post(`/chats/messages/${msgId}/react`, { emoji });
+
+export const removeReaction = (msgId: number, emoji: string) =>
+  api.delete(`/chats/messages/${msgId}/react`, { data: { emoji } });
+
+export const kickUserFromGroup = (chatId: number, userIdToKick: number) =>
     api.post(`/chats/${chatId}/kick`, { userIdToKick });
+
+export const setChatMemberRole = (chatId: number, userId: number, role: string) =>
+    api.patch(`/chats/${chatId}/members/${userId}/role`, { role });
 
 export const warnUser = (userId: number, reason: string) => 
     api.post('/moderator/warn', { userId, reason });
@@ -85,5 +94,57 @@ export const deleteChat = (id: number) => api.delete(`/admin/chats/${id}`);
 export const getStats = () => api.get('/admin/stats');
 export const getLogs = () => api.get('/admin/logs');
 export const broadcastMessage = (text: string) => api.post('/admin/broadcast', { text });
+
+// Message editing
+export const editMessage = (messageId: number, text: string) =>
+  api.patch(`/chats/messages/${messageId}`, { text });
+
+// Unread counts
+export const getUnreadCounts = () => api.get<{ chat_id: number; unread: number }[]>('/chats/unread');
+export const markChatAsRead = (chatId: number) => api.post(`/chats/${chatId}/read`);
+
+// Pinned messages
+export const getPinnedMessages = (chatId: number) => api.get(`/chats/${chatId}/pinned`);
+export const pinMessage = (msgId: number, chatId: number) =>
+  api.post(`/chats/messages/${msgId}/pin`, { chatId });
+export const unpinMessage = (msgId: number, chatId: number) =>
+  api.delete(`/chats/messages/${msgId}/pin`, { data: { chatId } });
+
+// Search
+export const searchMessagesInChat = (chatId: number, query: string) =>
+  api.get(`/chats/${chatId}/search?q=${encodeURIComponent(query)}`);
+
+// Forward
+export const forwardMessage = (targetChatId: number, text: string, forwardedFromId: number) =>
+  api.post(`/chats/${targetChatId}/forward`, { text, forwardedFromId });
+
+// File upload
+export const uploadFile = (chatId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post(`/chats/${chatId}/upload`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+// Link preview
+export const getLinkPreview = (url: string) =>
+  api.get(`/chats/preview?url=${encodeURIComponent(url)}`);
+
+// Call analytics
+export const saveCallAnalytics = (data: object) =>
+  api.post("/api/call-analytics", data);
+export const getCallHistory = (limit?: number) =>
+  api.get(`/api/call-analytics/history${limit ? `?limit=${limit}` : ""}`);
+export const getCallSessionDetail = (callId: string) =>
+  api.get(`/api/call-analytics/${callId}`);
+
+// User status & theme
+export const updateUserStatus = (status: string) => api.patch('/users/me/status', { status });
+export const updateUserTheme = (theme: string) => api.patch('/users/me/theme', { theme });
+
+// Paginated messages
+export const getChatMessagesBefore = (chatId: number, beforeId: number) =>
+  api.get(`/chats/${chatId}/messages?before=${beforeId}`);
 
 export default api;
