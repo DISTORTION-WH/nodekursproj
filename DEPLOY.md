@@ -75,7 +75,7 @@ cp .env.example .env
 
 1. В проекте нажмите на GitHub-сервис (backend)
 2. **Settings → Build**:
-   - Root Directory: `apps/api`
+   - Root Directory: `apps/api` ← **обязательно**, иначе Railway запустит turbo из корня и упадёт
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
 3. **Variables** — добавьте все переменные:
