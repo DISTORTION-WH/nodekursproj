@@ -18,6 +18,7 @@ git status   # .env не должен фигурировать
 ```
 
 Скопируйте шаблон и заполните:
+
 ```bash
 cp .env.example .env
 # Отредактируйте .env — заполните все значения
@@ -75,7 +76,7 @@ cp .env.example .env
 
 1. В проекте нажмите на GitHub-сервис (backend)
 2. **Settings → Build**:
-   - Root Directory: `apps/api`
+   - Root Directory: `apps/api` ← **обязательно**, иначе Railway запустит turbo из корня и упадёт
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
 3. **Variables** — добавьте все переменные:
@@ -127,9 +128,11 @@ curl https://lume-api-production.up.railway.app/health
 ### 5.2 Environment Variables
 
 В **Environment Variables** добавьте:
+
 ```
 REACT_APP_API_URL=https://lume-api-production.up.railway.app
 ```
+
 > Это URL вашего Railway-сервиса из шага 4.4
 
 ### 5.3 Deploy
@@ -143,6 +146,7 @@ REACT_APP_API_URL=https://lume-api-production.up.railway.app
 ## 6. Финальная настройка CORS
 
 Вернитесь в Railway → Variables вашего API-сервиса и обновите:
+
 ```
 FRONTEND_URL=https://lume-chat.vercel.app
 CLIENT_URL=https://lume-chat.vercel.app
@@ -177,6 +181,7 @@ docker-compose up --build
 ```
 
 Для кастомного API URL при сборке Docker:
+
 ```bash
 REACT_APP_API_URL=http://your-server:5000 docker-compose up --build
 ```
@@ -185,19 +190,19 @@ REACT_APP_API_URL=http://your-server:5000 docker-compose up --build
 
 ## 9. Переменные окружения — сводная таблица
 
-| Переменная | Где задать | Обязательна |
-|-----------|-----------|------------|
-| `DATABASE_URL` | Railway (авто) | Да (prod) |
-| `DB_HOST/PORT/USER/PASSWORD/DATABASE` | .env / docker-compose | Да (local) |
-| `JWT_SECRET` | Railway + .env | Да |
-| `FRONTEND_URL` | Railway | Да (prod) |
-| `CLIENT_URL` | docker-compose / Railway | Да |
-| `REACT_APP_API_URL` | Vercel + .env | Да |
-| `MINIO_*` (5 шт.) | Railway + .env | Да (для загрузки файлов) |
-| `EMAILJS_*` (4 шт.) | Railway + .env | Да (для регистрации) |
-| `MEDIASOUP_LISTEN_IP` | Railway + .env | Да (для звонков) |
-| `MEDIASOUP_ANNOUNCED_IP` | Railway + .env | Да (для звонков) |
-| `PORT` | Railway (авто=5000) | Нет |
+| Переменная                            | Где задать               | Обязательна              |
+| ------------------------------------- | ------------------------ | ------------------------ |
+| `DATABASE_URL`                        | Railway (авто)           | Да (prod)                |
+| `DB_HOST/PORT/USER/PASSWORD/DATABASE` | .env / docker-compose    | Да (local)               |
+| `JWT_SECRET`                          | Railway + .env           | Да                       |
+| `FRONTEND_URL`                        | Railway                  | Да (prod)                |
+| `CLIENT_URL`                          | docker-compose / Railway | Да                       |
+| `REACT_APP_API_URL`                   | Vercel + .env            | Да                       |
+| `MINIO_*` (5 шт.)                     | Railway + .env           | Да (для загрузки файлов) |
+| `EMAILJS_*` (4 шт.)                   | Railway + .env           | Да (для регистрации)     |
+| `MEDIASOUP_LISTEN_IP`                 | Railway + .env           | Да (для звонков)         |
+| `MEDIASOUP_ANNOUNCED_IP`              | Railway + .env           | Да (для звонков)         |
+| `PORT`                                | Railway (авто=5000)      | Нет                      |
 
 ---
 
