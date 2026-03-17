@@ -6,6 +6,8 @@ import { useVoiceActivity } from "../hooks/useVoiceActivity";
 import type { VoiceActivityResult, StreamDescriptor } from "../hooks/useVoiceActivity";
 import TalkTimeFairnessPanel, { SpeakingIndicator } from "./TalkTimeFairnessPanel";
 import SubtitlesOverlay, { CCButton, SubtitleLangSelect } from "./SubtitlesOverlay";
+import NetworkQualityIndicator from "./NetworkQualityIndicator";
+import { usePredictiveQuality } from "../hooks/usePredictiveQuality";
 import { saveCallAnalytics } from "../services/api";
 
 // ─── Participant tile for group call ────────────────────────────────────────
@@ -176,6 +178,7 @@ export default function CallOverlay() {
     groupCallState, groupCallParticipants, groupCallIsVideo,
     leaveGroupCall, muteGroupAudio, muteGroupVideo, isGroupAudioMuted, isGroupVideoMuted,
     incomingGroupCall, dismissGroupCallBanner, joinGroupCall,
+    p2pPeerConnection,
   } = useCall();
 
   const { currentUser } = useAuth();
@@ -242,6 +245,19 @@ export default function CallOverlay() {
 
   const p2pVoiceActivity = useVoiceActivity({
     streams: callState === "connected" ? p2pStreams : [],
+  });
+
+  // ─── Network quality prediction (1-on-1 only) ────────────────────────────
+  const p2pVideoSender =
+    callState === "connected" && p2pPeerConnection
+      ? (p2pPeerConnection.getSenders().find(
+          (s) => s.track?.kind === "video"
+        ) ?? null)
+      : null;
+
+  const networkQuality = usePredictiveQuality({
+    pc: callState === "connected" ? p2pPeerConnection : null,
+    videoSender: p2pVideoSender,
   });
 
   // ─── Analytics: submit on call end ───────────────────────────────────────
@@ -411,6 +427,16 @@ export default function CallOverlay() {
       {/* ─── Group call overlay ─── */}
       {groupCallState === "active" && (
         <div className="fixed inset-0 bg-discord-bg z-50 flex flex-col relative">
+          {/* Network quality indicator — top-left */}
+          <div className="absolute top-3 left-3 z-20">
+            <NetworkQualityIndicator
+              metrics={networkQuality.metrics}
+              prediction={networkQuality.prediction}
+              currentBitrate={networkQuality.currentBitrate}
+              isAdapting={networkQuality.isAdapting}
+            />
+          </div>
+
           {/* Participant grid */}
           <div className="flex-1 overflow-auto p-4">
             {(() => {
@@ -560,6 +586,16 @@ export default function CallOverlay() {
                 className="relative bg-discord-tertiary flex items-center justify-center"
                 style={{ height: isVideoCall ? 360 : 200 }}
               >
+                {/* Network quality indicator — top-left of video area */}
+                <div className="absolute top-2 left-2 z-10">
+                  <NetworkQualityIndicator
+                    metrics={networkQuality.metrics}
+                    prediction={networkQuality.prediction}
+                    currentBitrate={networkQuality.currentBitrate}
+                    isAdapting={networkQuality.isAdapting}
+                  />
+                </div>
+
                 {isVideoCall ? (
                   <>
                     <video
