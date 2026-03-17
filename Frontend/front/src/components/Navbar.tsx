@@ -1,6 +1,5 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import "./Navbar.css";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../utils/imageUrl";
 
@@ -13,46 +12,70 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  const isAdmin = currentUser?.roles?.includes('ADMIN') || currentUser?.role === 'ADMIN';
-const isModerator = currentUser?.roles?.includes('MODERATOR') || currentUser?.role === 'MODERATOR';
+  const isAdmin = currentUser?.role === "ADMIN";
+  const isModerator = currentUser?.role === "MODERATOR";
+
   return (
-    <nav className="navbar">
-      <Link to="/" className="logo" style={{ textDecoration: "none" }}>
+    <nav className="fixed top-0 left-0 right-0 h-[50px] bg-discord-tertiary flex items-center justify-between px-4 z-50 shadow-md">
+      <Link
+        to="/"
+        className="font-logo text-2xl text-white tracking-widest no-underline hover:text-discord-accent transition-colors"
+      >
         Lume
       </Link>
-      <div>
+      <div className="flex items-center gap-2">
         {isAuth ? (
           <>
             {isAdmin && (
-              <Link key="admin" to="/admin" className="btn">
+              <Link
+                to="/admin"
+                className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
+              >
                 Админка
               </Link>
             )}
             {(isModerator || isAdmin) && (
-               <Link key="moderator" to="/moderator" className="btn" style={{borderColor: '#ff9800', color: '#ff9800'}}>
-                 Модерация
-               </Link>
+              <Link
+                to="/moderator"
+                className="px-3 py-1 rounded text-yellow-400 border border-yellow-400 hover:bg-yellow-400 hover:text-discord-tertiary transition text-sm no-underline"
+              >
+                Модерация
+              </Link>
             )}
+            <Link
+              to="/calls"
+              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
+              title="История звонков"
+            >
+              📞 Звонки
+            </Link>
             {currentUser && (
-              <div className="avatar-wrapper">
-                <img
-                  src={getImageUrl(currentUser.avatar_url)}
-                  alt="avatar"
-                  className="avatar"
-                  onClick={() => navigate("/profile")}
-                />
-              </div>
+              <img
+                src={getImageUrl(currentUser.avatar_url)}
+                alt="avatar"
+                className="w-9 h-9 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-discord-accent transition"
+                onClick={() => navigate("/profile")}
+              />
             )}
-            <button key="logout" onClick={handleLogout} className="btn">
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm"
+            >
               Выход
             </button>
           </>
         ) : (
           <>
-            <Link key="login" to="/login" className="btn">
+            <Link
+              to="/login"
+              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
+            >
               Вход
             </Link>
-            <Link key="register" to="/register" className="btn">
+            <Link
+              to="/register"
+              className="px-3 py-1 rounded bg-discord-accent text-white hover:bg-discord-accent-hover transition text-sm no-underline"
+            >
               Регистрация
             </Link>
           </>
