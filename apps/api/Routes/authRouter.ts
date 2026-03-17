@@ -1,12 +1,15 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { body } from "express-validator"; 
+import { body } from "express-validator";
 import multer, { MulterError } from "multer";
 import authController from "../Controllers/authController";
+import authMiddleware from "../middleware/authMiddleware";
+import roleMiddleware from "../middleware/roleMiddleware";
 
 const router = Router();
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// Limit avatar uploads to 5 MB to prevent disk exhaustion
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 const handleUploadErrors = (
   err: any,
@@ -73,13 +76,19 @@ router.post("/refresh", async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-router.get("/users", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    await authController.getUsers(req, res, next);
-  } catch (e: any) {
-    console.error("❗️ Ошибка в GET /auth/users:", e.message);
-    next(e);
+// Protected: only ADMIN can list all users
+router.get(
+  "/users",
+  authMiddleware,
+  roleMiddleware(["ADMIN"]),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await authController.getUsers(req, res, next);
+    } catch (e: any) {
+      console.error("❗️ Ошибка в GET /auth/users:", e.message);
+      next(e);
+    }
   }
-});
+);
 
 export default router; 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { User } from "../types";
@@ -51,8 +51,8 @@ export default function UserProfilePage() {
     if (!user || !window.confirm("Удалить из друзей?")) return;
     try {
       await api.post(`/friends/remove`, { friendId: user.id });
-      // Optimistic update - no page reload
-      setFriends((prev) => prev.filter((f) => Number(f.id) !== Number(currentUser?.id)));
+      // Optimistic update: remove the viewed user from the friends list displayed on their profile
+      setFriends((prev) => prev.filter((f) => Number(f.id) !== Number(user.id)));
       setUser((prev) =>
         prev
           ? {

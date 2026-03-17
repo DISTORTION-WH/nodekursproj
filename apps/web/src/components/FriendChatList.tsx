@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
@@ -20,15 +20,17 @@ const statusColor: Record<UserStatus, string> = {
 export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [friendChatIds, setFriendChatIds] = useState<Record<number, number>>({});
   const { socket, userStatuses } = useSocket() as { socket: Socket | null; userStatuses: Record<number, UserStatus> };
   const { selectChat, unreadCounts } = useChat();
 
   const fetchFriends = () => {
+    setError(false);
     api
       .get<User[]>("/friends")
-      .then((res) => setFriends(res.data))
-      .catch(console.error)
+      .then((res) => { setFriends(res.data); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
 
@@ -134,7 +136,12 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
           ))}
         </div>
       )}
-      {!loading && friends.length === 0 && (
+      {!loading && error && (
+        <p className="text-discord-danger text-xs px-2 py-1 cursor-pointer hover:underline" onClick={fetchFriends}>
+          Ошибка загрузки · Нажмите, чтобы повторить
+        </p>
+      )}
+      {!loading && !error && friends.length === 0 && (
         <p className="text-discord-text-muted text-xs px-2 py-1">Нет друзей</p>
       )}
     </div>

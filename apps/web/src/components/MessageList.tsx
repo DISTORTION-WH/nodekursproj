@@ -54,6 +54,8 @@ export default function MessageList() {
   useEffect(() => {
     isFirstLoad.current = true;
     wasLoadingMore.current = false;
+    setEditingId(null);
+    setPickerOpenId(null);
     messagesEndRef.current?.scrollIntoView();
   }, [activeChat]);
 

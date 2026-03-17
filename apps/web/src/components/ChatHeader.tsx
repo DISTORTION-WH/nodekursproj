@@ -18,6 +18,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,9 +46,11 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
   useEffect(() => {
     if (!searchQuery.trim() || !activeChat) {
       setSearchResults([]);
+      setSearchError(false);
       return;
     }
     setSearching(true);
+    setSearchError(false);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(async () => {
       try {
@@ -55,6 +58,8 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
         setSearchResults(res.data);
       } catch (e) {
         console.error(e);
+        setSearchError(true);
+        setSearchResults([]);
       } finally {
         setSearching(false);
       }
@@ -142,12 +147,15 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               className="w-full bg-discord-input text-discord-text-primary text-sm px-3 py-1.5 rounded-lg outline-none placeholder-discord-text-muted"
             />
             {/* Search results dropdown */}
-            {(searchResults.length > 0 || (searching && searchQuery.trim())) && (
+            {(searchResults.length > 0 || searching || searchError || searchQuery.trim()) && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-discord-secondary border border-white/10 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
                 {searching && (
                   <div className="px-3 py-2 text-discord-text-muted text-sm">Поиск...</div>
                 )}
-                {!searching && searchResults.length === 0 && searchQuery.trim() && (
+                {!searching && searchError && (
+                  <div className="px-3 py-2 text-discord-danger text-sm">Ошибка поиска. Попробуйте ещё раз.</div>
+                )}
+                {!searching && !searchError && searchResults.length === 0 && searchQuery.trim() && (
                   <div className="px-3 py-2 text-discord-text-muted text-sm">Ничего не найдено</div>
                 )}
                 {searchResults.map((msg) => (

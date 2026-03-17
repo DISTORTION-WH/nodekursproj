@@ -76,7 +76,16 @@ class ChatController {
         return;
       }
 
-      const newChat = await chatService.createGroupChat(name, creatorId);
+      if (!name || typeof name !== "string" || !name.trim()) {
+        res.status(400).json({ message: "Название комнаты не может быть пустым" });
+        return;
+      }
+      if (name.trim().length > 100) {
+        res.status(400).json({ message: "Название комнаты не может быть длиннее 100 символов" });
+        return;
+      }
+
+      const newChat = await chatService.createGroupChat(name.trim(), creatorId);
       res.status(201).json(newChat);
     } catch (e) {
       next(e);
@@ -282,6 +291,8 @@ class ChatController {
       const msgId = Number(req.params.msgId);
       const { chatId } = req.body;
       if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      if (isNaN(msgId)) { res.status(400).json({ message: "Некорректный ID сообщения" }); return; }
+      if (!chatId) { res.status(400).json({ message: "Не указан chatId" }); return; }
 
       // Check role: global admin/mod, room owner or room moderator
       const roleRes = await client.query(
@@ -313,6 +324,8 @@ class ChatController {
       const msgId = Number(req.params.msgId);
       const { chatId } = req.body;
       if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      if (isNaN(msgId)) { res.status(400).json({ message: "Некорректный ID сообщения" }); return; }
+      if (!chatId) { res.status(400).json({ message: "Не указан chatId" }); return; }
 
       const roleRes = await client.query(
         `SELECT r.value as role FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`, [userId]
@@ -419,7 +432,9 @@ class ChatController {
       const { emoji } = req.body;
 
       if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
-      if (!emoji) { res.status(400).json({ message: "Не указан emoji" }); return; }
+      if (isNaN(msgId)) { res.status(400).json({ message: "Некорректный ID сообщения" }); return; }
+      if (!emoji || typeof emoji !== "string") { res.status(400).json({ message: "Не указан emoji" }); return; }
+      if (emoji.length > 10) { res.status(400).json({ message: "Некорректный emoji" }); return; }
 
       const reactions = await chatService.addReaction(msgId, userId, emoji);
 
@@ -443,7 +458,9 @@ class ChatController {
       const { emoji } = req.body;
 
       if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
-      if (!emoji) { res.status(400).json({ message: "Не указан emoji" }); return; }
+      if (isNaN(msgId)) { res.status(400).json({ message: "Некорректный ID сообщения" }); return; }
+      if (!emoji || typeof emoji !== "string") { res.status(400).json({ message: "Не указан emoji" }); return; }
+      if (emoji.length > 10) { res.status(400).json({ message: "Некорректный emoji" }); return; }
 
       const reactions = await chatService.removeReaction(msgId, userId, emoji);
 

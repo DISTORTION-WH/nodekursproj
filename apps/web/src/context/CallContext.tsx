@@ -104,6 +104,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   // Map: producerId → { userId, stream }
   const remoteStreamsRef = useRef<Map<string, { userId: number; stream: MediaStream }>>(new Map());
   const groupChatIdRef = useRef<number | null>(null);
+  // Guard against concurrent joinGroupCall invocations
+  const isJoiningGroupRef = useRef(false);
 
   const resetGroupCall = useCallback(() => {
     groupLocalStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -112,9 +114,12 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     sendTransportRef.current = null;
     recvTransportRef.current?.close();
     recvTransportRef.current = null;
+    // Stop all remote streams before clearing to prevent media resource leaks
+    remoteStreamsRef.current.forEach(({ stream }) => stream.getTracks().forEach((t) => t.stop()));
     remoteStreamsRef.current.clear();
     mediasoupDeviceRef.current = null;
     groupChatIdRef.current = null;
+    isJoiningGroupRef.current = false;
     setGroupCallState("idle");
     setGroupCallChatId(null);
     setGroupCallParticipants([]);
@@ -223,6 +228,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setGroupCallParticipants((prev) => {
       const existing = prev.find((p) => p.userId === userId);
       if (existing) {
+        // Stop tracks of the old stream before replacing to prevent media resource leak
+        if (existing.stream && existing.stream !== stream) {
+          existing.stream.getTracks().forEach((t) => t.stop());
+        }
         return prev.map((p) => (p.userId === userId ? { ...p, stream } : p));
       }
       return prev;
@@ -276,7 +285,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     async (chatId: number, isVideo: boolean) => {
       if (!socket || !currentUser) return;
       if (groupCallState === "active") return; // already in a call
+      if (isJoiningGroupRef.current) return; // prevent double-join race condition
+      isJoiningGroupRef.current = true;
 
+      try {
       setGroupCallIsVideo(isVideo);
       groupChatIdRef.current = chatId;
 
@@ -444,6 +456,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       setGroupCallState("active");
       setGroupCallChatId(chatId);
       setIncomingGroupCall(null);
+      } finally {
+        isJoiningGroupRef.current = false;
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [socket, currentUser, groupCallState, consumeProducer, resetGroupCall]

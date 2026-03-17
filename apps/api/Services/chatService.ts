@@ -299,7 +299,7 @@ class ChatService {
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
        LEFT JOIN users ru ON ru.id = rm.sender_id
-       WHERE m.chat_id = $1 AND NOT m.deleted_for @> ARRAY[$2]::int[]
+       WHERE m.chat_id = $1 AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
        ORDER BY m.created_at ASC`,
       [chatId, userId]
     );
@@ -416,7 +416,7 @@ class ChatService {
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
        LEFT JOIN users ru ON ru.id = rm.sender_id
-       WHERE m.chat_id = $1 AND NOT m.deleted_for @> ARRAY[$2]::int[]
+       WHERE m.chat_id = $1 AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
        ${beforeClause}
        ORDER BY m.created_at DESC
        LIMIT $${params.length}`,
@@ -440,7 +440,7 @@ class ChatService {
       `SELECT cu.chat_id, COUNT(m.id)::int as unread
        FROM chat_users cu
        LEFT JOIN messages m ON m.chat_id = cu.chat_id
-         AND NOT m.deleted_for @> ARRAY[$1]::int[]
+         AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$1]::int[])
          AND m.id > COALESCE(
            (SELECT last_read_message_id FROM chat_read_status WHERE user_id = $1 AND chat_id = cu.chat_id),
            0
@@ -501,7 +501,7 @@ class ChatService {
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.chat_id = $1
-         AND NOT m.deleted_for @> ARRAY[$2]::int[]
+         AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
          AND m.text ILIKE $3
        ORDER BY m.created_at DESC
        LIMIT 50`,

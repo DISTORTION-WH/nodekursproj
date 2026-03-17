@@ -107,16 +107,13 @@ class ModeratorController {
     }
   }
 
-
-
-
-async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await client.query(`
-        SELECT 
-          r.id, 
-          r.reason, 
-          r.status, 
+        SELECT
+          r.id,
+          r.reason,
+          r.status,
           r.created_at,
           r.message_id,
           m.text as message_text,
@@ -139,6 +136,7 @@ async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<v
   async dismissReport(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { reportId } = req.body;
+      if (!reportId) { res.status(400).json({ message: "Не указан ID жалобы" }); return; }
       await client.query("UPDATE reports SET status = 'dismissed' WHERE id = $1", [reportId]);
       res.json({ message: "Жалоба отклонена" });
     } catch (e: any) {
@@ -149,15 +147,21 @@ async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<v
   async deleteMessage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { messageId, reportId } = req.body;
+      if (!messageId) { res.status(400).json({ message: "Не указан ID сообщения" }); return; }
+
+      const msgRes = await client.query("SELECT chat_id FROM messages WHERE id = $1", [messageId]);
+      if (msgRes.rows.length === 0) { res.status(404).json({ message: "Сообщение не найдено" }); return; }
+      const { chat_id } = msgRes.rows[0];
 
       await client.query("DELETE FROM messages WHERE id = $1", [messageId]);
-      
+
       if (reportId) {
         await client.query("UPDATE reports SET status = 'resolved' WHERE id = $1", [reportId]);
       }
 
       const io = req.app.get("io");
       if (io) {
+        io.to(`chat_${chat_id}`).emit("message_deleted", { messageId, chatId: chat_id });
       }
 
       logger.warn(`Модератор ${req.user?.id} удалил сообщение ${messageId}`);
@@ -166,7 +170,6 @@ async getReports(req: AuthRequest, res: Response, next: NextFunction): Promise<v
       next(e);
     }
   }
-
 
 }
 

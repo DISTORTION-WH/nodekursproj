@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Socket } from "socket.io-client";
 import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
@@ -12,14 +12,16 @@ interface GroupChatListProps {
 export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
   const [groupChats, setGroupChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const { socket } = useSocket() as { socket: Socket | null };
   const { unreadCounts } = useChat();
 
   const fetchGroupChats = () => {
+    setError(false);
     api
       .get<Chat[]>("/chats")
-      .then((res) => setGroupChats(res.data.filter((c) => c.is_group)))
-      .catch(console.error)
+      .then((res) => { setGroupChats(res.data.filter((c) => c.is_group)); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
 
@@ -121,7 +123,12 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
           ))}
         </div>
       )}
-      {!loading && groupChats.length === 0 && (
+      {!loading && error && (
+        <p className="text-discord-danger text-xs px-2 py-1 cursor-pointer hover:underline" onClick={fetchGroupChats}>
+          Ошибка загрузки · Нажмите, чтобы повторить
+        </p>
+      )}
+      {!loading && !error && groupChats.length === 0 && (
         <p className="text-discord-text-muted text-xs px-2 py-1">Нет комнат</p>
       )}
     </div>

@@ -93,7 +93,17 @@ function useReactiveVoiceState(
       voiceActivity.participants.forEach((s, pid) => {
         next.set(pid, { isSpeaking: s.isSpeaking, talkPercent: s.talkPercent });
       });
-      setSnapshot(next);
+      // Only trigger re-render if something actually changed
+      setSnapshot((prev) => {
+        if (prev.size !== next.size) return next;
+        for (const [pid, val] of next) {
+          const old = prev.get(pid);
+          if (!old || old.isSpeaking !== val.isSpeaking || old.talkPercent !== val.talkPercent) {
+            return next;
+          }
+        }
+        return prev; // identical — skip re-render
+      });
     }, 200);
     return () => clearInterval(id);
     // voiceActivity is a stable ref — intentionally not in deps
