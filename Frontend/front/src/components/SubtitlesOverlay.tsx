@@ -29,6 +29,11 @@ export interface SubtitlesOverlayProps {
   lang: string;
   /** px offset from bottom — lets caller push subtitles above the control bar */
   bottomOffset?: number;
+  /**
+   * When true, the network is under bitrate adaptation and audio quality may
+   * be degraded. Shows a ⚠️ warning inside the subtitle overlay.
+   */
+  audioAdapting?: boolean;
 }
 
 // ─── CC toggle button (exported for use in CallOverlay control bar) ───────────
@@ -155,6 +160,7 @@ export default function SubtitlesOverlay({
   enabled,
   lang,
   bottomOffset = 80,
+  audioAdapting = false,
 }: SubtitlesOverlayProps) {
   // Pass streams to hook only when active + enabled
   const activeLocal = callActive && enabled ? localStream : null;
@@ -327,6 +333,24 @@ export default function SubtitlesOverlay({
           speakerName={getDisplayName(entry.speakerId)}
         />
       ))}
+      {audioAdapting && (
+        <div
+          style={{
+            background: "rgba(0,0,0,0.72)",
+            color: "#faa81a",
+            fontSize: "0.7rem",
+            borderRadius: 4,
+            padding: "2px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            animation: "nqi-pulse 1.4s ease-in-out infinite",
+          }}
+        >
+          ⚠️ Качество распознавания может быть снижено
+          <style>{`@keyframes nqi-pulse{0%,100%{opacity:1}50%{opacity:.45}}`}</style>
+        </div>
+      )}
       {error && (
         <div
           style={{

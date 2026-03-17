@@ -523,6 +523,7 @@ export default function CallOverlay() {
             enabled={showSubtitles}
             lang={subtitleLang}
             bottomOffset={88}
+            audioAdapting={networkQuality.isAdapting}
           />
         </div>
       )}
@@ -677,6 +678,7 @@ export default function CallOverlay() {
                 enabled={showSubtitles}
                 lang={subtitleLang}
                 bottomOffset={76}
+                audioAdapting={networkQuality.isAdapting}
               />
             </div>
           )}
