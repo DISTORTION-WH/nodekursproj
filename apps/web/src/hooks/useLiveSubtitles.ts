@@ -127,8 +127,6 @@ export function useLiveSubtitles({
   const groupChatIdRef = useRef(groupChatId);
   const localUsernameRef = useRef(localUsername);
   const localSpeakerIdRef = useRef(localSpeakerId);
-  // Track whether the remote side requested us to broadcast our speech
-  const [remoteRequested, setRemoteRequested] = useState(false);
 
   shouldShowRef.current = shouldShow;
   speechLangRef.current = speechLang;
@@ -172,7 +170,9 @@ export function useLiveSubtitles({
   // ── SpeechRecognition ──────────────────────────────────────────────────────
   // Captures LOCAL speech via microphone.
   // rec.lang = displayLang ("Мой язык") — so recognition matches the user's own language.
-  // Broadcasts recognized text to the remote participant via socket.
+  // ALWAYS broadcasts recognized text to the remote participant via socket,
+  // regardless of whether subtitles are enabled locally — so if only the
+  // remote side has subtitles on, they still see our speech.
   const startRecognition = useCallback(() => {
     const Ctor = getRecognitionCtor();
     if (!Ctor) return;
@@ -243,60 +243,35 @@ export function useLiveSubtitles({
     setIsListening(false);
   }, []);
 
-  // ── Start/stop recognition based on local enable OR remote request ────────
-  const needsBroadcast = shouldShow || remoteRequested;
-
+  // ── ALWAYS start recognition when a call is active ─────────────────────────
+  // Both participants always recognize & broadcast their own speech so that
+  // subtitles work immediately when either side enables them — no signaling
+  // round-trip needed.
   useEffect(() => {
     if (!isSupported) {
       setError("SpeechRecognition не поддерживается. Используйте Chrome или Edge.");
       return;
     }
-    if (callActive && localStream && needsBroadcast) {
+    if (callActive && localStream) {
       setError(null);
       startRecognition();
-    } else if (!callActive || !localStream) {
+    } else {
       stopRecognition();
     }
     return () => { stopRecognition(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callActive, localStream, needsBroadcast]);
+  }, [callActive, localStream]);
 
   // Restart recognition when displayLang changes (user changed "Мой язык")
   // because rec.lang needs to match the user's language for accurate recognition
   useEffect(() => {
-    if (callActive && localStream && isSupported && needsBroadcast) {
+    if (callActive && localStream && isSupported) {
       stopRecognition();
       const t = setTimeout(() => startRecognition(), 150);
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayLang]);
-
-  // ── When user enables subtitles, ask remote to start broadcasting speech ───
-  useEffect(() => {
-    if (!socket) return;
-    if (shouldShow && callActive) {
-      // Tell remote participant(s) to start recognizing & sending their speech
-      if (remoteUserId) {
-        socket.emit("subtitle_request", { to: remoteUserId });
-      } else if (groupChatId) {
-        socket.emit("subtitle_request", { chatId: groupChatId });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldShow, callActive, socket, remoteUserId, groupChatId]);
-
-  // ── Listen for remote requesting us to broadcast ───────────────────────────
-  useEffect(() => {
-    if (!socket) return;
-    const onRequest = () => {
-      // Setting state triggers re-render → needsBroadcast becomes true → useEffect starts recognition
-      setRemoteRequested(true);
-    };
-    socket.on("subtitle_request_received", onRequest);
-    return () => { socket.off("subtitle_request_received", onRequest); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, callActive, localStream]);
 
   // ── Receive remote subtitles → translate to displayLang → show ─────────────
   useEffect(() => {
@@ -334,11 +309,6 @@ export function useLiveSubtitles({
   useEffect(() => {
     if (!shouldShow) setSubtitles([]);
   }, [shouldShow]);
-
-  // Reset remote-requested flag when call ends
-  useEffect(() => {
-    if (!callActive) setRemoteRequested(false);
-  }, [callActive]);
 
   const setLanguage = useCallback((_lang: string) => {}, []);
   const toggleSubtitles = useCallback(() => {}, []);

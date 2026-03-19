@@ -347,17 +347,6 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  // ─── Subtitle request — ask remote to start broadcasting speech ───────────
-  socket.on("subtitle_request", (data: { to?: number; chatId?: number }) => {
-    const userId = (socket as any).userId;
-    if (!userId) return;
-    if (data.to) {
-      io.to(`user_${data.to}`).emit("subtitle_request_received", { from: userId });
-    } else if (data.chatId) {
-      socket.to(`call_${data.chatId}`).emit("subtitle_request_received", { from: userId });
-    }
-  });
-
   // Typing indicators
   socket.on("typing", (data: { chatId: number }) => {
     const userId = (socket as any).userId;
