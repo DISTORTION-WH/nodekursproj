@@ -45,35 +45,43 @@ export const useCall = () => {
   return context;
 };
 
-const ICE_SERVERS = {
-  iceServers: [
+// Build ICE server list — TURN credentials come from env vars (set them in Vercel dashboard)
+const buildIceServers = (): RTCIceServer[] => {
+  const servers: RTCIceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun3.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" },
-    {
-      urls: "turn:a.relay.metered.ca:80",
-      username: "e7b760c8a4f3c5e6d8b0a1c3",
-      credential: "kP9mN2xR5vL8wQ4j",
-    },
-    {
-      urls: "turn:a.relay.metered.ca:80?transport=tcp",
-      username: "e7b760c8a4f3c5e6d8b0a1c3",
-      credential: "kP9mN2xR5vL8wQ4j",
-    },
-    {
-      urls: "turn:a.relay.metered.ca:443",
-      username: "e7b760c8a4f3c5e6d8b0a1c3",
-      credential: "kP9mN2xR5vL8wQ4j",
-    },
-    {
-      urls: "turns:a.relay.metered.ca:443?transport=tcp",
-      username: "e7b760c8a4f3c5e6d8b0a1c3",
-      credential: "kP9mN2xR5vL8wQ4j",
-    },
-  ],
+  ];
+
+  const turnUrl = process.env.REACT_APP_TURN_URL;
+  const turnUser = process.env.REACT_APP_TURN_USERNAME;
+  const turnCred = process.env.REACT_APP_TURN_CREDENTIAL;
+
+  if (turnUrl && turnUser && turnCred) {
+    // User-provided TURN server (recommended: register at https://www.metered.ca/stun-turn)
+    servers.push(
+      { urls: `turn:${turnUrl}:80`, username: turnUser, credential: turnCred },
+      { urls: `turn:${turnUrl}:80?transport=tcp`, username: turnUser, credential: turnCred },
+      { urls: `turn:${turnUrl}:443`, username: turnUser, credential: turnCred },
+      { urls: `turns:${turnUrl}:443?transport=tcp`, username: turnUser, credential: turnCred },
+    );
+  } else {
+    // Fallback: free community TURN servers (may be unreliable)
+    servers.push(
+      { urls: "turn:numb.viagenie.ca", username: "webrtc@live.com", credential: "muazkh" },
+      { urls: "turn:turn.anyfirewall.com:443?transport=tcp", username: "webrtc", credential: "webrtc" },
+    );
+  }
+
+  return servers;
+};
+
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: buildIceServers(),
+  iceCandidatePoolSize: 10,
 };
 
 export const CallProvider = ({ children }: { children: ReactNode }) => {
@@ -183,13 +191,20 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (peerConnection.current) {
       peerConnection.current.close();
     }
+    console.log("[CALL] Creating PeerConnection with config:", JSON.stringify(ICE_SERVERS));
     const pc = new RTCPeerConnection(ICE_SERVERS);
     pc.onicecandidate = (event) => {
-      if (event.candidate && otherUserId.current && socket) {
-        socket.emit("send_ice_candidate", { to: otherUserId.current, candidate: event.candidate });
+      if (event.candidate) {
+        console.log("[CALL] ICE candidate:", event.candidate.type, event.candidate.protocol, event.candidate.address);
+        if (otherUserId.current && socket) {
+          socket.emit("send_ice_candidate", { to: otherUserId.current, candidate: event.candidate });
+        }
+      } else {
+        console.log("[CALL] ICE gathering complete");
       }
     };
     pc.ontrack = (event) => {
+      console.log("[CALL] ontrack received:", event.track.kind, "readyState:", event.track.readyState);
       const incomingTrack = event.track;
       const incomingStream = event.streams[0];
       setRemoteStream((prev) => {
@@ -201,9 +216,22 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       });
     };
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
-        console.warn("ICE connection lost");
+      console.log("[CALL] ICE connection state:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "failed") {
+        console.error("[CALL] ICE connection FAILED — TURN server may be needed. Check REACT_APP_TURN_URL env var.");
       }
+      if (pc.iceConnectionState === "disconnected") {
+        console.warn("[CALL] ICE connection disconnected — may reconnect...");
+      }
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        console.log("[CALL] ICE connection established successfully!");
+      }
+    };
+    pc.onicegatheringstatechange = () => {
+      console.log("[CALL] ICE gathering state:", pc.iceGatheringState);
+    };
+    pc.onsignalingstatechange = () => {
+      console.log("[CALL] Signaling state:", pc.signalingState);
     };
     return pc;
   };

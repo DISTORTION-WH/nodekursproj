@@ -478,17 +478,21 @@ function CallOverlayContent() {
 
   useEffect(() => {
     if (remoteStream) {
+      const tracks = remoteStream.getTracks();
+      console.log("[CALL-UI] Remote stream received:", tracks.length, "tracks:", tracks.map(t => `${t.kind}(${t.readyState})`).join(", "));
+
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play().catch(() => {
-          // Retry after user interaction
+        remoteVideoRef.current.play().catch((err) => {
+          console.warn("[CALL-UI] Video play blocked:", err.message);
           const retry = () => { remoteVideoRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
           document.addEventListener("click", retry);
         });
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
-        remoteAudioRef.current.play().catch(() => {
+        remoteAudioRef.current.play().catch((err) => {
+          console.warn("[CALL-UI] Audio play blocked:", err.message);
           const retry = () => { remoteAudioRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
           document.addEventListener("click", retry);
         });
