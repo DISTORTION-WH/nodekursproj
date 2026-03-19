@@ -408,8 +408,6 @@ function CallOverlayContent() {
     setDisplayLang,
   } = useCallFeatures();
 
-  const participantCount = groupCallState === "active" ? groupCallParticipants.length + 1 : 2;
-
   // ─── Minimize / tray state ────────────────────────────────────────────────
   const [minimized, setMinimized] = useState(false);
   const [subtitlePopupOpen, setSubtitlePopupOpen] = useState(false);
