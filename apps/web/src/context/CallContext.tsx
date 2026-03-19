@@ -45,76 +45,29 @@ export const useCall = () => {
   return context;
 };
 
-// Build ICE server list from env vars
-// Set REACT_APP_TURN_URL, REACT_APP_TURN_USERNAME, REACT_APP_TURN_CREDENTIAL in Vercel env
-const buildIceServers = (): RTCIceServer[] => {
-  const servers: RTCIceServer[] = [
+// Fallback STUN-only config (used if backend is unreachable)
+const FALLBACK_ICE: RTCConfiguration = {
+  iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" },
-  ];
+  ],
+};
 
-  const turnUrl = process.env.REACT_APP_TURN_URL;
-  const turnUser = process.env.REACT_APP_TURN_USERNAME;
-  const turnCred = process.env.REACT_APP_TURN_CREDENTIAL;
-
-  if (turnUrl && turnUser && turnCred) {
-    servers.push(
-      { urls: `stun:${turnUrl}:80` },
-      { urls: `turn:${turnUrl}:80`, username: turnUser, credential: turnCred },
-      { urls: `turn:${turnUrl}:80?transport=tcp`, username: turnUser, credential: turnCred },
-      { urls: `turn:${turnUrl}:443`, username: turnUser, credential: turnCred },
-      { urls: `turn:${turnUrl}:443?transport=tcp`, username: turnUser, credential: turnCred },
-      { urls: `turns:${turnUrl}:443?transport=tcp`, username: turnUser, credential: turnCred },
-    );
+// Fetch fresh TURN credentials from backend (which proxies Metered API)
+const fetchIceServers = async (): Promise<RTCConfiguration> => {
+  try {
+    const base = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
+    const res = await fetch(`${base}/api/turn-credentials`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const servers = await res.json();
+    console.log("[ICE] Got", servers.length, "ICE servers from backend");
+    return { iceServers: servers, iceCandidatePoolSize: 10 };
+  } catch (e) {
+    console.warn("[ICE] Failed to fetch TURN credentials, using STUN only:", e);
+    return FALLBACK_ICE;
   }
-
-  return servers;
 };
-
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: buildIceServers(),
-  iceCandidatePoolSize: 10,
-};
-
-// Test TURN connectivity at startup — log results to console for debugging
-if (typeof window !== "undefined") {
-  const testTurn = async () => {
-    try {
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      const candidates: string[] = [];
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          candidates.push(e.candidate.type || "unknown");
-        } else {
-          const hasRelay = candidates.includes("relay");
-          console.log(`[TURN-TEST] ICE candidates gathered: ${candidates.join(", ")}`);
-          if (!hasRelay) {
-            console.warn("[TURN-TEST] ⚠️ No relay candidates! TURN server may not be working. Calls between different networks will fail.");
-          } else {
-            console.log("[TURN-TEST] ✅ TURN relay candidates available — calls should work across networks.");
-          }
-          pc.close();
-        }
-      };
-      pc.createDataChannel("test");
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      // Timeout after 10s
-      setTimeout(() => {
-        if (pc.signalingState !== "closed") {
-          const hasRelay = candidates.includes("relay");
-          console.log(`[TURN-TEST] Timed out. Candidates so far: ${candidates.join(", ")}`);
-          if (!hasRelay) console.warn("[TURN-TEST] ⚠️ No relay candidates after 10s");
-          pc.close();
-        }
-      }, 10000);
-    } catch (e) {
-      console.error("[TURN-TEST] Error:", e);
-    }
-  };
-  testTurn();
-}
 
 export const CallProvider = ({ children }: { children: ReactNode }) => {
   const { socket } = useSocket() as { socket: Socket | null };
@@ -219,12 +172,12 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setIsVideoMuted(false);
   }, []); // stable — reads refs, no state deps
 
-  const createPeerConnection = () => {
+  const createPeerConnection = (iceConfig: RTCConfiguration) => {
     if (peerConnection.current) {
       peerConnection.current.close();
     }
-    console.log("[CALL] Creating PeerConnection with config:", JSON.stringify(ICE_SERVERS));
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    console.log("[CALL] Creating PeerConnection with config:", JSON.stringify(iceConfig));
+    const pc = new RTCPeerConnection(iceConfig);
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log("[CALL] ICE candidate:", event.candidate.type, event.candidate.protocol, event.candidate.address);
@@ -731,10 +684,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setCallerData({ id: userId, name: "" });
     setCallState("calling");
 
-    const stream = await getMediaStream(video);
+    const [stream, iceConfig] = await Promise.all([getMediaStream(video), fetchIceServers()]);
     if (!stream) return;
 
-    const pc = createPeerConnection();
+    const pc = createPeerConnection(iceConfig);
     peerConnection.current = pc;
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
@@ -754,10 +707,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (!socket || !otherUserId.current) return;
     setCallState("connected");
 
-    const stream = await getMediaStream(isVideoCall);
+    const [stream, iceConfig] = await Promise.all([getMediaStream(isVideoCall), fetchIceServers()]);
     if (!stream) return;
 
-    const pc = createPeerConnection();
+    const pc = createPeerConnection(iceConfig);
     peerConnection.current = pc;
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
