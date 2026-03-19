@@ -28,13 +28,13 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
   };
 
   return (
-    <div className="bg-discord-secondary rounded-xl p-6 flex items-start gap-6 flex-wrap">
+    <div className="bg-discord-secondary rounded-xl p-4 sm:p-6 flex items-start gap-4 sm:gap-6 flex-wrap overflow-hidden">
       <AvatarWithFrame
         src={getImageUrl(currentUser?.avatar_url)}
         frame={currentUser?.avatar_frame}
         size={128}
       />
-      <div className="flex flex-col gap-2 flex-1 min-w-0">
+      <div className="flex flex-col gap-2 flex-1 min-w-0 overflow-hidden">
         <div className="flex flex-col gap-1 text-sm">
           <p className="text-discord-text-secondary">
             <span className="text-discord-text-muted">Имя: </span>
@@ -44,9 +44,9 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
             <span className="text-discord-text-muted">Роль: </span>
             <span className="text-discord-accent font-medium">{currentUser?.role || "USER"}</span>
           </p>
-          <p className="text-discord-text-secondary">
+          <p className="text-discord-text-secondary break-all">
             <span className="text-discord-text-muted">Email: </span>
-            <span className="text-white">{currentUser?.email || "—"}</span>
+            <span className="text-white break-all">{currentUser?.email || "—"}</span>
           </p>
           <p className="text-discord-text-secondary">
             <span className="text-discord-text-muted">Зарегистрирован: </span>
@@ -58,11 +58,11 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap mt-2">
+        <div className="flex items-center gap-2 flex-wrap mt-2 max-w-full overflow-hidden">
           <input
             type="file"
             accept="image/*"
-            className="text-xs text-discord-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-discord-input file:text-white hover:file:bg-discord-input-hover cursor-pointer"
+            className="text-xs text-discord-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-discord-input file:text-white hover:file:bg-discord-input-hover cursor-pointer max-w-full min-w-0"
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) setNewAvatar(e.target.files[0]);
               setUploadMessage("");
@@ -70,7 +70,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
           />
           <button
             onClick={handleUploadClick}
-            className="bg-discord-accent hover:bg-discord-accent-hover text-white text-sm px-3 py-1 rounded transition"
+            className="bg-discord-accent hover:bg-discord-accent-hover text-white text-sm px-3 py-1 rounded transition shrink-0"
           >
             Сменить аватар
           </button>

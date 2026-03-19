@@ -480,16 +480,21 @@ function CallOverlayContent() {
     if (remoteStream) {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.onloadedmetadata = () =>
-          remoteVideoRef.current?.play().catch(console.error);
+        remoteVideoRef.current.play().catch(() => {
+          // Retry after user interaction
+          const retry = () => { remoteVideoRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
+          document.addEventListener("click", retry);
+        });
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
-        remoteAudioRef.current.onloadedmetadata = () =>
-          remoteAudioRef.current?.play().catch(console.error);
+        remoteAudioRef.current.play().catch(() => {
+          const retry = () => { remoteAudioRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
+          document.addEventListener("click", retry);
+        });
       }
     }
-  }, [remoteStream, isVideoCall]);
+  }, [remoteStream, isVideoCall, callState]);
 
   const callerInitial = callerData?.name ? callerData.name[0].toUpperCase() : "?";
   const myInitial = currentUser?.username ? currentUser.username[0].toUpperCase() : "?";
@@ -913,9 +918,8 @@ function CallOverlayContent() {
             overflow: "hidden",
           }}
         >
-          {callState === "connected" && (
-            <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
-          )}
+          {/* Always mount audio element so ref is ready when remote stream arrives */}
+          <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
 
           {/* ── Incoming call ── */}
           {callState === "incoming" && (

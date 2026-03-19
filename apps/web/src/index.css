@@ -78,6 +78,7 @@
     background-color: var(--color-bg);
     color: var(--color-text-primary);
     font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    overflow-x: hidden;
   }
 
   ::-webkit-scrollbar {
