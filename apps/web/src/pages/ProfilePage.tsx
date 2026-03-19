@@ -62,8 +62,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
-      <div className="max-w-2xl mx-auto flex flex-col gap-4">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-discord-bg p-3 sm:p-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-4 w-full min-w-0">
         <h2 className="text-discord-text-primary text-2xl font-bold">Мой профиль</h2>
         <ProfileHeader currentUser={currentUser} handleAvatarChange={handleAvatarChange} />
 
@@ -97,7 +97,7 @@ export default function ProfilePage() {
           <h3 className="text-discord-text-primary font-semibold text-sm">Тема оформления</h3>
           <div className="flex gap-3">
             {THEME_OPTIONS.map((opt) => {
-              const active = (currentUser?.theme || "dark") === opt.value;
+              const active = (currentUser?.theme || localStorage.getItem("app-theme") || "dark") === opt.value;
               return (
                 <button
                   key={opt.value}

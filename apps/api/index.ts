@@ -107,19 +107,28 @@ io.on("connection", async (socket: Socket) => {
     socket.join(`user_${connectedUserId}`);
     console.log(`[SOCKET] User ${connectedUserId} auto-joined room user_${connectedUserId}`);
     try {
-      await client.query("UPDATE users SET status = 'online' WHERE id = $1", [connectedUserId]);
+      // Check if user is in invisible mode
+      const invisibleRes = await client.query("SELECT is_invisible FROM users WHERE id = $1", [connectedUserId]);
+      const isInvisible = invisibleRes.rows[0]?.is_invisible === true;
+
       const userRoomsRes = await client.query("SELECT chat_id FROM chat_users WHERE user_id = $1", [connectedUserId]);
       for (const row of userRoomsRes.rows) {
         socket.join(`chat_${row.chat_id}`);
-        io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
       }
-      // Also notify friends who may not share a chat yet
-      const friendsRes = await client.query(
-        "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
-        [connectedUserId]
-      );
-      for (const row of friendsRes.rows) {
-        io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
+
+      if (!isInvisible) {
+        await client.query("UPDATE users SET status = 'online' WHERE id = $1", [connectedUserId]);
+        for (const row of userRoomsRes.rows) {
+          io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
+        }
+        // Also notify friends who may not share a chat yet
+        const friendsRes = await client.query(
+          "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+          [connectedUserId]
+        );
+        for (const row of friendsRes.rows) {
+          io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
+        }
       }
     } catch (e) {
       console.error("Error updating online status:", e);
@@ -363,21 +372,29 @@ io.on("connection", async (socket: Socket) => {
         }
       }
       try {
-        await client.query("UPDATE users SET status = 'offline' WHERE id = $1", [userId]);
+        // Check if user is in invisible mode — if so, they're already showing as offline
+        const invisRes = await client.query("SELECT is_invisible FROM users WHERE id = $1", [userId]);
+        const isInvisible = invisRes.rows[0]?.is_invisible === true;
+
+        if (!isInvisible) {
+          await client.query("UPDATE users SET status = 'offline' WHERE id = $1", [userId]);
+        }
         const userRooms = await client.query(
           "SELECT chat_id FROM chat_users WHERE user_id = $1",
           [userId]
         );
-        for (const row of userRooms.rows) {
-          io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId, status: "offline" });
-        }
-        // Also notify friends
-        const friendsOffRes = await client.query(
-          "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
-          [userId]
-        );
-        for (const row of friendsOffRes.rows) {
-          io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId, status: "offline" });
+        if (!isInvisible) {
+          for (const row of userRooms.rows) {
+            io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId, status: "offline" });
+          }
+          // Also notify friends
+          const friendsOffRes = await client.query(
+            "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+            [userId]
+          );
+          for (const row of friendsOffRes.rows) {
+            io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId, status: "offline" });
+          }
         }
         for (const row of userRooms.rows) {
 
@@ -559,6 +576,10 @@ async function initializeDatabase() {
 
     try {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'dark';`);
+    } catch (e: any) { if (e.code !== "42701") throw e; }
+
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invisible BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     // ── Call analytics tables ────────────────────────────────────────────────

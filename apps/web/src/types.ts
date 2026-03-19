@@ -22,6 +22,7 @@ export interface User {
   is_banned?: boolean;
   status?: UserStatus;
   theme?: AppTheme;
+  is_invisible?: boolean;
 }
 
 export interface ReactionGroup {

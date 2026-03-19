@@ -68,10 +68,12 @@ router.patch("/me/status", authMiddleware, async (req: AuthRequest, res: Respons
       res.status(400).json({ message: "Недопустимый статус" });
       return;
     }
-    await userService.updateUserStatus(userId, status);
-    // Notify all chats
+    // "offline" from the UI means invisible mode
+    const isInvisible = status === "offline";
+    const client = require("../databasepg").default;
+    await client.query("UPDATE users SET status = $1, is_invisible = $2 WHERE id = $3", [status, isInvisible, userId]);
+    // Notify all chats — broadcast "offline" for invisible users
     const io = req.app.get("io");
-    const userChats = await userService.getUserById(userId);
     io.emit("user_status_changed", { userId, status });
     res.json({ status });
   } catch (e: any) {

@@ -3,6 +3,7 @@ import { useChat } from "../context/ChatContext";
 import { deleteMessage, reportMessage, addReaction, removeReaction } from "../services/api";
 import { Message } from "../types";
 import LinkPreview from "./LinkPreview";
+import { getImageUrl } from "../utils/imageUrl";
 
 // ─── Custom Voice Message Player ─────────────────────────────────────────────
 
@@ -94,17 +95,17 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
       padding: "6px 10px", borderRadius: 16, minWidth: 200, maxWidth: 280,
-      background: isMine ? "rgba(128,128,128,0.15)" : "rgba(128,128,128,0.1)",
+      background: isMine ? "rgba(128,128,128,0.15)" : "var(--color-input)",
     }}>
       <audio ref={audioRef} src={src} preload="auto" />
 
       {/* Play / Pause button */}
       <button onClick={togglePlay} style={{
         width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-        background: "linear-gradient(135deg, #7c5cfc, #5865f2)",
+        background: "var(--color-success)",
         border: "none", cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 2px 8px rgba(124,92,252,0.4)",
+        boxShadow: "0 2px 8px rgba(59,165,93,0.4)",
         transition: "transform 0.12s ease",
       }}
         onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
@@ -136,7 +137,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
           {/* Filled portion */}
           <div style={{
             height: "100%", borderRadius: 3,
-            background: "linear-gradient(90deg, #7c5cfc, #a78bfa)",
+            background: "var(--color-accent)",
             width: `${progress}%`,
             transition: draggingRef.current ? "none" : "width 0.1s linear",
             pointerEvents: "none",
@@ -147,7 +148,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
               position: "absolute", top: "50%", left: `${progress}%`,
               transform: "translate(-50%, -50%)",
               width: 12, height: 12, borderRadius: "50%",
-              background: "#a78bfa", border: "2px solid #fff",
+              background: "var(--color-text-primary)", border: "2px solid var(--color-accent)",
               boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
               pointerEvents: "none",
             }} />
@@ -391,6 +392,9 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
 }
 
 const COMMON_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🎉", "🔥", "💯", "✅", "👎", "🤔", "😎", "💪", "🙏", "⭐", "🤣", "😊", "😍", "🥳"];
+
+const isStickerUrl = (text: string) =>
+  /\/stickers\/\d+\.png(\?.*)?$/i.test(text.trim());
 
 const isImageUrl = (text: string) =>
   /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)(\?.*)?$/i.test(text.trim());
@@ -649,25 +653,51 @@ export default function MessageList() {
         const isPinned = pinnedMessages.some((p) => p.id === msg.id);
         const hasReactions = msg.reactions && msg.reactions.length > 0;
         const isVNote = isVideoNoteUrl(msg.text);
-        const imageUrl = isImageUrl(msg.text) ? msg.text : null;
+        const isSticker = isStickerUrl(msg.text);
+        const imageUrl = !isSticker && isImageUrl(msg.text) ? msg.text : null;
         const audioUrl = isAudioUrl(msg.text) ? msg.text : null;
         const isFileMsg = isFileUrl(msg.text);
         const isVideoMsg = isVideoUrl(msg.text);
-        const isMediaOrFile = !!(imageUrl || audioUrl || isFileMsg || isVideoMsg || isVNote);
+        const isMediaOrFile = !!(imageUrl || audioUrl || isFileMsg || isVideoMsg || isVNote || isSticker);
         const canEdit = isMine && !isMediaOrFile;
         const isEditing = editingId === msg.id;
         const linkUrl = !imageUrl && !audioUrl && !isFileMsg && !isVideoMsg && !isVNote ? extractUrl(msg.text) : null;
 
+        // Grouping: show avatar only for first message in a series from the same sender
+        const isFirstInSeries = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
+        const showGroupAvatar = activeChat.is_group && !isMine && isFirstInSeries;
+
+        // Timestamp
+        const timeStr = msg.created_at
+          ? new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "";
+
         return (
           <div
             key={msg.id}
-            className={`flex flex-col max-w-[75%] group animate-message-pop ${
-              isMine ? "self-end items-end" : "self-start items-start"
+            className={`flex max-w-[75%] group animate-message-pop ${
+              isMine ? "self-end" : "self-start"
             }`}
             style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
-            {/* Sender name in group chats */}
+            {/* Avatar column for group chats (other users' messages) */}
             {activeChat.is_group && !isMine && (
+              <div className="w-8 mr-2 flex-shrink-0 flex flex-col items-center justify-start pt-1">
+                {showGroupAvatar ? (
+                  <img
+                    src={getImageUrl(msg.sender?.avatar_url)}
+                    alt={msg.sender_name || ""}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8" /> /* spacer to keep alignment */
+                )}
+              </div>
+            )}
+
+            <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} min-w-0 flex-1`}>
+            {/* Sender name in group chats */}
+            {activeChat.is_group && !isMine && isFirstInSeries && (
               <span className="text-discord-text-muted text-xs mb-0.5 px-1">
                 {msg.sender_name}
               </span>
@@ -706,7 +736,14 @@ export default function MessageList() {
                 isMine ? "flex-row-reverse" : "flex-row"
               }`}
             >
-              {isVNote ? (
+              {isSticker ? (
+                /* Sticker — no bubble, half size */
+                <img
+                  src={msg.text.trim()}
+                  alt="sticker"
+                  className="w-[130px] h-[130px] object-contain"
+                />
+              ) : isVNote ? (
                 /* Video note — circular, no bubble */
                 <VideoNotePlayer src={msg.text.trim()} />
               ) : isEditing ? (
@@ -901,6 +938,14 @@ export default function MessageList() {
                 })}
               </div>
             )}
+
+            {/* Timestamp */}
+            {timeStr && (
+              <span className={`text-discord-text-muted text-[10px] mt-0.5 px-1 select-none ${isMine ? "self-end" : "self-start"}`}>
+                {timeStr}
+              </span>
+            )}
+            </div>{/* end inner flex-col */}
           </div>
         );
       })}
