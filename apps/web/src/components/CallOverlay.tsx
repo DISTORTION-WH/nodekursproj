@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import api from "../services/api";
+import { getImageUrl } from "../utils/imageUrl";
 import { useCall } from "../context/CallContext";
 import { GroupCallParticipant } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { SpeakingIndicator } from "./TalkTimeFairnessPanel";
 import TalkTimeFairnessPanel from "./TalkTimeFairnessPanel";
-import SubtitlesOverlay, { CCButton, SubtitleLangSelect } from "./SubtitlesOverlay";
+import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
 
@@ -422,15 +424,27 @@ function CallOverlayContent() {
     speakingState,
     participantCount,
     subtitlesEnabled,
-    subtitleLang,
+    speechLang,
+    displayLang,
     toggleSubtitles,
-    setSubtitleLang,
+    setSpeechLang,
+    setDisplayLang,
     fairnessPanelVisible,
     toggleFairnessPanel,
   } = useCallFeatures();
 
   // ─── Minimize / tray state ────────────────────────────────────────────────
   const [minimized, setMinimized] = useState(false);
+  const [subtitlePopupOpen, setSubtitlePopupOpen] = useState(false);
+
+  // Show popup automatically when subtitles are first enabled
+  const prevSubtitlesEnabled = useRef(subtitlesEnabled);
+  useEffect(() => {
+    if (subtitlesEnabled && !prevSubtitlesEnabled.current) {
+      setSubtitlePopupOpen(true);
+    }
+    prevSubtitlesEnabled.current = subtitlesEnabled;
+  }, [subtitlesEnabled]);
 
   // ─── Call duration timer ──────────────────────────────────────────────────
   const [callDuration, setDuration] = useState(0);
@@ -478,26 +492,62 @@ function CallOverlayContent() {
   }, [remoteStream, isVideoCall]);
 
   const callerInitial = callerData?.name ? callerData.name[0].toUpperCase() : "?";
+  const myInitial = currentUser?.username ? currentUser.username[0].toUpperCase() : "?";
+
+  // Load remote avatar from API
+  const [remoteAvatarUrl, setRemoteAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!callerData?.id) { setRemoteAvatarUrl(null); return; }
+    api.get(`/users/${callerData.id}`).then((res) => {
+      setRemoteAvatarUrl(res.data?.avatar_url ?? null);
+    }).catch(() => setRemoteAvatarUrl(null));
+  }, [callerData?.id]);
+
+  // Avatar components
+  const remoteAvatarSrc = getImageUrl(remoteAvatarUrl);
+  const myAvatarSrc = getImageUrl(currentUser?.avatar_url ?? null);
+
+  const CallAvatar = ({ src, initial, size = 80, isSpeaking = false }: { src: string; initial: string; size?: number; isSpeaking?: boolean }) => {
+    const [imgLoaded, setImgLoaded] = useState(false);
+    const [imgError, setImgError] = useState(false);
+    return (
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <div style={{
+          width: size, height: size, borderRadius: "50%",
+          border: isSpeaking ? "3px solid #7c5cfc" : "3px solid rgba(255,255,255,0.08)",
+          boxShadow: isSpeaking ? "0 0 0 3px rgba(124,92,252,0.35), 0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+          transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+          overflow: "hidden",
+          background: "linear-gradient(135deg, #5865f2, #4752c4)",
+          position: "relative",
+        }}>
+          {!imgError && (
+            <img src={src} alt={initial}
+              style={{ width: "100%", height: "100%", objectFit: "cover", position: "relative", zIndex: 2 }}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)} />
+          )}
+          {(!imgLoaded || imgError) && (
+            <div style={{
+              position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: size * 0.38, fontWeight: 700, zIndex: 1,
+            }}>{initial}</div>
+          )}
+        </div>
+        {isSpeaking && (
+          <span style={{
+            position: "absolute", bottom: -2, right: -2, width: 18, height: 18,
+            borderRadius: "50%", background: "#7c5cfc",
+            border: "2px solid rgba(18,19,32,0.98)",
+            boxShadow: "0 0 10px rgba(124,92,252,0.8)",
+          }} className="animate-pulse" />
+        )}
+      </div>
+    );
+  };
 
   const AvatarPlaceholder = ({ size = 80 }: { size?: number }) => (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "linear-gradient(135deg, #5865f2, #4752c4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#fff",
-        fontSize: size * 0.38,
-        fontWeight: 700,
-        boxShadow: "0 8px 32px rgba(88,101,242,0.45)",
-        flexShrink: 0,
-      }}
-    >
-      {callerInitial}
-    </div>
+    <CallAvatar src={remoteAvatarSrc} initial={callerInitial} size={size} />
   );
 
   const showBanner =
@@ -801,10 +851,30 @@ function CallOverlayContent() {
               📊
             </ControlBtn>
             {/* Subtitles */}
-            <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
-            {subtitlesEnabled && (
-              <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
-            )}
+            <div style={{ position: "relative" }}>
+              <CCButton active={subtitlesEnabled} onToggle={() => {
+                if (!subtitlesEnabled) { toggleSubtitles(); }
+                else { setSubtitlePopupOpen((v) => !v); }
+              }} />
+              {subtitlesEnabled && (
+                <button
+                  onClick={() => { toggleSubtitles(); setSubtitlePopupOpen(false); }}
+                  title="Отключить субтитры"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center leading-none hover:bg-red-400"
+                >
+                  x
+                </button>
+              )}
+              {subtitlePopupOpen && subtitlesEnabled && (
+                <SubtitleSettingsPopup
+                  speechLang={speechLang}
+                  displayLang={displayLang}
+                  onSpeechLangChange={setSpeechLang}
+                  onDisplayLangChange={setDisplayLang}
+                  onClose={() => setSubtitlePopupOpen(false)}
+                />
+              )}
+            </div>
             <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
               📞
             </ControlBtn>
@@ -1044,159 +1114,35 @@ function CallOverlayContent() {
           {callState === "connected" && (
             <div
               style={{
-                position: "relative",
-                background: "rgba(18,19,32,0.98)",
-                borderRadius: 20,
-                overflow: "hidden",
-                boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+                position: "absolute",
+                inset: 0,
                 display: "flex",
                 flexDirection: "column",
-                width: isVideoCall ? "min(640px, 90vw)" : undefined,
-                minWidth: isVideoCall ? undefined : 380,
-                maxWidth: "95vw",
-                border: "1px solid rgba(255,255,255,0.07)",
               }}
               className="animate-fade-in-up"
             >
-              {/* Minimize button — top-right corner */}
+              {/* Top bar: network quality + minimize */}
               <div
                 style={{
                   position: "absolute",
-                  top: 10,
-                  right: 10,
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   zIndex: 20,
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%)",
+                  pointerEvents: "none",
                 }}
               >
-                <MinimizeBtn onClick={() => setMinimized(true)} />
-              </div>
-
-              {/* Video / audio area */}
-              <div
-                style={{
-                  position: "relative",
-                  background: "rgba(10,10,20,0.95)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: isVideoCall ? 360 : 220,
-                }}
-              >
-                {/* Network quality indicator — top-left of video area */}
-                <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "auto" }}>
                   <NetworkQualityIndicator />
-                </div>
-
-                {isVideoCall ? (
-                  <>
-                    <video
-                      ref={remoteVideoRef}
-                      autoPlay
-                      playsInline
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        transform: "scaleX(-1)",
-                      }}
-                    />
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      style={{
-                        position: "absolute",
-                        bottom: 12,
-                        right: 12,
-                        width: 128,
-                        height: 80,
-                        borderRadius: 12,
-                        objectFit: "cover",
-                        transform: "scaleX(-1)",
-                        border: "2px solid rgba(88,101,242,0.6)",
-                        boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div
+                  {/* Duration */}
+                  <span
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    {/* Remote speaking indicator for audio-only 1-on-1 */}
-                    <div style={{ position: "relative" }}>
-                      <AvatarPlaceholder size={96} />
-                      {speakingState.get(remoteParticipantId)?.isSpeaking && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            bottom: -2,
-                            right: -2,
-                            width: 18,
-                            height: 18,
-                            borderRadius: "50%",
-                            background: "#3ba55d",
-                            border: "2px solid rgba(18,19,32,0.98)",
-                            boxShadow: "0 0 8px rgba(59,165,93,0.6)",
-                          }}
-                          className="animate-pulse"
-                        />
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: "#fff",
-                      }}
-                    >
-                      {callerData?.name}
-                    </div>
-                    {/* Duration display for audio-only */}
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <div
-                        style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}
-                        className="animate-pulse"
-                      >
-                        Идет разговор...
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: "rgba(168,180,255,0.85)",
-                          fontVariantNumeric: "tabular-nums",
-                          letterSpacing: "0.04em",
-                        }}
-                      >
-                        {fmtDuration(callDuration)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Duration overlay for video call — bottom of video area */}
-                {isVideoCall && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 12,
-                      left: 12,
-                      background: "rgba(0,0,0,0.55)",
+                      background: "rgba(0,0,0,0.45)",
                       backdropFilter: "blur(8px)",
                       borderRadius: 999,
                       padding: "3px 10px",
@@ -1205,16 +1151,168 @@ function CallOverlayContent() {
                       color: "rgba(255,255,255,0.8)",
                       fontVariantNumeric: "tabular-nums",
                       border: "1px solid rgba(255,255,255,0.1)",
-                      zIndex: 10,
                     }}
                   >
                     {fmtDuration(callDuration)}
-                  </div>
-                )}
+                  </span>
+                </div>
+                <div style={{ pointerEvents: "auto" }}>
+                  <MinimizeBtn onClick={() => setMinimized(true)} />
+                </div>
               </div>
 
-              {/* Control bar */}
-              <div style={glassControlBar}>
+              {/* Main video/avatar area */}
+              {isVideoCall ? (
+                /* ─── VIDEO CALL: remote fills screen, local PiP ─── */
+                <div style={{ position: "relative", flex: 1, background: "#0a0a14", minHeight: 0 }}>
+                  {/* Remote video — full area */}
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                  {/* Remote name label */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 80,
+                      left: 16,
+                      background: "rgba(0,0,0,0.55)",
+                      backdropFilter: "blur(8px)",
+                      borderRadius: 999,
+                      padding: "3px 12px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#fff",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    {callerData?.name}
+                  </div>
+                  {/* Local video — PiP bottom-right */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 80,
+                      right: 16,
+                      width: 160,
+                      height: 100,
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      border: "2px solid rgba(88,101,242,0.7)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+                      background: "#111",
+                    }}
+                  >
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: "scaleX(-1)",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 4,
+                        left: 6,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: "rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      Вы
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ─── AUDIO CALL: two equal-size side-by-side blocks ─── */
+                <div style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 24, padding: "80px 40px 100px",
+                }}>
+                  {/* Remote participant block */}
+                  <div style={{
+                    width: 220, height: 220, flexShrink: 0,
+                    background: "rgba(15,16,28,0.85)",
+                    border: speakingState.get(remoteParticipantId)?.isSpeaking
+                      ? "2px solid #7c5cfc" : "2px solid rgba(255,255,255,0.07)",
+                    borderRadius: 24,
+                    boxShadow: speakingState.get(remoteParticipantId)?.isSpeaking
+                      ? "0 0 28px rgba(124,92,252,0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", gap: 14,
+                    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                  }}>
+                    <CallAvatar
+                      src={remoteAvatarSrc} initial={callerInitial} size={96}
+                      isSpeaking={speakingState.get(remoteParticipantId)?.isSpeaking ?? false}
+                    />
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{callerData?.name}</div>
+                    {speakingState.get(remoteParticipantId)?.isSpeaking && (
+                      <div style={{ fontSize: 11, color: "#7c5cfc", fontWeight: 600 }}>Говорит...</div>
+                    )}
+                  </div>
+
+                  {/* Local self block */}
+                  <div style={{
+                    width: 220, height: 220, flexShrink: 0,
+                    background: "rgba(15,16,28,0.85)",
+                    border: speakingState.get("local")?.isSpeaking
+                      ? "2px solid #7c5cfc" : "2px solid rgba(255,255,255,0.07)",
+                    borderRadius: 24,
+                    boxShadow: speakingState.get("local")?.isSpeaking
+                      ? "0 0 28px rgba(124,92,252,0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", gap: 14,
+                    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                  }}>
+                    <div style={{ position: "relative" }}>
+                      <CallAvatar
+                        src={myAvatarSrc} initial={myInitial} size={96}
+                        isSpeaking={speakingState.get("local")?.isSpeaking ?? false}
+                      />
+                      {isAudioMuted && (
+                        <span style={{
+                          position: "absolute", top: -4, right: -4, width: 22, height: 22,
+                          borderRadius: "50%", background: "#ed4245",
+                          border: "2px solid rgba(18,19,32,0.98)",
+                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11,
+                        }}>🔇</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{currentUser?.username ?? "Вы"}</div>
+                    {isAudioMuted
+                      ? <div style={{ fontSize: 11, color: "#ed4245", fontWeight: 600 }}>Заглушён</div>
+                      : speakingState.get("local")?.isSpeaking
+                      ? <div style={{ fontSize: 11, color: "#7c5cfc", fontWeight: 600 }}>Говорит...</div>
+                      : null}
+                  </div>
+                </div>
+              )}
+
+              {/* Control bar — sticky at bottom */}
+              <div
+                style={{
+                  ...glassControlBar,
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 20,
+                  pointerEvents: "auto",
+                }}
+              >
                 <ControlBtn onClick={muteAudio} active={isAudioMuted} title="Микрофон">
                   {isAudioMuted ? "🔇" : "🎤"}
                 </ControlBtn>
@@ -1223,7 +1321,6 @@ function CallOverlayContent() {
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
-                {/* Fairness panel toggle */}
                 <ControlBtn
                   onClick={toggleFairnessPanel}
                   active={fairnessPanelVisible}
@@ -1231,18 +1328,41 @@ function CallOverlayContent() {
                 >
                   📊
                 </ControlBtn>
-                {/* Subtitles */}
-                <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
-                {subtitlesEnabled && (
-                  <SubtitleLangSelect value={subtitleLang} onChange={setSubtitleLang} />
-                )}
+                <div style={{ position: "relative" }}>
+                  <CCButton active={subtitlesEnabled} onToggle={() => {
+                    if (!subtitlesEnabled) { toggleSubtitles(); }
+                    else { setSubtitlePopupOpen((v) => !v); }
+                  }} />
+                  {subtitlesEnabled && (
+                    <button
+                      onClick={() => { toggleSubtitles(); setSubtitlePopupOpen(false); }}
+                      title="Отключить субтитры"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center leading-none hover:bg-red-400"
+                    >
+                      x
+                    </button>
+                  )}
+                  {subtitlePopupOpen && subtitlesEnabled && (
+                    <SubtitleSettingsPopup
+                      speechLang={speechLang}
+                      displayLang={displayLang}
+                      onSpeechLangChange={setSpeechLang}
+                      onDisplayLangChange={setDisplayLang}
+                      onClose={() => setSubtitlePopupOpen(false)}
+                    />
+                  )}
+                </div>
                 <ControlBtn onClick={endCall} danger title="Завершить">
                   📞
                 </ControlBtn>
               </div>
 
               {/* Fairness panel */}
-              {fairnessPanelVisible && <TalkTimeFairnessPanel defaultCollapsed={false} />}
+              {fairnessPanelVisible && (
+                <div style={{ position: "absolute", bottom: 80, left: 0, right: 0, zIndex: 15 }}>
+                  <TalkTimeFairnessPanel defaultCollapsed={false} />
+                </div>
+              )}
 
               {/* Subtitles overlay */}
               <SubtitlesOverlay

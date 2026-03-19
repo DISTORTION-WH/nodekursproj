@@ -63,8 +63,9 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
       const res = await api.post<Chat>("/chats/group", { name });
       setGroupChats((prev) => [...prev, res.data]);
       onOpenGroupChat(res.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.response?.data?.message || "Не удалось создать комнату");
     }
   };
 
@@ -74,18 +75,18 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
           Комнаты
         </span>
-        <div className="flex-1 h-px mx-2" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div className="flex-1 h-px mx-2" style={{ background: "var(--color-tertiary)" }} />
         <div className="flex gap-1">
           <button
             onClick={joinByCode}
-            className="text-discord-text-muted hover:text-white text-xs px-2 py-0.5 rounded hover:bg-discord-input transition"
+            className="text-discord-text-muted hover:text-discord-text-primary text-xs px-2 py-0.5 rounded hover:bg-discord-input transition"
             title="Войти по коду"
           >
             Join
           </button>
           <button
             onClick={createGroupChat}
-            className="text-discord-text-muted hover:text-white text-sm px-2 py-0.5 rounded hover:bg-discord-input transition font-bold"
+            className="text-discord-text-muted hover:text-discord-text-primary text-sm px-2 py-0.5 rounded hover:bg-discord-input transition font-bold"
             title="Создать комнату"
           >
             +
@@ -99,7 +100,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
         return (
           <div
             key={chat.id}
-            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer transition text-discord-text-secondary hover:text-white animate-fade-in-up"
+            className="flex items-center gap-2 px-2 py-2 rounded cursor-pointer transition text-discord-text-secondary hover:text-discord-text-primary animate-fade-in-up"
             style={{
               animationDelay: `${index * 40}ms`,
               ...(isActive
@@ -107,7 +108,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
                 : {}),
             }}
             onMouseEnter={(e) => {
-              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--color-input)";
             }}
             onMouseLeave={(e) => {
               if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "";

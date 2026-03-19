@@ -25,9 +25,9 @@ export default function Navbar() {
     <nav
       className="fixed top-0 left-0 right-0 h-[50px] flex items-center justify-between px-4 z-50"
       style={{
-        background: "linear-gradient(90deg, rgba(32,34,52,0.98), rgba(30,31,48,0.98))",
+        background: "var(--color-secondary)",
         backdropFilter: "blur(10px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid var(--color-tertiary)",
       }}
     >
       <Link
@@ -78,16 +78,6 @@ export default function Navbar() {
                 Модерация
               </Link>
             )}
-            <Link
-              to="/calls"
-              className="px-3 py-1 rounded text-discord-text-secondary text-sm no-underline"
-              style={navLinkStyle("calls")}
-              onMouseEnter={() => setHoveredLink("calls")}
-              onMouseLeave={() => setHoveredLink(null)}
-              title="История звонков"
-            >
-              📞 Звонки
-            </Link>
             {currentUser && (
               <img
                 src={getImageUrl(currentUser.avatar_url)}

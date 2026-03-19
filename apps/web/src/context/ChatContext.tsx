@@ -100,6 +100,12 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
 
   const typingTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const typingDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Load unread counts on mount
   useEffect(() => {
@@ -120,6 +126,21 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       .then((res) => setAllChats(res.data))
       .catch(console.error);
   }, [currentUser]);
+
+  // ── Global socket events (independent of activeChat) ─────────────────────
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+
+    // Added to a new group chat — refresh chat list
+    const handleAddedToChat = () => {
+      api.get<Chat[]>("/chats")
+        .then((res) => setAllChats(res.data))
+        .catch(console.error);
+    };
+
+    socket.on("added_to_chat", handleAddedToChat);
+    return () => { socket.off("added_to_chat", handleAddedToChat); };
+  }, [socket, currentUser]);
 
   const fetchChatMembers = useCallback((chatId: number) => {
     api
@@ -172,17 +193,20 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleMessagesCleared = (data: { chatId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) setMessages([]);
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) setMessages([]);
     };
 
     const handleChatMemberUpdated = (data: { chatId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id) && activeChat.is_group) {
-        fetchChatMembers(activeChat.id);
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id) && current.is_group) {
+        fetchChatMembers(current.id);
       }
     };
 
     const handleRemovedFromChat = (data: { chatId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         alert("Вас исключили из этого чата");
         setActiveChat(null);
       }
@@ -195,13 +219,15 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleMessageDeleted = (data: { messageId: string | number; chatId: string | number }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         setMessages((prev) => prev.filter((m) => String(m.id) !== String(data.messageId)));
       }
     };
 
     const handleMessageEdited = (data: { messageId: number; chatId: number; text: string; edited_at: string }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         setMessages((prev) =>
           prev.map((m) => m.id === data.messageId ? { ...m, text: data.text, edited_at: data.edited_at } : m)
         );
@@ -209,7 +235,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleUserTyping = (data: { chatId: number; userId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id) && data.userId !== currentUser?.id) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id) && data.userId !== currentUser?.id) {
         setTypingUsers((prev) => ({
           ...prev,
           [data.chatId]: Array.from(new Set([...(prev[data.chatId] || []), data.userId])),
@@ -218,6 +245,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         const key = `${data.chatId}_${data.userId}`;
         if (typingTimeouts.current[key]) clearTimeout(typingTimeouts.current[key]);
         typingTimeouts.current[key] = setTimeout(() => {
+          if (!mountedRef.current) return;
           setTypingUsers((prev) => ({
             ...prev,
             [data.chatId]: (prev[data.chatId] || []).filter((id) => id !== data.userId),
@@ -227,7 +255,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleUserStopTyping = (data: { chatId: number; userId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         setTypingUsers((prev) => ({
           ...prev,
           [data.chatId]: (prev[data.chatId] || []).filter((id) => id !== data.userId),
@@ -238,13 +267,15 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     };
 
     const handleMessagePinned = (data: { chatId: number; message: Message }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         setPinnedMessages((prev) => [data.message, ...prev.filter((m) => m.id !== data.message.id)]);
       }
     };
 
     const handleMessageUnpinned = (data: { chatId: number; messageId: number }) => {
-      if (Number(data.chatId) === Number(activeChat.id)) {
+      const current = activeChatRef.current;
+      if (current && Number(data.chatId) === Number(current.id)) {
         setPinnedMessages((prev) => prev.filter((m) => m.id !== data.messageId));
       }
     };
@@ -315,7 +346,9 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?")) return;
     try {
       await api.post(`/chats/${activeChat.id}/messages/delete`, { allForEveryone });
-      if (!allForEveryone) setMessages([]);
+      // Clear locally in both cases — for "all" the server broadcasts messages_cleared
+      // but we optimistically clear now for immediate UI feedback
+      setMessages([]);
     } catch (err) {
       console.error(err);
     }

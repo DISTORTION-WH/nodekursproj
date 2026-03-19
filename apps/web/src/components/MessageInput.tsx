@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from "
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import VoiceRecorder from "./VoiceRecorder";
+import VideoNoteRecorder from "./VideoNoteRecorder";
 import { uploadFile } from "../services/api";
 
 export default function MessageInput() {
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showVideoNote, setShowVideoNote] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,12 +57,14 @@ export default function MessageInput() {
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeChat?.id) return;
+    setUploading(true);
     try {
       await uploadFile(activeChat.id, file);
     } catch (err) {
       console.error("Ошибка загрузки файла:", err);
       alert("Ошибка загрузки файла");
     } finally {
+      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -75,9 +80,9 @@ export default function MessageInput() {
               {replyingTo.sender_name}
             </span>
             <span className="text-discord-text-muted text-xs truncate">
-              {replyingTo.text.length > 80
-                ? replyingTo.text.slice(0, 80) + "..."
-                : replyingTo.text}
+              {(replyingTo.text ?? "").length > 80
+                ? (replyingTo.text ?? "").slice(0, 80) + "..."
+                : replyingTo.text ?? ""}
             </span>
           </div>
           <button
@@ -98,6 +103,14 @@ export default function MessageInput() {
         />
       )}
 
+      {/* Video note recorder panel */}
+      {showVideoNote && activeChat && (
+        <VideoNoteRecorder
+          chatId={activeChat.id}
+          onClose={() => setShowVideoNote(false)}
+        />
+      )}
+
       {showEmojiPicker && (
         <div className="absolute bottom-full left-4 mb-2 w-[350px] z-20">
           <EmojiPicker
@@ -114,7 +127,6 @@ export default function MessageInput() {
         ref={fileInputRef}
         type="file"
         className="hidden"
-        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
         onChange={handleFileChange}
       />
 
@@ -123,7 +135,7 @@ export default function MessageInput() {
         className={`flex items-center gap-2 px-3 py-2 ${
           replyingTo ? "rounded-b-lg" : "rounded-lg"
         }`}
-        style={{ background: "rgba(40,42,65,0.9)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(10px)" }}
+        style={{ background: "var(--color-input)", border: "1px solid var(--color-tertiary)" }}
       >
         {/* Emoji button */}
         <button
@@ -144,12 +156,15 @@ export default function MessageInput() {
         <button
           type="button"
           className="text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0 text-base leading-none"
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseEnter={(e) => { if (!uploading) e.currentTarget.style.transform = "scale(1.1)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !uploading && fileInputRef.current?.click()}
           title="Прикрепить файл"
+          disabled={uploading}
         >
-          📎
+          {uploading ? (
+            <span className="inline-block w-4 h-4 border-2 border-discord-text-muted border-t-transparent rounded-full animate-spin" />
+          ) : "📎"}
         </button>
 
         {/* Voice recorder toggle */}
@@ -160,11 +175,28 @@ export default function MessageInput() {
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={() => {
             setShowVoiceRecorder(!showVoiceRecorder);
+            setShowVideoNote(false);
             setShowEmojiPicker(false);
           }}
           title="Голосовое сообщение"
         >
           🎤
+        </button>
+
+        {/* Video note toggle */}
+        <button
+          type="button"
+          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVideoNote ? "text-discord-accent" : "hover:text-discord-text-primary"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          onClick={() => {
+            setShowVideoNote(!showVideoNote);
+            setShowVoiceRecorder(false);
+            setShowEmojiPicker(false);
+          }}
+          title="Видеосообщение"
+        >
+          🎥
         </button>
 
         <input

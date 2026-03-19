@@ -226,8 +226,10 @@ export function usePredictiveQuality({
 
   useEffect(() => {
     if (!pc) return;
+    let cancelled = false;
 
     const tick = async () => {
+      if (cancelled) return;
       const raw = await pollStats(pcRef.current!);
       if (!raw) return;
 
@@ -271,8 +273,9 @@ export function usePredictiveQuality({
           bitrateRef.current = currentBitrate;
           isAdapting = true;
           isAdaptingRef.current = true;
-          if (senderRef.current) {
-            applyBitrate(senderRef.current, BITRATE_LOW);
+          const sender = senderRef.current;
+          if (sender && !cancelled) {
+            applyBitrate(sender, BITRATE_LOW);
           }
         }
       } else if (isAdapting) {
@@ -282,8 +285,9 @@ export function usePredictiveQuality({
           const next = Math.min(BITRATE_HIGH, (currentBitrate ?? BITRATE_LOW) + BITRATE_STEP);
           currentBitrate = next;
           bitrateRef.current = next;
-          if (senderRef.current) {
-            applyBitrate(senderRef.current, next);
+          const sender = senderRef.current;
+          if (sender && !cancelled) {
+            applyBitrate(sender, next);
           }
           if (next >= BITRATE_HIGH) {
             isAdapting = false;
@@ -299,6 +303,7 @@ export function usePredictiveQuality({
 
     const id = setInterval(tick, intervalMs);
     return () => {
+      cancelled = true;
       clearInterval(id);
       historyRef.current = [];
       prevPacketsRef.current = null;

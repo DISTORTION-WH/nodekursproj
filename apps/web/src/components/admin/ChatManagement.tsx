@@ -38,7 +38,7 @@ export default function ChatManagement() {
             className={`p-3 rounded-xl cursor-pointer transition border ${
               selectedChat?.id === chat.id
                 ? "border-discord-accent bg-discord-accent/10"
-                : "border-white/10 bg-discord-tertiary hover:border-white/20"
+                : "border-discord-tertiary bg-discord-tertiary hover:border-discord-text-muted"
             }`}
           >
             <div className="flex items-start justify-between gap-2">

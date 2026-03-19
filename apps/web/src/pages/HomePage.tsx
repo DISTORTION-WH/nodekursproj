@@ -40,7 +40,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
         className={`${
           isMobile && activeChat ? "hidden" : "flex"
         } w-[280px] min-w-[250px] flex-col overflow-y-auto shrink-0`}
-        style={{ background: "rgba(28,29,45,0.98)", transition: "all 0.3s ease" }}
+        style={{ background: "var(--color-secondary)", transition: "all 0.3s ease" }}
       >
         <FriendsList currentUser={currentUser} />
       </div>
@@ -65,7 +65,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
             <p
               className="text-base font-semibold"
               style={{
-                background: "linear-gradient(135deg, #ffffff, #a8b4ff)",
+                background: "linear-gradient(135deg, var(--color-text-primary), var(--color-accent))",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",

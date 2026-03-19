@@ -21,7 +21,7 @@ export default function AuthForm({ type }: Props) {
     try {
       await login(username, password);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Ошибка входа");
+      setError(err instanceof Error ? err.message : (err.response?.data?.message || "Ошибка входа"));
     } finally {
       setLoading(false);
     }

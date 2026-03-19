@@ -1,72 +1,88 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Socket } from "socket.io-client";
+import { translateText } from "./useTranslate";
 
-// ─── Ambient type declarations for Web Speech API ────────────────────────────
-// TypeScript 4.9.5 / lib.dom doesn't ship full SpeechRecognition types.
+// ─── Web Speech API ambient types ────────────────────────────────────────────
 
 interface SpeechRecognitionEvent extends Event {
   readonly resultIndex: number;
   readonly results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionResultList {
   readonly length: number;
-  item(index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechRecognitionResult {
   readonly isFinal: boolean;
   readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
   [index: number]: SpeechRecognitionAlternative;
 }
-
 interface SpeechRecognitionAlternative {
   readonly transcript: string;
   readonly confidence: number;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
   readonly error: string;
-  readonly message: string;
 }
-
 interface ISpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
   maxAlternatives: number;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
 }
+type SpeechRecognitionCtor = new () => ISpeechRecognition;
 
-type SpeechRecognitionConstructor = new () => ISpeechRecognition;
+function getRecognitionCtor(): SpeechRecognitionCtor | null {
+  const w = window as any;
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
 
-// ─── Public interfaces ────────────────────────────────────────────────────────
+// ─── Public types ─────────────────────────────────────────────────────────────
 
 export interface Subtitle {
+  id: number;
+  speakerId: string;
+  speakerName: string;
   text: string;
   isFinal: boolean;
   timestamp: number;
-  /** "local" for own voice, participantId string for remotes */
-  speakerId: string;
 }
 
 export interface StreamDescriptor {
   participantId: string;
-  stream: MediaStream;
+  stream: MediaStream | null;
 }
 
 export interface UseLiveSubtitlesOptions {
   localStream: MediaStream | null;
-  remoteStreams?: StreamDescriptor[];
-  /** BCP-47 language tag, e.g. "ru-RU", "en-US". Default: "ru-RU" */
+  /**
+   * "Язык собеседника" — source language when translating incoming text.
+   * The remote person speaks this language.
+   */
+  speechLang?: string;
+  /**
+   * "Мой язык" — used for rec.lang (recognize own speech)
+   * AND as the target language when translating incoming text.
+   */
+  displayLang?: string;
+  showSubtitles?: boolean;
+  callActive?: boolean;
+  socket?: Socket | null;
+  remoteUserId?: number | null;
+  groupChatId?: number | null;
+  localUsername?: string;
+  localSpeakerId?: string;
+  // legacy compat
+  enabled?: boolean;
   lang?: string;
+  remoteStreams?: StreamDescriptor[];
 }
 
 export interface UseLiveSubtitlesResult {
@@ -77,302 +93,220 @@ export interface UseLiveSubtitlesResult {
   toggleSubtitles: () => void;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SUBTITLE_BUFFER_SIZE = 50;
-const AUTO_RESTART_ERRORS = new Set(["network", "no-speech", "audio-capture"]);
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
-  const w = window as Window &
-    typeof globalThis & {
-      SpeechRecognition?: SpeechRecognitionConstructor;
-      webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-function addSubtitle(
-  prev: Subtitle[],
-  next: Subtitle,
-  speakerId: string
-): Subtitle[] {
-  // Replace the last interim entry for the same speaker; append finals.
-  let updated: Subtitle[];
-
-  if (!next.isFinal) {
-    let lastIdx = -1;
-    for (let i = prev.length - 1; i >= 0; i--) {
-      if (prev[i].speakerId === speakerId && !prev[i].isFinal) {
-        lastIdx = i;
-        break;
-      }
-    }
-    if (lastIdx !== -1) {
-      updated = [
-        ...prev.slice(0, lastIdx),
-        next,
-        ...prev.slice(lastIdx + 1),
-      ];
-    } else {
-      updated = [...prev, next];
-    }
-  } else {
-    // Drop any interim for this speaker and append final
-    updated = [
-      ...prev.filter((s) => !(s.speakerId === speakerId && !s.isFinal)),
-      next,
-    ];
-  }
-
-  // Cap to SUBTITLE_BUFFER_SIZE (drop oldest)
-  if (updated.length > SUBTITLE_BUFFER_SIZE) {
-    updated = updated.slice(updated.length - SUBTITLE_BUFFER_SIZE);
-  }
-  return updated;
-}
-
-// ─── Recognition instance manager ────────────────────────────────────────────
-
-interface RecognitionEntry {
-  recognition: ISpeechRecognition;
-  speakerId: string;
-  active: boolean;
-}
+let _idSeq = 0;
+const uid = () => ++_idSeq;
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-/**
- * useLiveSubtitles
- *
- * Uses the Web Speech API (SpeechRecognition / webkitSpeechRecognition) to
- * produce live subtitle entries for call participants.
- *
- * IMPORTANT BROWSER LIMITATION:
- *   The Web Speech API always captures from the device microphone — it cannot
- *   directly consume an arbitrary MediaStream. Therefore:
- *   - Local voice is transcribed from the actual microphone input (one instance).
- *   - Remote streams are accepted in the API surface for future compatibility
- *     (e.g., when browser vendors add MediaStream source support), but currently
- *     each remote StreamDescriptor spawns its own SpeechRecognition instance
- *     that will also transcribe from the microphone. Label it clearly in UI.
- *   - If you need true remote transcription, route it through a server-side STT
- *     service instead.
- */
-export function useLiveSubtitles(
-  options: UseLiveSubtitlesOptions
-): UseLiveSubtitlesResult {
-  const { localStream, remoteStreams = [], lang: initialLang = "ru-RU" } = options;
+export function useLiveSubtitles({
+  localStream,
+  speechLang = "en-US",
+  displayLang = "ru-RU",
+  showSubtitles,
+  callActive = false,
+  enabled,
+  socket = null,
+  remoteUserId = null,
+  groupChatId = null,
+  localUsername = "Вы",
+  localSpeakerId = "local",
+}: UseLiveSubtitlesOptions): UseLiveSubtitlesResult {
+  const shouldShow = showSubtitles ?? enabled ?? false;
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lang, setLangState] = useState(initialLang);
-  const [enabled, setEnabled] = useState(false);
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
-  /** All active recognition entries, keyed by speakerId */
-  const entriesRef = useRef<Map<string, RecognitionEntry>>(new Map());
-  const enabledRef = useRef(false);
-  const langRef = useRef(lang);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const activeRef = useRef(false);
+  const shouldShowRef = useRef(shouldShow);
+  const speechLangRef = useRef(speechLang);
+  const displayLangRef = useRef(displayLang);
+  const socketRef = useRef(socket);
+  const remoteUserIdRef = useRef(remoteUserId);
+  const groupChatIdRef = useRef(groupChatId);
+  const localUsernameRef = useRef(localUsername);
+  const localSpeakerIdRef = useRef(localSpeakerId);
 
-  // Keep refs in sync with state
-  enabledRef.current = enabled;
-  langRef.current = lang;
+  shouldShowRef.current = shouldShow;
+  speechLangRef.current = speechLang;
+  displayLangRef.current = displayLang;
+  socketRef.current = socket;
+  remoteUserIdRef.current = remoteUserId;
+  groupChatIdRef.current = groupChatId;
+  localUsernameRef.current = localUsername;
+  localSpeakerIdRef.current = localSpeakerId;
 
-  // ── Check browser support ──────────────────────────────────────────────────
-  const Ctor = getSpeechRecognitionCtor();
-  const isSupported = Ctor !== null;
+  const isSupported = !!getRecognitionCtor();
 
-  // ── Build / start a single recognition instance ───────────────────────────
-  const createEntry = useCallback(
-    (speakerId: string): RecognitionEntry | null => {
-      const Ctor = getSpeechRecognitionCtor();
-      if (!Ctor) return null;
+  // ── Upsert subtitle entry ──────────────────────────────────────────────────
+  const upsertSubtitle = useCallback((speakerId: string, speakerName: string, text: string, isFinal: boolean) => {
+    setSubtitles((prev) => {
+      const lastInterimIdx = !isFinal
+        ? (() => {
+            for (let i = prev.length - 1; i >= 0; i--) {
+              if (prev[i].speakerId === speakerId && !prev[i].isFinal) return i;
+            }
+            return -1;
+          })()
+        : -1;
 
-      const recognition = new Ctor();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = langRef.current;
-      recognition.maxAlternatives = 1;
+      if (!isFinal && lastInterimIdx !== -1) {
+        const updated = [...prev];
+        updated[lastInterimIdx] = { ...updated[lastInterimIdx], text, timestamp: Date.now() };
+        return updated;
+      }
 
-      const entry: RecognitionEntry = { recognition, speakerId, active: false };
+      const base = isFinal
+        ? prev.filter((s) => !(s.speakerId === speakerId && !s.isFinal))
+        : prev;
 
-      recognition.onstart = () => {
-        entry.active = true;
-        setIsListening(true);
-      };
+      const entry: Subtitle = { id: uid(), speakerId, speakerName, text, isFinal, timestamp: Date.now() };
+      const next = [...base, entry];
+      return next.length > 30 ? next.slice(next.length - 30) : next;
+    });
+  }, []);
 
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          const transcript = result[0]?.transcript ?? "";
-          if (!transcript.trim()) continue;
+  // ── SpeechRecognition ──────────────────────────────────────────────────────
+  // Captures LOCAL speech via microphone.
+  // rec.lang = displayLang ("Мой язык") — so recognition matches the user's own language.
+  // Broadcasts recognized text to the remote participant via socket.
+  const startRecognition = useCallback(() => {
+    const Ctor = getRecognitionCtor();
+    if (!Ctor) return;
 
-          const subtitle: Subtitle = {
-            text: transcript.trim(),
-            isFinal: result.isFinal,
-            timestamp: Date.now(),
-            speakerId,
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch { /* */ }
+    }
+
+    const rec = new Ctor();
+    rec.continuous = true;
+    rec.interimResults = true;
+    // "Мой язык" — распознаём собственную речь на этом языке
+    rec.lang = displayLangRef.current;
+    rec.maxAlternatives = 1;
+    recognitionRef.current = rec;
+
+    rec.onstart = () => { activeRef.current = true; setIsListening(true); };
+
+    rec.onresult = (event: SpeechRecognitionEvent) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const text = result[0]?.transcript?.trim() ?? "";
+        if (!text) continue;
+
+        const isFinal = result.isFinal;
+
+        // Send our recognized text to the remote participant
+        if (socketRef.current) {
+          const payload = {
+            text,
+            speakerId: localSpeakerIdRef.current,
+            username: localUsernameRef.current,
+            isFinal,
+            lang: displayLangRef.current, // tell remote: "this text is in MY language"
           };
-          setSubtitles((prev) => addSubtitle(prev, subtitle, speakerId));
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        const errCode = event.error;
-
-        if (errCode === "not-allowed" || errCode === "service-not-allowed") {
-          setError("Доступ к микрофону запрещён для распознавания речи.");
-          setEnabled(false);
-          enabledRef.current = false;
-          return;
-        }
-
-        if (AUTO_RESTART_ERRORS.has(errCode)) {
-          // Will be restarted by onend
-          return;
-        }
-
-        setError(`Ошибка распознавания речи: ${errCode}`);
-      };
-
-      recognition.onend = () => {
-        entry.active = false;
-        // Auto-restart if still enabled
-        if (enabledRef.current) {
-          try {
-            recognition.lang = langRef.current;
-            recognition.start();
-          } catch {
-            // Already started or destroyed — ignore
+          if (remoteUserIdRef.current) {
+            socketRef.current.emit("subtitle_broadcast", { ...payload, to: remoteUserIdRef.current });
+          } else if (groupChatIdRef.current) {
+            socketRef.current.emit("subtitle_broadcast", { ...payload, chatId: groupChatIdRef.current });
           }
-        } else {
-          // Check if any entry is still active
-          let anyActive = false;
-          entriesRef.current.forEach((e) => {
-            if (e.active) anyActive = true;
-          });
-          if (!anyActive) setIsListening(false);
-        }
-      };
-
-      return entry;
-    },
-    [] // stable — reads only refs
-  );
-
-  // ── Start all recognitions ─────────────────────────────────────────────────
-  const startAll = useCallback(() => {
-    const entries = entriesRef.current;
-
-    // Build desired speaker set: always "local" + one per remote stream
-    const desiredIds = new Set<string>(["local"]);
-    remoteStreams.forEach((sd) => desiredIds.add(sd.participantId));
-
-    // Remove stale entries
-    entries.forEach((entry, id) => {
-      if (!desiredIds.has(id)) {
-        try { entry.recognition.abort(); } catch { /* ignore */ }
-        entries.delete(id);
-      }
-    });
-
-    // Add missing entries and start them
-    desiredIds.forEach((speakerId) => {
-      if (!entries.has(speakerId)) {
-        const entry = createEntry(speakerId);
-        if (entry) entries.set(speakerId, entry);
-      }
-      const entry = entries.get(speakerId);
-      if (entry && !entry.active) {
-        try {
-          entry.recognition.lang = langRef.current;
-          entry.recognition.start();
-        } catch {
-          // May already be running
         }
       }
-    });
-  }, [remoteStreams, createEntry]);
+    };
 
-  // ── Stop all recognitions ──────────────────────────────────────────────────
-  const stopAll = useCallback(() => {
-    entriesRef.current.forEach((entry) => {
-      try { entry.recognition.abort(); } catch { /* ignore */ }
-      entry.active = false;
-    });
-    entriesRef.current.clear();
+    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setError("Нет доступа к микрофону. Разрешите доступ в настройках браузера.");
+      }
+    };
+
+    rec.onend = () => {
+      activeRef.current = false;
+      if (recognitionRef.current === rec) {
+        try { rec.start(); } catch { /* */ }
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    try { rec.start(); } catch { /* */ }
+  }, []);
+
+  const stopRecognition = useCallback(() => {
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    if (rec) { try { rec.abort(); } catch { /* */ } }
+    activeRef.current = false;
     setIsListening(false);
   }, []);
 
-  // ── Effect: start/stop based on enabled + localStream ─────────────────────
+  // Start/stop with call lifecycle
   useEffect(() => {
     if (!isSupported) {
-      setError(
-        "Web Speech API не поддерживается в этом браузере. " +
-        "Попробуйте Google Chrome или Microsoft Edge."
-      );
+      setError("SpeechRecognition не поддерживается. Используйте Chrome или Edge.");
       return;
     }
-
-    if (enabled && localStream) {
+    if (callActive && localStream) {
       setError(null);
-      startAll();
+      startRecognition();
     } else {
-      stopAll();
+      stopRecognition();
     }
-
-    return () => {
-      // Cleanup when dependencies change — full stop; startAll re-runs if still enabled
-      stopAll();
-    };
+    return () => { stopRecognition(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, localStream, isSupported]);
+  }, [callActive, localStream]);
 
-  // ── Effect: sync language to running recognitions ─────────────────────────
+  // Restart recognition when displayLang changes (user changed "Мой язык")
+  // because rec.lang needs to match the user's language for accurate recognition
   useEffect(() => {
-    langRef.current = lang;
-    if (enabled) {
-      // Restart to apply new language
-      stopAll();
-      if (localStream) startAll();
+    if (callActive && localStream && isSupported) {
+      stopRecognition();
+      const t = setTimeout(() => startRecognition(), 150);
+      return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, [displayLang]);
 
-  // ── Effect: update remote stream set when it changes ──────────────────────
+  // ── Receive remote subtitles → translate to displayLang → show ─────────────
   useEffect(() => {
-    if (enabled && localStream) {
-      startAll();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteStreams]);
+    if (!socket) return;
 
-  // ── Public API ─────────────────────────────────────────────────────────────
-  const setLanguage = useCallback((newLang: string) => {
-    setLangState(newLang);
-  }, []);
+    const onReceived = (data: { text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
+      if (!shouldShowRef.current) return;
 
-  const toggleSubtitles = useCallback(() => {
-    setEnabled((prev) => {
-      const next = !prev;
-      enabledRef.current = next;
-      if (!next) {
-        // Clear interim entries on disable
-        setSubtitles((subs) => subs.filter((s) => s.isFinal));
+      // "Мой язык" = target language for translation
+      const targetLang = displayLangRef.current;
+      // "Язык собеседника" = source language for translation
+      // Prefer our setting; fall back to what the remote told us; then auto-detect
+      const sourceLang = speechLangRef.current || data.lang || "auto";
+      const speakerId = data.speakerId;
+      const speakerName = data.username;
+
+      if (!data.isFinal) {
+        upsertSubtitle(speakerId, speakerName, data.text, false);
+        return;
       }
-      return next;
-    });
-  }, []);
 
-  return {
-    subtitles,
-    isListening,
-    error: isSupported ? error : "Web Speech API не поддерживается в этом браузере.",
-    setLanguage,
-    toggleSubtitles,
-  };
+      // Translate: sourceLang → targetLang
+      translateText(data.text, sourceLang, targetLang).then((translated) => {
+        upsertSubtitle(speakerId, speakerName, translated, true);
+      }).catch(() => {
+        upsertSubtitle(speakerId, speakerName, data.text, true);
+      });
+    };
+
+    socket.on("subtitle_received", onReceived);
+    return () => { socket.off("subtitle_received", onReceived); };
+  }, [socket, upsertSubtitle]);
+
+  // Clear on disable
+  useEffect(() => {
+    if (!shouldShow) setSubtitles([]);
+  }, [shouldShow]);
+
+  const setLanguage = useCallback((_lang: string) => {}, []);
+  const toggleSubtitles = useCallback(() => {}, []);
+
+  return { subtitles, isListening, error, setLanguage, toggleSubtitles };
 }

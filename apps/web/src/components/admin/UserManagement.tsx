@@ -64,7 +64,7 @@ export default function UserManagement() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-discord-text-secondary">
           <thead>
-            <tr className="text-discord-text-muted text-xs uppercase border-b border-white/10">
+            <tr className="text-discord-text-muted text-xs uppercase border-b border-discord-tertiary">
               <th className="text-left py-2 px-2">ID</th>
               <th className="text-left py-2 px-2">Имя</th>
               <th className="text-left py-2 px-2">Email</th>
@@ -74,7 +74,7 @@ export default function UserManagement() {
           </thead>
           <tbody>
             {filteredUsers.map((user) => (
-              <tr key={user.id} className="border-b border-white/5 hover:bg-white/5 transition">
+              <tr key={user.id} className="border-b border-discord-tertiary hover:bg-discord-input transition">
                 <td className="py-2 px-2 text-discord-text-muted">{user.id}</td>
                 <td className="py-2 px-2 text-white">{user.username || "—"}</td>
                 <td className="py-2 px-2">{user.email || "—"}</td>

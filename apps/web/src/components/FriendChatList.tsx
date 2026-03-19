@@ -42,9 +42,11 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
     if (socket) {
       socket.on("friend_request_accepted", fetchFriends);
       socket.on("friend_removed", fetchFriends);
+      socket.on("new_friend_request", fetchFriends);
       return () => {
         socket.off("friend_request_accepted", fetchFriends);
         socket.off("friend_removed", fetchFriends);
+        socket.off("new_friend_request", fetchFriends);
       };
     }
   }, [socket]);
@@ -62,8 +64,9 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         name: null,
         participants: [{ id: friend.id, username: friend.username }] as any,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.response?.data?.message || "Не удалось открыть чат");
     }
   };
 
@@ -73,7 +76,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide flex-1">
           Друзья
         </span>
-        <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div className="flex-1 h-px ml-2" style={{ background: "var(--color-tertiary)" }} />
       </div>
 
       {friends.map((f, index) => {
@@ -93,7 +96,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
                 : {}),
             }}
             onMouseEnter={(e) => {
-              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
+              if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--color-input)";
             }}
             onMouseLeave={(e) => {
               if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "";

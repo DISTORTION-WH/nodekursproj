@@ -36,7 +36,8 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
 
   useEffect(() => {
     if (showSearch) {
-      setTimeout(() => searchInputRef.current?.focus(), 50);
+      const timerId = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(timerId);
     } else {
       setSearchQuery("");
       setSearchResults([]);
@@ -119,9 +120,9 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     <div
       className="shrink-0 z-10"
       style={{
-        background: "rgba(30,31,48,0.95)",
+        background: "var(--color-secondary)",
         backdropFilter: "blur(10px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid var(--color-tertiary)",
       }}
     >
       {/* Main header row */}
@@ -155,7 +156,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
             />
             {/* Search results dropdown */}
             {(searchResults.length > 0 || searching || searchError || searchQuery.trim()) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-discord-secondary border border-white/10 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-discord-secondary border rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto" style={{ borderColor: "var(--color-tertiary)" }}>
                 {searching && (
                   <div className="px-3 py-2 text-discord-text-muted text-sm">Поиск...</div>
                 )}
@@ -166,7 +167,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
                   <div className="px-3 py-2 text-discord-text-muted text-sm">Ничего не найдено</div>
                 )}
                 {searchResults.map((msg) => (
-                  <div key={msg.id} className="px-3 py-2 hover:bg-discord-input transition border-b border-white/5 last:border-0">
+                  <div key={msg.id} className="px-3 py-2 hover:bg-discord-input transition border-b last:border-0" style={{ borderColor: "var(--color-tertiary)" }}>
                     <div className="text-discord-text-muted text-xs mb-0.5">{msg.sender_name}</div>
                     <div className="text-discord-text-primary text-sm line-clamp-2">
                       {highlight(msg.text, searchQuery)}
@@ -297,7 +298,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
 
       {/* Pinned messages panel */}
       {showPinned && pinnedMessages.length > 0 && (
-        <div className="border-t border-white/10 bg-discord-secondary max-h-48 overflow-y-auto">
+        <div className="border-t bg-discord-secondary max-h-48 overflow-y-auto" style={{ borderColor: "var(--color-tertiary)" }}>
           <div className="px-4 py-2 flex items-center justify-between">
             <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
               📌 Закреплённые ({pinnedMessages.length})
@@ -310,7 +311,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
             </button>
           </div>
           {pinnedMessages.map((msg) => (
-            <div key={msg.id} className="px-4 py-2 border-t border-white/5 hover:bg-discord-input/40 transition">
+            <div key={msg.id} className="px-4 py-2 border-t hover:bg-discord-input/40 transition" style={{ borderColor: "var(--color-tertiary)" }}>
               <div className="text-discord-text-muted text-xs mb-0.5">{msg.sender_name}</div>
               <div className="text-discord-text-primary text-sm line-clamp-2">{msg.text}</div>
             </div>

@@ -33,8 +33,9 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
   }, []);
 
   const startRecording = async () => {
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
@@ -44,13 +45,16 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     } catch (e) {
+      // Clean up stream tracks if MediaRecorder creation failed
+      if (stream) stream.getTracks().forEach((t) => t.stop());
       alert("Нет доступа к микрофону");
     }
   };
 
   const stopAndSend = () => {
     const mr = mediaRecorderRef.current;
-    if (!mr) return;
+    if (!mr || mr.state === "inactive") return;
+    mediaRecorderRef.current = null; // prevent double-call
     mr.onstop = async () => {
       if (timerRef.current) clearInterval(timerRef.current);
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });

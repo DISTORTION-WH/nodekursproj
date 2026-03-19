@@ -122,7 +122,7 @@ export default function UserProfilePage() {
               {friends.map((friend) => (
                 <div
                   key={friend.id}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer hover:-translate-y-1 transition w-28 shrink-0"
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl bg-discord-input hover:bg-discord-input-hover cursor-pointer hover:-translate-y-1 transition w-28 shrink-0"
                   onClick={() => navigate(`/profile/${friend.id}`)}
                 >
                   <img

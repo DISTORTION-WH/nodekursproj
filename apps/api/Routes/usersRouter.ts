@@ -83,7 +83,7 @@ router.patch("/me/theme", authMiddleware, async (req: AuthRequest, res: Response
   try {
     const userId = (req.user as any).id;
     const { theme } = req.body;
-    const allowed = ["discord", "light", "dark"];
+    const allowed = ["dark", "gray", "light", "discord"];
     if (!allowed.includes(theme)) {
       res.status(400).json({ message: "Недопустимая тема" });
       return;

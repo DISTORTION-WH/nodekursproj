@@ -39,12 +39,18 @@ function buildAnalyticsPayload(
 ) {
   const endedAt = new Date();
 
-  const participants = Array.from(voiceActivity.participants.entries()).map(
-    ([pid, state]) => {
-      const userId =
-        pid === "local"
-          ? localUserId
-          : participantUserIds.get(pid) ?? parseInt(pid, 10);
+  const resolveUserId = (pid: string): number | null => {
+    if (pid === "local") return localUserId;
+    const mapped = participantUserIds.get(pid);
+    if (mapped !== undefined) return mapped;
+    const parsed = parseInt(pid, 10);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  const participants = Array.from(voiceActivity.participants.entries())
+    .map(([pid, state]) => {
+      const userId = resolveUserId(pid);
+      if (userId === null) return null;
       return {
         userId,
         talkTimeSeconds: state.talkTime,
@@ -53,20 +59,21 @@ function buildAnalyticsPayload(
         interruptionsReceived: voiceActivity.interruptions.filter((e) => e.interrupted === pid).length,
         avgAudioLevel: state.audioLevel,
       };
-    }
-  );
+    })
+    .filter(Boolean);
 
-  const interruptions = voiceActivity.interruptions.map((ev) => ({
-    interrupterUserId:
-      ev.interrupter === "local"
-        ? localUserId
-        : participantUserIds.get(ev.interrupter) ?? parseInt(ev.interrupter, 10),
-    interruptedUserId:
-      ev.interrupted === "local"
-        ? localUserId
-        : participantUserIds.get(ev.interrupted) ?? parseInt(ev.interrupted, 10),
-    occurredAt: new Date(ev.timestamp).toISOString(),
-  }));
+  const interruptions = voiceActivity.interruptions
+    .map((ev) => {
+      const interrupterUserId = resolveUserId(ev.interrupter);
+      const interruptedUserId = resolveUserId(ev.interrupted);
+      if (interrupterUserId === null || interruptedUserId === null) return null;
+      return {
+        interrupterUserId,
+        interruptedUserId,
+        occurredAt: new Date(ev.timestamp).toISOString(),
+      };
+    })
+    .filter(Boolean);
 
   return {
     startedAt: startedAt.toISOString(),
@@ -106,7 +113,7 @@ function useReactiveVoiceState(
         });
         return changed ? next : prev; // identical — skip re-render
       });
-    }, 200);
+    }, 150);
     return () => clearInterval(id);
     // voiceActivity is a stable ref — intentionally not in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,31 +131,38 @@ export interface CallFeaturesContextValue {
   scenario: CallScenario;
 
   // ── Voice activity ─────────────────────────────────────────────────────────
-  /** Stable-ref result from useVoiceActivity — read directly for non-reactive access */
   voiceActivity: VoiceActivityResult;
-  /**
-   * Reactive snapshot of speaking state, updated every 200ms.
-   * Key: participantId ("local" or String(userId)).
-   */
   speakingState: Map<string, { isSpeaking: boolean; talkPercent: number }>;
   /** Display names for all participants in the active call */
   participantNames: Map<string, string>;
-  /** Total participant count (including local user) */
   participantCount: number;
 
   // ── Network quality ────────────────────────────────────────────────────────
-  /** Full network quality result from usePredictiveQuality */
   networkQuality: UsePredictiveQualityResult;
 
   // ── Subtitles UI state ────────────────────────────────────────────────────
   subtitlesEnabled: boolean;
-  subtitleLang: string;
+  /** Language the remote person speaks — used for SpeechRecognition rec.lang */
+  speechLang: string;
+  /** Language to translate INTO — the user's native language */
+  displayLang: string;
+  subtitleLang: string; // alias for displayLang
   toggleSubtitles: () => void;
-  setSubtitleLang: (lang: string) => void;
+  setSpeechLang: (lang: string) => void;
+  setDisplayLang: (lang: string) => void;
+  setSubtitleLang: (lang: string) => void; // alias
 
   // ── Fairness panel UI state ───────────────────────────────────────────────
   fairnessPanelVisible: boolean;
   toggleFairnessPanel: () => void;
+
+  // ── Subtitle routing helpers ──────────────────────────────────────────────
+  /** For 1-on-1: numeric userId of the remote participant */
+  remoteParticipantUserId: number | null;
+  /** For group call: chatId */
+  groupChatId: number | null;
+  /** speakerId string for local user ("local" by default, or String(userId)) */
+  localSpeakerId: string;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -171,6 +185,7 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
     remoteStream,
     callerData,
     groupCallParticipants,
+    groupCallChatId,
     p2pPeerConnection,
   } = useCall();
   const { currentUser } = useAuth();
@@ -214,6 +229,9 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
   // ── Voice activity (single instance, switches scenarios) ──────────────────
   const voiceActivity = useVoiceActivity({
     streams: activeStreams,
+    speakingThreshold: 0.02,
+    speakingOnsetMs: 150,
+    speakingOffsetMs: 300,
   });
 
   const speakingState = useReactiveVoiceState(voiceActivity);
@@ -247,7 +265,8 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
 
   // ── UI toggle state ────────────────────────────────────────────────────────
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
-  const [subtitleLang, setSubtitleLangState] = useState("ru-RU");
+  const [speechLang, setSpeechLangState] = useState("en-US");    // язык собеседника (по умолчанию English)
+  const [displayLang, setDisplayLangState] = useState("ru-RU");  // на какой язык переводить
   const [fairnessPanelVisible, setFairnessPanelVisible] = useState(true);
 
   // Reset fairness panel when group call starts
@@ -256,7 +275,9 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
   }, [groupCallState]);
 
   const toggleSubtitles   = useCallback(() => setSubtitlesEnabled((v) => !v), []);
-  const setSubtitleLang   = useCallback((l: string) => setSubtitleLangState(l), []);
+  const setSpeechLang     = useCallback((l: string) => setSpeechLangState(l), []);
+  const setDisplayLang    = useCallback((l: string) => setDisplayLangState(l), []);
+  const setSubtitleLang   = useCallback((l: string) => setDisplayLangState(l), []);
   const toggleFairnessPanel = useCallback(() => setFairnessPanelVisible((v) => !v), []);
 
   // ── Analytics: submit on call end ─────────────────────────────────────────
@@ -314,6 +335,11 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callState]);
 
+  // ── Subtitle routing helpers ───────────────────────────────────────────────
+  const remoteParticipantUserId: number | null =
+    scenario === "p2p" && callerData ? callerData.id : null;
+  const localSpeakerId = currentUser ? String(currentUser.id) : "local";
+
   // ── Context value ──────────────────────────────────────────────────────────
   // speakingState changes every 200ms — this is the intentional update cadence.
   const value = useMemo<CallFeaturesContextValue>(
@@ -325,11 +351,18 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
       participantCount,
       networkQuality,
       subtitlesEnabled,
-      subtitleLang,
+      speechLang,
+      displayLang,
+      subtitleLang: displayLang,
       toggleSubtitles,
+      setSpeechLang,
+      setDisplayLang,
       setSubtitleLang,
       fairnessPanelVisible,
       toggleFairnessPanel,
+      remoteParticipantUserId,
+      groupChatId: groupCallChatId ?? null,
+      localSpeakerId,
     }),
     // voiceActivity is a stable ref — changes not tracked via deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,11 +373,17 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
       participantCount,
       networkQuality,
       subtitlesEnabled,
-      subtitleLang,
+      speechLang,
+      displayLang,
       toggleSubtitles,
+      setSpeechLang,
+      setDisplayLang,
       setSubtitleLang,
       fairnessPanelVisible,
       toggleFairnessPanel,
+      remoteParticipantUserId,
+      groupCallChatId,
+      localSpeakerId,
     ]
   );
 

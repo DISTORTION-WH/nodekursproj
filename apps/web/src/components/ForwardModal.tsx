@@ -36,7 +36,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-discord-tertiary shrink-0">
           <h3 className="text-discord-text-primary font-semibold text-base">Переслать сообщение</h3>
           <button
             onClick={onClose}
@@ -47,7 +47,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
         </div>
 
         {/* Message preview */}
-        <div className="px-4 py-2 bg-discord-input/40 border-b border-white/5 shrink-0">
+        <div className="px-4 py-2 bg-discord-input/40 border-b border-discord-tertiary shrink-0">
           <div className="text-discord-text-muted text-xs mb-0.5">{message.sender_name}</div>
           <div className="text-discord-text-secondary text-sm line-clamp-2">{message.text}</div>
         </div>

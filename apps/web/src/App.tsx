@@ -13,7 +13,6 @@ import HomePage from "./pages/HomePage";
 import AdminPage from "./pages/AdminPage";
 import ModeratorPage from "./pages/ModeratorPage";
 import ProfilePage from "./pages/ProfilePage";
-import CallHistoryPage from "./pages/CallHistoryPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
@@ -66,8 +65,6 @@ function AppRoutes() {
                     )
                   }
                 />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<ZFRegisterPage />} />
                 <Route
                   path="/admin"
                   element={
@@ -97,10 +94,6 @@ function AppRoutes() {
                   element={
                     isAuth ? <UserProfilePage /> : <Navigate to="/login" />
                   }
-                />
-                <Route
-                  path="/calls"
-                  element={isAuth ? <CallHistoryPage /> : <Navigate to="/login" />}
                 />
                 <Route
                   path="*"

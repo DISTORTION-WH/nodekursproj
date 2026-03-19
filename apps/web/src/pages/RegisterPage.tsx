@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from "react";
+import React, { useState, useEffect, useRef, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -15,11 +15,22 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
 
+  // Revoke previous blob URL to avoid memory leaks
+  const prevBlobUrl = useRef<string | null>(null);
+  useEffect(() => {
+    return () => {
+      if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
+    };
+  }, []);
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
+      const url = URL.createObjectURL(file);
+      prevBlobUrl.current = url;
       setAvatar(file);
-      setAvatarPreview(URL.createObjectURL(file));
+      setAvatarPreview(url);
     }
   };
 
