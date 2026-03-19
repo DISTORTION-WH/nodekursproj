@@ -431,6 +431,45 @@ app.use("/admin", adminRouter);
 app.use("/moderator", moderatorRouter);
 app.use("/api/call-analytics", callAnalyticsRouter);
 
+// ─── TURN credentials endpoint ─────────────────────────────────────────────
+// Fetches temporary TURN credentials from Metered.ca REST API.
+// Set METERED_API_KEY env var on Render dashboard.
+app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
+  try {
+    const apiKey = process.env.METERED_API_KEY;
+    if (!apiKey) {
+      // No API key — return only STUN servers
+      return res.json([
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:global.stun.twilio.com:3478" },
+      ]);
+    }
+
+    const response = await fetch(
+      `https://lume.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
+    );
+
+    if (!response.ok) {
+      console.error("[TURN] Metered API error:", response.status, await response.text());
+      return res.json([
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ]);
+    }
+
+    const iceServers = await response.json() as any[];
+    console.log("[TURN] Got", iceServers.length, "ICE servers from Metered");
+    return res.json(iceServers);
+  } catch (e) {
+    console.error("[TURN] Error fetching credentials:", e);
+    return res.json([
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ]);
+  }
+});
+
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logger.error(
     `EXPRESS ERROR: ${req.method} ${req.originalUrl} - ${err.message}`,
