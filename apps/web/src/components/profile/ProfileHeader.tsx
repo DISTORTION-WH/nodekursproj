@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { User } from "../../types";
 import { getImageUrl } from "../../utils/imageUrl";
+import { AvatarWithFrame } from "./AvatarFrameShop";
 
 interface ProfileHeaderProps {
   currentUser: User | null;
@@ -28,10 +29,10 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
 
   return (
     <div className="bg-discord-secondary rounded-xl p-6 flex items-start gap-6 flex-wrap">
-      <img
-        className="w-32 h-32 rounded-full object-cover ring-4 ring-discord-accent shrink-0"
+      <AvatarWithFrame
         src={getImageUrl(currentUser?.avatar_url)}
-        alt="avatar"
+        frame={currentUser?.avatar_frame}
+        size={128}
       />
       <div className="flex flex-col gap-2 flex-1 min-w-0">
         <div className="flex flex-col gap-1 text-sm">

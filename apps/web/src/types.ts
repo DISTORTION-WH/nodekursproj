@@ -15,6 +15,7 @@ export interface User {
   email?: string;
   role?: string;
   avatar_url?: string | null;
+  avatar_frame?: string | null;
   created_at?: string;
   friends?: User[];
   token?: string;

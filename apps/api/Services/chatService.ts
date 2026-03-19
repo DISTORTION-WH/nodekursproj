@@ -349,7 +349,7 @@ class ChatService {
        FROM message_reactions WHERE message_id = $1 GROUP BY emoji`,
       [messageId]
     );
-    return result.rows.map(r => ({ emoji: r.emoji, count: Number(r.count), users: r.users }));
+    return result.rows.map((r: { emoji: string; count: string | number; users: number[] }) => ({ emoji: r.emoji, count: Number(r.count), users: r.users }));
   }
 
   async findOrCreatePrivateChat(userId: string | number, friendId: string | number): Promise<{ id: number }> {

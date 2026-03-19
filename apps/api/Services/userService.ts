@@ -7,19 +7,21 @@ export interface Friend {
   id: number;
   username: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
 }
 
 export interface User {
   id: number;
   username: string;
-  password?: string; 
+  password?: string;
   role_id?: number;
-  role?: string; 
+  role?: string;
   avatar_url?: string | null;
+  avatar_frame?: string | null;
   email?: string | null;
   created_at?: Date;
   friends?: Friend[];
-  is_banned?: boolean; 
+  is_banned?: boolean;
 }
 
 export interface RegistrationCode {
@@ -94,7 +96,7 @@ async function createUser(
 async function getAllUsers(): Promise<User[]> {
   try {
     const result = await client.query<User>(`
-      SELECT u.id, u.username, u.password, u.avatar_url, r.value as role, u.email, u.created_at, u.is_banned
+      SELECT u.id, u.username, u.password, u.avatar_url, u.avatar_frame, r.value as role, u.email, u.created_at, u.is_banned
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
     `);
@@ -108,7 +110,7 @@ async function getAllUsers(): Promise<User[]> {
 async function getUserById(id: string | number): Promise<User | null> {
   try {
     const userResult = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,
@@ -120,7 +122,7 @@ async function getUserById(id: string | number): Promise<User | null> {
 
     // ИЗМЕНЕНИЕ: Добавлен DISTINCT для исключения дубликатов друзей
     const friendsResult = await client.query<Friend>(
-      `SELECT DISTINCT u.id, u.username, u.avatar_url
+      `SELECT DISTINCT u.id, u.username, u.avatar_url, u.avatar_frame
        FROM users u
        JOIN friends f
          ON (u.id = f.friend_id OR u.id = f.user_id)
@@ -175,7 +177,7 @@ async function updateUserAvatar(userId: string | number, avatarUrl: string): Pro
     ]);
 
     const res = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.created_at, r.value as role, u.email, u.is_banned
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned
        FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
       [userId]
     );
@@ -285,7 +287,7 @@ async function deleteUser(userId: string | number): Promise<void> {
 async function searchUsers(query: string): Promise<User[]> {
   try {
     const res = await client.query<User>(
-      `SELECT u.id, u.username, u.email, u.avatar_url, r.value as role, u.is_banned
+      `SELECT u.id, u.username, u.email, u.avatar_url, u.avatar_frame, r.value as role, u.is_banned
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.username ILIKE $1 OR u.email ILIKE $1`,
@@ -302,6 +304,10 @@ async function searchUsers(query: string): Promise<User[]> {
   }
 }
 
+async function updateUserAvatarFrame(userId: string | number, frame: string | null): Promise<void> {
+  await client.query("UPDATE users SET avatar_frame = $1 WHERE id = $2", [frame, userId]);
+}
+
 async function updateUserStatus(userId: string | number, status: string): Promise<void> {
   await client.query("UPDATE users SET status = $1 WHERE id = $2", [status, userId]);
 }
@@ -316,6 +322,7 @@ export default {
   getAllUsers,
   getUserById,
   updateUserAvatar,
+  updateUserAvatarFrame,
   saveRegistrationCode,
   getRegistrationCode,
   deleteRegistrationCode,

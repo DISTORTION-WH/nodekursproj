@@ -405,6 +405,7 @@ io.on("connection", async (socket: Socket) => {
 });
 
 app.use(express.json());
+app.use("/stickers", express.static(require("path").join(process.cwd(), "public/stickers")));
 app.use("/auth", authRouter);
 app.use("/chats", chatRouter);
 app.use("/friends", friendsRouter);
@@ -444,6 +445,10 @@ async function initializeDatabase() {
     
     try {
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT false;`);
+    } catch (e: any) { if (e.code !== "42701") throw e; }
+
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_frame VARCHAR(50) DEFAULT NULL;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     await client.query(

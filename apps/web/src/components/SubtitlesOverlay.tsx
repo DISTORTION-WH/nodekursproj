@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLiveSubtitles } from "../hooks/useLiveSubtitles";
 import type { Subtitle, StreamDescriptor } from "../hooks/useLiveSubtitles";
 import { useCallFeatures } from "../context/CallFeaturesContext";
@@ -297,7 +297,6 @@ export default function SubtitlesOverlay({
 
   useEffect(() => {
     if (subtitles === prevSubRef.current) return;
-    const prev = prevSubRef.current;
     const next = subtitles;
     prevSubRef.current = next;
 

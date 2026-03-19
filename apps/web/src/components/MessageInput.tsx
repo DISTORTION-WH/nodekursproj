@@ -3,6 +3,7 @@ import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import VoiceRecorder from "./VoiceRecorder";
 import VideoNoteRecorder from "./VideoNoteRecorder";
+import StickerPicker from "./StickerPicker";
 import { uploadFile } from "../services/api";
 
 export default function MessageInput() {
@@ -10,6 +11,7 @@ export default function MessageInput() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showVideoNote, setShowVideoNote] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,6 +54,12 @@ export default function MessageInput() {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) handleSend();
     if (e.key === "Escape" && replyingTo) setReplyingTo(null);
+  };
+
+  const handleStickerSelect = (stickerUrl: string) => {
+    sendMessage(stickerUrl, replyingTo?.id ?? null);
+    setReplyingTo(null);
+    setShowStickerPicker(false);
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -111,6 +119,16 @@ export default function MessageInput() {
         />
       )}
 
+      {/* Sticker picker */}
+      {showStickerPicker && (
+        <div className="absolute bottom-full left-4 mb-2 z-20">
+          <StickerPicker
+            onSelect={handleStickerSelect}
+            onClose={() => setShowStickerPicker(false)}
+          />
+        </div>
+      )}
+
       {showEmojiPicker && (
         <div className="absolute bottom-full left-4 mb-2 w-[350px] z-20">
           <EmojiPicker
@@ -147,6 +165,7 @@ export default function MessageInput() {
             e.stopPropagation();
             setShowEmojiPicker(!showEmojiPicker);
             setShowVoiceRecorder(false);
+            setShowStickerPicker(false);
           }}
         >
           😀
@@ -193,10 +212,28 @@ export default function MessageInput() {
             setShowVideoNote(!showVideoNote);
             setShowVoiceRecorder(false);
             setShowEmojiPicker(false);
+            setShowStickerPicker(false);
           }}
           title="Видеосообщение"
         >
           🎥
+        </button>
+
+        {/* Sticker picker toggle */}
+        <button
+          type="button"
+          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showStickerPicker ? "text-discord-accent" : "hover:text-discord-text-primary"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          onClick={() => {
+            setShowStickerPicker(!showStickerPicker);
+            setShowEmojiPicker(false);
+            setShowVoiceRecorder(false);
+            setShowVideoNote(false);
+          }}
+          title="Стикеры"
+        >
+          🪄
         </button>
 
         <input

@@ -200,9 +200,10 @@ export const getCallHistory = (limit?: number) =>
 export const getCallSessionDetail = (callId: string) =>
   api.get(`/api/call-analytics/${callId}`);
 
-// User status & theme
+// User status, theme & avatar frame
 export const updateUserStatus = (status: string) => api.patch('/users/me/status', { status });
 export const updateUserTheme = (theme: string) => api.patch('/users/me/theme', { theme });
+export const updateUserAvatarFrame = (frame: string | null) => api.patch('/users/me/frame', { frame });
 
 // Paginated messages
 export const getChatMessagesBefore = (chatId: number, beforeId: number) =>

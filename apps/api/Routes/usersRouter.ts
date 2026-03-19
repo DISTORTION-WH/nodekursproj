@@ -95,6 +95,18 @@ router.patch("/me/theme", authMiddleware, async (req: AuthRequest, res: Response
   }
 });
 
+router.patch("/me/frame", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { frame } = req.body;
+    // frame is either a valid frame id string or null (no frame)
+    await userService.updateUserAvatarFrame(userId, frame ?? null);
+    res.json({ avatar_frame: frame ?? null });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);
