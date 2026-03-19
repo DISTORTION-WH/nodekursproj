@@ -98,6 +98,13 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     });
 
     return () => {
+      newSocket.off("connect");
+      newSocket.off("disconnect");
+      newSocket.off("connect_error");
+      newSocket.off("reconnect");
+      newSocket.off("get_online_users");
+      newSocket.off("new_message");
+      newSocket.off("user_status_changed");
       newSocket.disconnect();
     };
   }, [currentUser]);

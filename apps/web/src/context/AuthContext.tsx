@@ -46,12 +46,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   const applyTheme = (theme?: string) => {
-    const t = theme || localStorage.getItem("app-theme") || "discord";
+    let t = theme || localStorage.getItem("app-theme") || "dark";
+    // Migrate old "discord" theme name to "gray"
+    if (t === "discord") t = "gray";
     document.body.setAttribute("data-theme", t);
   };
 
   const logout = useCallback(() => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     setIsAuth(false);
     setRole(null);
     setCurrentUser(null);
@@ -105,6 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await api.post("/auth/login", { username, password });
       const token = res.data.accessToken;
       localStorage.setItem("token", token);
+      if (res.data.refreshToken) {
+        localStorage.setItem("refreshToken", res.data.refreshToken);
+      }
 
       const decoded = jwtDecode<JwtPayload>(token);
       setIsAuth(true);
@@ -117,7 +123,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       navigate("/");
     } catch (err: any) {
       console.error(err);
-      throw err.response?.data?.message || "Ошибка входа";
+      const message = err.response?.data?.message || "Ошибка входа";
+      throw new Error(message);
     }
   };
 

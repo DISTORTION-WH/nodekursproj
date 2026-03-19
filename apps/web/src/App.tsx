@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
@@ -12,7 +13,6 @@ import HomePage from "./pages/HomePage";
 import AdminPage from "./pages/AdminPage";
 import ModeratorPage from "./pages/ModeratorPage";
 import ProfilePage from "./pages/ProfilePage";
-import CallHistoryPage from "./pages/CallHistoryPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
@@ -23,6 +23,7 @@ import "./index.css";
 
 function AppRoutes() {
   const { isAuth, currentUser, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -34,6 +35,17 @@ function AppRoutes() {
 
   const isAdmin = currentUser?.role === "ADMIN";
   const isModerator = currentUser?.role === "MODERATOR";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+
+  // Auth pages render standalone — no navbar, no layout constraints
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<ZFRegisterPage />} />
+      </Routes>
+    );
+  }
 
   return (
     <SocketProvider currentUser={currentUser}>
@@ -53,8 +65,6 @@ function AppRoutes() {
                     )
                   }
                 />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<ZFRegisterPage />} />
                 <Route
                   path="/admin"
                   element={
@@ -84,10 +94,6 @@ function AppRoutes() {
                   element={
                     isAuth ? <UserProfilePage /> : <Navigate to="/login" />
                   }
-                />
-                <Route
-                  path="/calls"
-                  element={isAuth ? <CallHistoryPage /> : <Navigate to="/login" />}
                 />
                 <Route
                   path="*"

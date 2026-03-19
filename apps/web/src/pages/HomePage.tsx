@@ -39,7 +39,8 @@ export default function HomePage({ currentUser }: HomePageProps) {
       <div
         className={`${
           isMobile && activeChat ? "hidden" : "flex"
-        } w-[280px] min-w-[250px] flex-col bg-discord-secondary overflow-y-auto shrink-0`}
+        } w-[280px] min-w-[250px] flex-col overflow-y-auto shrink-0`}
+        style={{ background: "var(--color-secondary)", transition: "all 0.3s ease" }}
       >
         <FriendsList currentUser={currentUser} />
       </div>
@@ -49,12 +50,30 @@ export default function HomePage({ currentUser }: HomePageProps) {
         className={`${
           isMobile && !activeChat ? "hidden" : "flex"
         } flex-1 flex-col bg-discord-bg min-w-0`}
+        style={{ transition: "all 0.3s ease" }}
       >
         {activeChat ? (
           <ChatWindow isMobile={isMobile} onCloseChat={closeChat} />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-discord-text-muted">
-            Выберите чат для начала общения
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 select-none">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+              style={{ background: "rgba(88,101,242,0.12)", border: "1px solid rgba(88,101,242,0.2)" }}
+            >
+              💬
+            </div>
+            <p
+              className="text-base font-semibold"
+              style={{
+                background: "linear-gradient(135deg, var(--color-text-primary), var(--color-accent))",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
+            >
+              Выберите чат
+            </p>
+            <p className="text-discord-text-muted text-sm">Откройте диалог или комнату, чтобы начать общение</p>
           </div>
         )}
       </div>

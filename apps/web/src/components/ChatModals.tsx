@@ -82,7 +82,7 @@ export default function ChatModals() {
           </h3>
           <button
             onClick={closeModal}
-            className="text-discord-text-muted hover:text-white transition text-xl leading-none"
+            className="text-discord-text-muted hover:text-discord-text-primary transition text-xl leading-none"
           >
             ×
           </button>
@@ -104,7 +104,7 @@ export default function ChatModals() {
             return (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-2 py-2 px-1 rounded hover:bg-white/5 transition"
+                className="flex items-center justify-between gap-2 py-2 px-1 rounded hover:bg-discord-input transition"
               >
                 <span className="text-discord-text-secondary text-sm flex-1 truncate flex items-center gap-1">
                   {item.username}
@@ -128,7 +128,7 @@ export default function ChatModals() {
                         value={(item as ChatParticipant).chat_role ?? "member"}
                         disabled={updatingRole === item.id}
                         onChange={(e) => onRoleChange(item.id, e.target.value)}
-                        className="text-xs bg-discord-input text-discord-text-secondary rounded px-1 py-0.5 border border-white/10 focus:outline-none cursor-pointer disabled:opacity-50"
+                        className="text-xs bg-discord-input text-discord-text-secondary rounded px-1 py-0.5 border border-discord-tertiary focus:outline-none cursor-pointer disabled:opacity-50"
                       >
                         <option value="moderator">🛡️ Модератор</option>
                         <option value="trusted">✅ Доверенный</option>
@@ -154,10 +154,10 @@ export default function ChatModals() {
 
         {/* Footer */}
         {!isInvite && (
-          <div className="mt-4 pt-4 border-t border-white/10">
+          <div className="mt-4 pt-4 border-t border-discord-tertiary">
             <button
               onClick={handleGetInviteCode}
-              className="w-full bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white text-sm py-2 rounded transition"
+              className="w-full bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-sm py-2 rounded transition"
             >
               Получить код приглашения
             </button>

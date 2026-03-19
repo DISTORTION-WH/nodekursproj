@@ -13,10 +13,10 @@ const STATUS_OPTIONS: { value: UserStatus; label: string; color: string }[] = [
   { value: "offline", label: "Невидимый", color: "bg-discord-text-muted" },
 ];
 
-const THEME_OPTIONS: { value: AppTheme; label: string; preview: string }[] = [
-  { value: "discord", label: "Discord", preview: "#36393f" },
-  { value: "dark", label: "Тёмная", preview: "#0d1117" },
-  { value: "light", label: "Светлая", preview: "#ffffff" },
+const THEME_OPTIONS: { value: AppTheme; label: string; preview: string; secondary: string }[] = [
+  { value: "dark", label: "Тёмная", preview: "#0b0e14", secondary: "#12161e" },
+  { value: "gray", label: "Серая", preview: "#36393f", secondary: "#2f3136" },
+  { value: "light", label: "Светлая", preview: "#f8f9fa", secondary: "#ffffff" },
 ];
 
 export default function ProfilePage() {
@@ -32,6 +32,7 @@ export default function ProfilePage() {
       setCurrentUser({ ...currentUser, status });
     } catch (err) {
       console.error(err);
+      alert("Не удалось обновить статус");
     } finally {
       setStatusLoading(false);
     }
@@ -40,13 +41,20 @@ export default function ProfilePage() {
   const handleThemeChange = async (theme: AppTheme) => {
     if (!currentUser || themeLoading) return;
     setThemeLoading(true);
+    const prevTheme = currentUser.theme || "dark";
     try {
-      await updateUserTheme(theme);
+      // Optimistic UI update
       setCurrentUser({ ...currentUser, theme });
       document.body.setAttribute("data-theme", theme);
       localStorage.setItem("app-theme", theme);
+      await updateUserTheme(theme);
     } catch (err) {
       console.error(err);
+      // Revert on failure
+      setCurrentUser({ ...currentUser, theme: prevTheme });
+      document.body.setAttribute("data-theme", prevTheme);
+      localStorage.setItem("app-theme", prevTheme);
+      alert("Не удалось сменить тему");
     } finally {
       setThemeLoading(false);
     }
@@ -88,7 +96,7 @@ export default function ProfilePage() {
           <h3 className="text-discord-text-primary font-semibold text-sm">Тема оформления</h3>
           <div className="flex gap-3">
             {THEME_OPTIONS.map((opt) => {
-              const active = (currentUser?.theme || "discord") === opt.value;
+              const active = (currentUser?.theme || "dark") === opt.value;
               return (
                 <button
                   key={opt.value}
@@ -101,10 +109,10 @@ export default function ProfilePage() {
                       : "border-discord-input hover:border-discord-accent/50"
                   }`}
                 >
-                  <span
-                    className="w-10 h-10 rounded-md border border-white/10"
-                    style={{ background: opt.preview }}
-                  />
+                  <div className="w-12 h-10 rounded-md overflow-hidden border border-white/10 flex">
+                    <span className="flex-1" style={{ background: opt.preview }} />
+                    <span className="flex-1" style={{ background: opt.secondary }} />
+                  </div>
                   <span className="text-discord-text-secondary text-xs">{opt.label}</span>
                 </button>
               );

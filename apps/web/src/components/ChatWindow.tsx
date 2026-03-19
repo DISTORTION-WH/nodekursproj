@@ -57,8 +57,8 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
     >
       {/* Drag overlay */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-discord-accent/20 pointer-events-none">
-          <div className="bg-discord-secondary border-2 border-discord-accent border-dashed rounded-2xl px-8 py-6 text-center">
+        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ background: "rgba(14,15,25,0.85)", backdropFilter: "blur(4px)" }}>
+          <div className="px-8 py-6 text-center" style={{ border: "2px dashed rgba(88,101,242,0.6)", background: "rgba(88,101,242,0.08)", borderRadius: "16px" }}>
             <div className="text-4xl mb-2">📁</div>
             <div className="text-discord-text-primary font-semibold text-lg">Перетащи файл сюда</div>
             <div className="text-discord-text-muted text-sm mt-1">Он будет отправлен в чат</div>
@@ -73,9 +73,9 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
       {typingNames.length > 0 && (
         <div className="px-4 py-1 flex items-center gap-2 shrink-0">
           <div className="flex gap-0.5 items-end">
-            <span className="w-1.5 h-1.5 rounded-full bg-discord-text-muted animate-bounce [animation-delay:0ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-discord-text-muted animate-bounce [animation-delay:150ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-discord-text-muted animate-bounce [animation-delay:300ms]" />
+            <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: "linear-gradient(135deg, #5865f2, #eb459e)" }} />
+            <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: "linear-gradient(135deg, #5865f2, #eb459e)" }} />
+            <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: "linear-gradient(135deg, #5865f2, #eb459e)" }} />
           </div>
           <span className="text-discord-text-muted text-xs italic">
             {typingNames.join(", ")} {typingNames.length === 1 ? "печатает..." : "печатают..."}

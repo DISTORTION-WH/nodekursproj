@@ -28,7 +28,7 @@ export default function LinkPreview({ url }: Props) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block mt-2 bg-discord-secondary border border-white/10 rounded-lg overflow-hidden hover:border-discord-accent/50 transition max-w-[300px]"
+      className="block mt-2 bg-discord-secondary border border-discord-tertiary rounded-lg overflow-hidden hover:border-discord-accent/50 transition max-w-[300px]"
       onClick={(e) => e.stopPropagation()}
     >
       {preview.image && (

@@ -235,10 +235,12 @@ export function useVoiceActivity(options: UseVoiceActivityOptions): VoiceActivit
 
     try {
       const ctx = new AudioContext();
+      // Resume if suspended (Chrome auto-suspends before user gesture)
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.5;
+      analyser.smoothingTimeConstant = 0.3;
       source.connect(analyser);
       // Do NOT connect analyser to destination — read-only observation
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -437,7 +439,16 @@ export function useVoiceActivity(options: UseVoiceActivityOptions): VoiceActivit
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     streams.forEach(({ participantId, stream }) => {
-      if (!stream) return;
+      if (!stream) {
+        // Clean up analyser if stream became null (participant left or stream ended)
+        const prev = analysersRef.current.get(participantId);
+        if (prev) {
+          try { prev.source.disconnect(); } catch { /* ignore */ }
+          try { prev.context.close(); } catch { /* ignore */ }
+          analysersRef.current.delete(participantId);
+        }
+        return;
+      }
 
       const existing = analysersRef.current.get(participantId);
       // Rebuild only if the stream object changed or doesn't exist
@@ -481,6 +492,8 @@ export function useVoiceActivity(options: UseVoiceActivityOptions): VoiceActivit
 
       // ── Source 1: Web Audio analysers (MediaStream-based) ───────────────────
       analysersRef.current.forEach((entry, id) => {
+        // Ensure AudioContext is active
+        if (entry.context.state === "suspended") entry.context.resume().catch(() => {});
         const level = readAnalyserLevel(entry);
         processSample(id, level, nowMs, tickSec);
       });
@@ -538,17 +551,15 @@ export function useVoiceActivity(options: UseVoiceActivityOptions): VoiceActivit
   // Cleanup analysers on unmount
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const analysers = analysersRef.current;
-    const tracks = trackRef.current;
-    const speaking = currentlySpeakingRef.current;
     return () => {
-      analysers.forEach((entry) => {
+      // Read current ref values at cleanup time to catch all analysers
+      analysersRef.current.forEach((entry) => {
         try { entry.source.disconnect(); } catch { /* ignore */ }
         try { entry.context.close(); } catch { /* ignore */ }
       });
-      analysers.clear();
-      tracks.clear();
-      speaking.clear();
+      analysersRef.current.clear();
+      trackRef.current.clear();
+      currentlySpeakingRef.current.clear();
     };
   }, []);
 

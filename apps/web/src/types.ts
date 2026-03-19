@@ -1,5 +1,5 @@
 export type UserStatus = "online" | "away" | "dnd" | "offline";
-export type AppTheme = "discord" | "light" | "dark";
+export type AppTheme = "dark" | "gray" | "light";
 export type ChatRole = "owner" | "moderator" | "trusted" | "member";
 
 export interface Friend {

@@ -86,7 +86,7 @@ const ModeratorPage: React.FC = () => {
     if (!warningUser) return null;
     return (
       <div className="mt-4 bg-discord-tertiary rounded-xl p-4 flex flex-col gap-3">
-        <h4 className="text-white text-sm font-semibold">Предупреждение: {warningUser.username}</h4>
+        <h4 className="text-discord-text-primary text-sm font-semibold">Предупреждение: {warningUser.username}</h4>
         <textarea
           rows={3}
           placeholder="Причина..."
@@ -109,7 +109,7 @@ const ModeratorPage: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-5xl mx-auto">
-        <h2 className="text-white text-2xl font-bold mb-4">Панель Модератора</h2>
+        <h2 className="text-discord-text-primary text-2xl font-bold mb-4">Панель Модератора</h2>
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setActiveTab("users")}
@@ -140,12 +140,12 @@ const ModeratorPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {users.map(user => (
-                    <tr key={user.id} className="border-b border-white/5 hover:bg-white/5 transition">
+                    <tr key={user.id} className="border-b border-discord-tertiary hover:bg-discord-input transition">
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-2">
                           <img src={getImageUrl(user.avatar_url)} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
                           <div>
-                            <div className="text-white text-sm">{user.username}</div>
+                            <div className="text-discord-text-primary text-sm">{user.username}</div>
                             <div className="text-xs text-discord-text-muted">{user.email}</div>
                           </div>
                         </div>
@@ -193,7 +193,7 @@ const ModeratorPage: React.FC = () => {
                       <button onClick={() => handleDeleteMessage(rep.message_id, rep.id)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Удалить сообщение</button>
                       <button onClick={() => handleStartWarn({ id: rep.sender_id, username: rep.sender_name } as User, rep.id)} className="bg-yellow-500/20 hover:bg-yellow-500 text-yellow-400 hover:text-black text-xs px-2 py-1 rounded">Warn</button>
                       <button onClick={() => handleBan({ id: rep.sender_id, username: rep.sender_name } as User)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Ban</button>
-                      <button onClick={() => handleDismissReport(rep.id)} className="bg-white/10 hover:bg-white/20 text-discord-text-secondary hover:text-white text-xs px-2 py-1 rounded">Отклонить</button>
+                      <button onClick={() => handleDismissReport(rep.id)} className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-xs px-2 py-1 rounded">Отклонить</button>
                     </div>
                   </div>
                 ))}

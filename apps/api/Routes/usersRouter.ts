@@ -83,7 +83,7 @@ router.patch("/me/theme", authMiddleware, async (req: AuthRequest, res: Response
   try {
     const userId = (req.user as any).id;
     const { theme } = req.body;
-    const allowed = ["discord", "light", "dark"];
+    const allowed = ["dark", "gray", "light", "discord"];
     if (!allowed.includes(theme)) {
       res.status(400).json({ message: "Недопустимая тема" });
       return;
@@ -97,7 +97,7 @@ router.patch("/me/theme", authMiddleware, async (req: AuthRequest, res: Response
 
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = parseInt(req.params.id as string, 10);
     if (isNaN(userId)) {
       const err: any = new Error("Неверный ID пользователя");
       err.status = 400;
@@ -113,7 +113,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next:
     res.json(user);
   } catch (err: any) {
     console.error(
-      `❗️ Ошибка в GET /users/${req.params.id}:`,
+      `❗️ Ошибка в GET /users/${req.params.id as string}:`,
       err.message,
       err.stack
     );

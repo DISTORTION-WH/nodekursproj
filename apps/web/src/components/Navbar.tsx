@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../utils/imageUrl";
@@ -6,6 +6,7 @@ import { getImageUrl } from "../utils/imageUrl";
 export default function Navbar() {
   const navigate = useNavigate();
   const { isAuth, currentUser, logout } = useAuth();
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
   const handleLogout = () => {
     logout();
@@ -15,13 +16,34 @@ export default function Navbar() {
   const isAdmin = currentUser?.role === "ADMIN";
   const isModerator = currentUser?.role === "MODERATOR";
 
+  const navLinkStyle = (id: string) => ({
+    background: hoveredLink === id ? "rgba(255,255,255,0.08)" : "transparent",
+    transition: "background 0.15s",
+  });
+
   return (
-    <nav className="fixed top-0 left-0 right-0 h-[50px] bg-discord-tertiary flex items-center justify-between px-4 z-50 shadow-md">
+    <nav
+      className="fixed top-0 left-0 right-0 h-[50px] flex items-center justify-between px-4 z-50"
+      style={{
+        background: "var(--color-secondary)",
+        backdropFilter: "blur(10px)",
+        borderBottom: "1px solid var(--color-tertiary)",
+      }}
+    >
       <Link
         to="/"
-        className="font-logo text-2xl text-white tracking-widest no-underline hover:text-discord-accent transition-colors"
+        className="font-logo text-2xl tracking-widest no-underline transition-opacity hover:opacity-90"
       >
-        Lume
+        <span
+          style={{
+            background: "linear-gradient(135deg, #ffffff, #a8b4ff)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Lume
+        </span>
       </Link>
       <div className="flex items-center gap-2">
         {isAuth ? (
@@ -29,7 +51,10 @@ export default function Navbar() {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
+                className="px-3 py-1 rounded text-discord-text-secondary text-sm no-underline"
+                style={navLinkStyle("admin")}
+                onMouseEnter={() => setHoveredLink("admin")}
+                onMouseLeave={() => setHoveredLink(null)}
               >
                 Админка
               </Link>
@@ -37,18 +62,22 @@ export default function Navbar() {
             {(isModerator || isAdmin) && (
               <Link
                 to="/moderator"
-                className="px-3 py-1 rounded text-yellow-400 border border-yellow-400 hover:bg-yellow-400 hover:text-discord-tertiary transition text-sm no-underline"
+                className="px-3 py-1 rounded text-sm no-underline transition"
+                style={{
+                  color: "#faa61a",
+                  border: "1px solid #faa61a",
+                  background:
+                    hoveredLink === "moderator" ? "#faa61a" : "transparent",
+                  ...(hoveredLink === "moderator"
+                    ? { color: "#1e1f30" }
+                    : {}),
+                }}
+                onMouseEnter={() => setHoveredLink("moderator")}
+                onMouseLeave={() => setHoveredLink(null)}
               >
                 Модерация
               </Link>
             )}
-            <Link
-              to="/calls"
-              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
-              title="История звонков"
-            >
-              📞 Звонки
-            </Link>
             {currentUser && (
               <img
                 src={getImageUrl(currentUser.avatar_url)}
@@ -59,7 +88,10 @@ export default function Navbar() {
             )}
             <button
               onClick={handleLogout}
-              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm"
+              className="px-3 py-1 rounded text-discord-text-secondary text-sm"
+              style={navLinkStyle("logout")}
+              onMouseEnter={() => setHoveredLink("logout")}
+              onMouseLeave={() => setHoveredLink(null)}
             >
               Выход
             </button>
@@ -68,13 +100,17 @@ export default function Navbar() {
           <>
             <Link
               to="/login"
-              className="px-3 py-1 rounded text-discord-text-secondary hover:bg-discord-input hover:text-white transition text-sm no-underline"
+              className="px-3 py-1 rounded text-discord-text-secondary text-sm no-underline"
+              style={navLinkStyle("login")}
+              onMouseEnter={() => setHoveredLink("login")}
+              onMouseLeave={() => setHoveredLink(null)}
             >
               Вход
             </Link>
             <Link
               to="/register"
-              className="px-3 py-1 rounded bg-discord-accent text-white hover:bg-discord-accent-hover transition text-sm no-underline"
+              className="px-3 py-1 rounded text-white text-sm no-underline hover:opacity-90 transition-opacity"
+              style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)" }}
             >
               Регистрация
             </Link>

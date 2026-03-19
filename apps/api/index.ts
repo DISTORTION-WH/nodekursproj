@@ -96,21 +96,37 @@ io.use(async (socket, next) => {
   }
 });
 
+// Track users currently in a 1-on-1 call (userId → otherUserId)
+const usersInCall = new Map<number, number>();
+
 io.on("connection", async (socket: Socket) => {
   console.log("Socket connected:", socket.id);
   const connectedUserId = (socket as any).userId;
   if (connectedUserId) {
+    // Auto-join user's personal room on connect — don't rely on client event
+    socket.join(`user_${connectedUserId}`);
+    console.log(`[SOCKET] User ${connectedUserId} auto-joined room user_${connectedUserId}`);
     try {
       await client.query("UPDATE users SET status = 'online' WHERE id = $1", [connectedUserId]);
       const userRoomsRes = await client.query("SELECT chat_id FROM chat_users WHERE user_id = $1", [connectedUserId]);
       for (const row of userRoomsRes.rows) {
+        socket.join(`chat_${row.chat_id}`);
         io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
+      }
+      // Also notify friends who may not share a chat yet
+      const friendsRes = await client.query(
+        "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+        [connectedUserId]
+      );
+      for (const row of friendsRes.rows) {
+        io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId: connectedUserId, status: "online" });
       }
     } catch (e) {
       console.error("Error updating online status:", e);
     }
   }
 
+  // Keep for backwards compatibility but server already auto-joined
   socket.on("join_user_room", (userId: string | number) => {
     socket.join(`user_${userId}`);
   });
@@ -124,11 +140,30 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("call_user", (data: { userToCall: number; signalData: any; from: number; name: string; isVideo: boolean }) => {
-    io.to(`user_${data.userToCall}`).emit("incoming_call", { 
-      signal: data.signalData, 
-      from: data.from, 
+    const callerUserId = (socket as any).userId;
+    const targetId = Number(data.userToCall);
+    const fromId = Number(data.from);
+    console.log(`[CALL] call_user: from=${fromId} (socket userId=${callerUserId}) → to=${targetId}`);
+
+    // If target is already in a call, notify caller that they're busy
+    if (usersInCall.has(targetId)) {
+      console.log(`[CALL] User ${targetId} is busy, usersInCall:`, [...usersInCall.entries()]);
+      socket.emit("call_busy", { userId: targetId });
+      return;
+    }
+    // Mark both users as in a call
+    usersInCall.set(fromId, targetId);
+    usersInCall.set(targetId, fromId);
+
+    const targetRoom = `user_${targetId}`;
+    const roomSockets = io.sockets.adapter.rooms.get(targetRoom);
+    console.log(`[CALL] Emitting incoming_call to room ${targetRoom}, sockets in room: ${roomSockets ? [...roomSockets].join(', ') : 'NONE'}`);
+
+    io.to(targetRoom).emit("incoming_call", {
+      signal: data.signalData,
+      from: fromId,
       name: data.name,
-      isVideo: data.isVideo 
+      isVideo: data.isVideo
     });
   });
 
@@ -141,7 +176,20 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("end_call", (data: { to: number }) => {
+    const userId = (socket as any).userId;
+    // Clean up busy tracking
+    if (userId) usersInCall.delete(userId);
+    usersInCall.delete(data.to);
     io.to(`user_${data.to}`).emit("call_ended");
+  });
+
+  socket.on("call_declined", (data: { to: number }) => {
+    const userId = (socket as any).userId;
+    // Clean up busy tracking
+    if (userId) usersInCall.delete(userId);
+    usersInCall.delete(data.to);
+    // Notify caller that the call was declined (missed call)
+    io.to(`user_${data.to}`).emit("call_missed", { from: userId });
   });
 
   // ─── Group Call (mediasoup SFU) ───────────────────────────────────────────
@@ -274,6 +322,22 @@ io.on("connection", async (socket: Socket) => {
 
   // ─── End Group Call ───────────────────────────────────────────────────────
 
+  // ─── Subtitle broadcast ───────────────────────────────────────────────────
+  // For 1-on-1: relay subtitle to the other participant via their user room
+  // For group: relay to all others in the call room
+  socket.on("subtitle_broadcast", (data: { to?: number; chatId?: number; text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    const payload = { text: data.text, speakerId: data.speakerId, username: data.username, isFinal: data.isFinal, lang: data.lang };
+    if (data.to) {
+      // 1-on-1: send to the specific user's room
+      io.to(`user_${data.to}`).emit("subtitle_received", payload);
+    } else if (data.chatId) {
+      // Group: broadcast to others in the call room
+      socket.to(`call_${data.chatId}`).emit("subtitle_received", payload);
+    }
+  });
+
   // Typing indicators
   socket.on("typing", (data: { chatId: number }) => {
     const userId = (socket as any).userId;
@@ -289,6 +353,15 @@ io.on("connection", async (socket: Socket) => {
     console.log("Socket disconnected:", socket.id);
     const userId = (socket as any).userId;
     if (userId) {
+      // Clean up 1-on-1 call busy state on disconnect
+      if (usersInCall.has(userId)) {
+        const otherId = usersInCall.get(userId);
+        usersInCall.delete(userId);
+        if (otherId !== undefined) {
+          usersInCall.delete(otherId);
+          io.to(`user_${otherId}`).emit("call_ended");
+        }
+      }
       try {
         await client.query("UPDATE users SET status = 'offline' WHERE id = $1", [userId]);
         const userRooms = await client.query(
@@ -297,6 +370,16 @@ io.on("connection", async (socket: Socket) => {
         );
         for (const row of userRooms.rows) {
           io.to(`chat_${row.chat_id}`).emit("user_status_changed", { userId, status: "offline" });
+        }
+        // Also notify friends
+        const friendsOffRes = await client.query(
+          "SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+          [userId]
+        );
+        for (const row of friendsOffRes.rows) {
+          io.to(`user_${row.friend_id}`).emit("user_status_changed", { userId, status: "offline" });
+        }
+        for (const row of userRooms.rows) {
 
           // Clean up group call participation if disconnected mid-call
           if (mediasoupService.isRoomActive(row.chat_id)) {
@@ -470,7 +553,7 @@ async function initializeDatabase() {
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     try {
-      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'discord';`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'dark';`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
     // ── Call analytics tables ────────────────────────────────────────────────

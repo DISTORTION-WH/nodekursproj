@@ -84,6 +84,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const otherUserId = useRef<number | null>(null);
   const pendingOffer = useRef<any>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   // ─── Group call state ────────────────────────────────────────────────────
   const [groupCallState, setGroupCallState] = useState<"idle" | "active">("idle");
@@ -106,6 +107,23 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const groupChatIdRef = useRef<number | null>(null);
   // Guard against concurrent joinGroupCall invocations
   const isJoiningGroupRef = useRef(false);
+  // Stable ref for socket to avoid stale closures
+  const socketRef = useRef<Socket | null>(null);
+  socketRef.current = socket;
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+
+  // Refs for call state — used in socket handlers to avoid stale closures
+  const callStateRef = useRef(callState);
+  callStateRef.current = callState;
+  const groupCallStateRef = useRef(groupCallState);
+  groupCallStateRef.current = groupCallState;
+
+  // Stable refs for callbacks used in the socket effect
+  // (so the effect only re-registers listeners when socket changes, not on every render)
+  const resetCallRef = useRef<() => void>(() => {});
+  const resetGroupCallRef = useRef<() => void>(() => {});
+  const consumeProducerRef = useRef<(chatId: number, producerId: string, userId: number) => Promise<void>>(async () => {});
 
   const resetGroupCall = useCallback(() => {
     groupLocalStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -130,8 +148,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   // ─── 1-on-1 helpers ──────────────────────────────────────────────────────
   const resetCall = useCallback(() => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+    // Use ref to avoid depending on localStream state (prevents effect re-registration)
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
     }
     if (peerConnection.current) {
       peerConnection.current.ontrack = null;
@@ -148,7 +168,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     iceCandidatesQueue.current = [];
     setIsAudioMuted(false);
     setIsVideoMuted(false);
-  }, [localStream]);
+  }, []); // stable — reads refs, no state deps
 
   const createPeerConnection = () => {
     if (peerConnection.current) {
@@ -193,10 +213,15 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setLocalStreamBoth = (stream: MediaStream | null) => {
+    localStreamRef.current = stream;
+    setLocalStream(stream);
+  };
+
   const getMediaStream = async (video: boolean) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
-      setLocalStream(stream);
+      setLocalStreamBoth(stream);
       return stream;
     } catch (err: any) {
       console.error("Media error (attempt 1):", err);
@@ -204,7 +229,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         try {
           console.warn("Camera unavailable, falling back to audio-only");
           const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-          setLocalStream(audioStream);
+          setLocalStreamBoth(audioStream);
           return audioStream;
         } catch (audioErr) {
           console.error("Microphone also unavailable:", audioErr);
@@ -217,12 +242,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // ─── Group call helpers ───────────────────────────────────────────────────
-  const emitAsync = (eventName: string, data: object): Promise<any> => {
+  const emitAsync = useCallback((eventName: string, data: object): Promise<any> => {
     return new Promise((resolve) => {
-      if (!socket) return resolve({ error: "no socket" });
-      (socket as any).emit(eventName, data, (res: any) => resolve(res));
+      const s = socketRef.current;
+      if (!s) return resolve({ error: "no socket" });
+      (s as any).emit(eventName, data, (res: any) => resolve(res));
     });
-  };
+  }, []);
 
   const updateParticipantsStream = (userId: number, stream: MediaStream | null) => {
     setGroupCallParticipants((prev) => {
@@ -277,9 +303,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
       updateParticipantsStream(producerUserId, mediaStream);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [emitAsync]
   );
+
+  // Keep stable refs in sync so socket effect handlers always call current version
+  resetCallRef.current = resetCall;
+  resetGroupCallRef.current = resetGroupCall;
+  consumeProducerRef.current = consumeProducer;
 
   const joinGroupCall = useCallback(
     async (chatId: number, isVideo: boolean) => {
@@ -300,6 +330,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
       if (!joinRes || joinRes.error) {
         console.error("group_call_join error:", joinRes?.error);
+        resetGroupCall();
         return;
       }
 
@@ -449,7 +480,11 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       for (const participant of existingParticipants) {
         if (participant.userId === currentUser.id) continue;
         for (const producerId of participant.producerIds) {
-          await consumeProducer(chatId, producerId, participant.userId);
+          try {
+            await consumeProducer(chatId, producerId, participant.userId);
+          } catch (e) {
+            console.error(`Failed to consume producer ${producerId} for user ${participant.userId}:`, e);
+          }
         }
       }
 
@@ -492,7 +527,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
     // 1-on-1 call events
     socket.on("incoming_call", (data) => {
-      if (callState !== "idle") return;
+      console.log("[CALL] incoming_call received:", data, "callState:", callStateRef.current, "groupCallState:", groupCallStateRef.current);
+      // Use refs to read current state — avoids stale closure when effect hasn't re-run
+      if (callStateRef.current !== "idle" || groupCallStateRef.current !== "idle") {
+        // Already in a call — the server should have handled this with call_busy,
+        // but as a safety net we silently ignore the incoming call
+        console.log("[CALL] incoming_call ignored — already in a call");
+        return;
+      }
       setCallerData({ id: data.from, name: data.name });
       setIsVideoCall(data.isVideo);
       setCallState("incoming");
@@ -500,57 +542,76 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       pendingOffer.current = data.signal;
     });
 
+    socket.on("call_busy", () => {
+      // The person we called is busy — notify and reset
+      alert("Пользователь сейчас занят другим звонком");
+      resetCallRef.current();
+    });
+
+    socket.on("call_missed", () => {
+      // Our outgoing call was declined by the other side
+      resetCallRef.current();
+    });
+
     socket.on("call_accepted", async (signal) => {
-      setCallState("connected");
-      if (peerConnection.current) {
-        try {
+      try {
+        setCallState("connected");
+        if (peerConnection.current) {
           await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
           processIceQueue();
-        } catch (e) {
-          console.error("setRemoteDescription error:", e);
         }
+      } catch (e) {
+        console.error("call_accepted handler error:", e);
       }
     });
 
     socket.on("receive_ice_candidate", async (data) => {
-      const candidate = data.candidate;
-      if (peerConnection.current && peerConnection.current.remoteDescription) {
-        try {
+      try {
+        const candidate = data.candidate;
+        if (peerConnection.current && peerConnection.current.remoteDescription) {
           await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error(e);
+        } else {
+          iceCandidatesQueue.current.push(candidate);
         }
-      } else {
-        iceCandidatesQueue.current.push(candidate);
+      } catch (e) {
+        console.error("receive_ice_candidate handler error:", e);
       }
     });
 
     socket.on("call_ended", () => {
-      resetCall();
+      resetCallRef.current();
     });
 
     // Group call events
     socket.on("group_call_started", (data: { chatId: number; startedBy: { userId: number; username: string } }) => {
-      // Show banner only if we're not already in a call
-      if (groupCallState === "idle") {
+      // Show banner only if we're not already in a call — use ref to avoid stale closure
+      if (groupCallStateRef.current === "idle" && callStateRef.current === "idle") {
         setIncomingGroupCall({ chatId: data.chatId, startedBy: data.startedBy });
       }
     });
 
     socket.on("group_call_participant_joined", async (data: { chatId: number; userId: number; username: string }) => {
-      // Add participant to list (no stream yet)
-      setGroupCallParticipants((prev) => {
-        if (prev.find((p) => p.userId === data.userId)) return prev;
-        return [
-          ...prev,
-          { userId: data.userId, username: data.username, stream: null, audioMuted: false, videoMuted: false },
-        ];
-      });
+      try {
+        // Add participant to list (no stream yet)
+        setGroupCallParticipants((prev) => {
+          if (prev.find((p) => p.userId === data.userId)) return prev;
+          return [
+            ...prev,
+            { userId: data.userId, username: data.username, stream: null, audioMuted: false, videoMuted: false },
+          ];
+        });
+      } catch (e) {
+        console.error("group_call_participant_joined handler error:", e);
+      }
     });
 
     socket.on("new_producer", async (data: { chatId: number; producerId: string; userId: number }) => {
-      if (groupCallState === "active" && groupChatIdRef.current === data.chatId) {
-        await consumeProducer(data.chatId, data.producerId, data.userId);
+      try {
+        if (groupCallStateRef.current === "active" && groupChatIdRef.current === data.chatId) {
+          await consumeProducerRef.current(data.chatId, data.producerId, data.userId);
+        }
+      } catch (e) {
+        console.error("new_producer handler error:", e);
       }
     });
 
@@ -564,7 +625,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     );
 
     socket.on("group_call_ended", (_data: { chatId: number }) => {
-      resetGroupCall();
+      resetGroupCallRef.current();
     });
 
     return () => {
@@ -572,19 +633,27 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       socket.off("call_accepted");
       socket.off("receive_ice_candidate");
       socket.off("call_ended");
+      socket.off("call_busy");
+      socket.off("call_missed");
       socket.off("group_call_started");
       socket.off("group_call_participant_joined");
       socket.off("new_producer");
       socket.off("group_call_participant_left");
       socket.off("group_call_ended");
     };
-  }, [socket, callState, groupCallState, resetCall, resetGroupCall, consumeProducer]);
+  // callState/groupCallState/resetCall removed from deps — handlers use refs instead
+  // socket is the only real dep — re-register listeners only when socket changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
 
   // ─── 1-on-1 call actions ─────────────────────────────────────────────────
   const startCall = async (userId: number, video: boolean) => {
     if (!socket || !currentUser) return;
+    console.log("[CALL] startCall → userId:", userId, "from:", currentUser.id, "socket connected:", socket.connected);
     setIsVideoCall(video);
     otherUserId.current = userId;
+    // Set callerData for the remote user so subtitle routing knows the remote userId
+    setCallerData({ id: userId, name: "" });
     setCallState("calling");
 
     const stream = await getMediaStream(video);
@@ -633,7 +702,12 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const endCall = () => {
     if (socket && otherUserId.current) {
-      socket.emit("end_call", { to: otherUserId.current });
+      if (callStateRef.current === "incoming") {
+        // User is declining an incoming call — emit call_declined so caller is notified
+        socket.emit("call_declined", { to: otherUserId.current });
+      } else {
+        socket.emit("end_call", { to: otherUserId.current });
+      }
     }
     resetCall();
   };

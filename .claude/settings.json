@@ -4,7 +4,8 @@
       "Read(//c/Program Files/PostgreSQL//**)",
       "Bash(\"/c/Program Files/PostgreSQL/17/bin/psql\" -U postgres -d postgres -h localhost -p 5432 -c \":*)",
       "Bash(node -e \"require\\(''recharts''\\); console.log\\(''recharts OK''\\)\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx react-scripts:*)"
     ]
   }
 }

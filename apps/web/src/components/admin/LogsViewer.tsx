@@ -38,7 +38,7 @@ export default function LogsViewer() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-discord-text-muted text-xs uppercase border-b border-white/10">
+            <tr className="text-discord-text-muted text-xs uppercase border-b border-discord-tertiary">
               <th className="text-left py-2 px-2">Время</th>
               <th className="text-left py-2 px-2">Уровень</th>
               <th className="text-left py-2 px-2">Сообщение</th>
@@ -49,7 +49,7 @@ export default function LogsViewer() {
             {logs.map((log) => (
               <tr
                 key={log.id}
-                className={`border-b border-white/5 hover:bg-white/5 transition ${
+                className={`border-b border-discord-tertiary hover:bg-discord-input transition ${
                   log.level === "ERROR" ? "bg-discord-danger/5" : ""
                 }`}
               >

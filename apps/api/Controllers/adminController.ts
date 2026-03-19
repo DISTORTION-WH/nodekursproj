@@ -118,7 +118,7 @@ class AdminController {
     try {
       const { id } = req.params;
       // Используем chatService для полного удаления (включая сообщения и участников)
-      await chatService.deleteChatAndData(id);
+      await chatService.deleteChatAndData(id as string);
       res.json({ message: "Chat deleted" });
     } catch (e: any) {
       next(e);

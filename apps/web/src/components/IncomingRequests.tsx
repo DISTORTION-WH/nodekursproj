@@ -57,7 +57,7 @@ export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProp
             onClick={() => onOpenProfile(req.requester_id)}
           />
           <span
-            className="text-discord-text-secondary text-sm flex-1 truncate cursor-pointer hover:text-white"
+            className="text-discord-text-secondary text-sm flex-1 truncate cursor-pointer hover:text-discord-text-primary"
             onClick={() => onOpenProfile(req.requester_id)}
           >
             {req.requester_name}

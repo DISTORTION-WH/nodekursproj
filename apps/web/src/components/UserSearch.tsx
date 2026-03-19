@@ -31,7 +31,7 @@ export default function UserSearch({ onOpenProfile }: UserSearchProps) {
   };
 
   return (
-    <div className="px-2 mt-auto border-t border-white/10 pt-2 pb-2">
+    <div className="px-2 mt-auto border-t border-discord-tertiary pt-2 pb-2">
       <div className="flex items-center px-2 py-2">
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
           Поиск пользователей
@@ -63,7 +63,7 @@ export default function UserSearch({ onOpenProfile }: UserSearchProps) {
             onClick={() => onOpenProfile(u.id)}
           />
           <span
-            className="text-discord-text-secondary text-sm flex-1 truncate cursor-pointer hover:text-white"
+            className="text-discord-text-secondary text-sm flex-1 truncate cursor-pointer hover:text-discord-text-primary"
             onClick={() => onOpenProfile(u.id)}
           >
             {u.username}

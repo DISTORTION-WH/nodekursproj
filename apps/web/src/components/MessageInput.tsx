@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from "
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import VoiceRecorder from "./VoiceRecorder";
+import VideoNoteRecorder from "./VideoNoteRecorder";
 import { uploadFile } from "../services/api";
 
 export default function MessageInput() {
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showVideoNote, setShowVideoNote] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,12 +57,14 @@ export default function MessageInput() {
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeChat?.id) return;
+    setUploading(true);
     try {
       await uploadFile(activeChat.id, file);
     } catch (err) {
       console.error("Ошибка загрузки файла:", err);
       alert("Ошибка загрузки файла");
     } finally {
+      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -68,16 +73,16 @@ export default function MessageInput() {
     <div className="relative px-4 pb-4 shrink-0">
       {/* Reply preview bar */}
       {replyingTo && (
-        <div className="flex items-center gap-2 bg-discord-tertiary rounded-t-lg px-3 py-2 border-l-2 border-discord-accent mb-0.5">
+        <div className="flex items-center gap-2 rounded-t-lg px-3 py-2 mb-0.5" style={{ background: "rgba(88,101,242,0.08)", borderLeft: "3px solid #5865f2" }}>
           <span className="text-discord-accent text-xs">↩</span>
           <div className="flex-1 min-w-0">
             <span className="text-discord-accent text-xs font-semibold mr-1">
               {replyingTo.sender_name}
             </span>
             <span className="text-discord-text-muted text-xs truncate">
-              {replyingTo.text.length > 80
-                ? replyingTo.text.slice(0, 80) + "..."
-                : replyingTo.text}
+              {(replyingTo.text ?? "").length > 80
+                ? (replyingTo.text ?? "").slice(0, 80) + "..."
+                : replyingTo.text ?? ""}
             </span>
           </div>
           <button
@@ -98,6 +103,14 @@ export default function MessageInput() {
         />
       )}
 
+      {/* Video note recorder panel */}
+      {showVideoNote && activeChat && (
+        <VideoNoteRecorder
+          chatId={activeChat.id}
+          onClose={() => setShowVideoNote(false)}
+        />
+      )}
+
       {showEmojiPicker && (
         <div className="absolute bottom-full left-4 mb-2 w-[350px] z-20">
           <EmojiPicker
@@ -114,20 +127,22 @@ export default function MessageInput() {
         ref={fileInputRef}
         type="file"
         className="hidden"
-        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
         onChange={handleFileChange}
       />
 
       <form
         onSubmit={handleSend}
-        className={`flex items-center gap-2 bg-discord-input px-3 py-2 ${
+        className={`flex items-center gap-2 px-3 py-2 ${
           replyingTo ? "rounded-b-lg" : "rounded-lg"
         }`}
+        style={{ background: "var(--color-input)", border: "1px solid var(--color-tertiary)" }}
       >
         {/* Emoji button */}
         <button
           type="button"
-          className="text-xl text-discord-text-muted hover:text-discord-text-primary transition shrink-0"
+          className="text-xl text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0"
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={(e) => {
             e.stopPropagation();
             setShowEmojiPicker(!showEmojiPicker);
@@ -140,24 +155,48 @@ export default function MessageInput() {
         {/* File attach button */}
         <button
           type="button"
-          className="text-discord-text-muted hover:text-discord-text-primary transition shrink-0 text-base leading-none"
-          onClick={() => fileInputRef.current?.click()}
+          className="text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0 text-base leading-none"
+          onMouseEnter={(e) => { if (!uploading) e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          onClick={() => !uploading && fileInputRef.current?.click()}
           title="Прикрепить файл"
+          disabled={uploading}
         >
-          📎
+          {uploading ? (
+            <span className="inline-block w-4 h-4 border-2 border-discord-text-muted border-t-transparent rounded-full animate-spin" />
+          ) : "📎"}
         </button>
 
         {/* Voice recorder toggle */}
         <button
           type="button"
-          className={`text-discord-text-muted transition shrink-0 text-base leading-none ${showVoiceRecorder ? "text-discord-danger" : "hover:text-discord-text-primary"}`}
+          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVoiceRecorder ? "text-discord-danger" : "hover:text-discord-text-primary"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           onClick={() => {
             setShowVoiceRecorder(!showVoiceRecorder);
+            setShowVideoNote(false);
             setShowEmojiPicker(false);
           }}
           title="Голосовое сообщение"
         >
           🎤
+        </button>
+
+        {/* Video note toggle */}
+        <button
+          type="button"
+          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVideoNote ? "text-discord-accent" : "hover:text-discord-text-primary"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          onClick={() => {
+            setShowVideoNote(!showVideoNote);
+            setShowVoiceRecorder(false);
+            setShowEmojiPicker(false);
+          }}
+          title="Видеосообщение"
+        >
+          🎥
         </button>
 
         <input
@@ -170,9 +209,14 @@ export default function MessageInput() {
         />
         <button
           type="submit"
-          className="bg-discord-accent hover:bg-discord-accent-hover text-white text-sm font-semibold px-3 py-1 rounded transition shrink-0"
+          className="text-white px-3 py-1.5 rounded transition shrink-0 flex items-center justify-center"
+          style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)", boxShadow: "0 2px 8px rgba(88,101,242,0.3)" }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
-          Go
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
         </button>
       </form>
     </div>
