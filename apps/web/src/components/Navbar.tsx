@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../utils/imageUrl";
+import { AvatarWithFrame } from "./profile/AvatarFrameShop";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -79,12 +80,14 @@ export default function Navbar() {
               </Link>
             )}
             {currentUser && (
-              <img
-                src={getImageUrl(currentUser.avatar_url)}
-                alt="avatar"
-                className="w-9 h-9 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-discord-accent transition"
-                onClick={() => navigate("/profile")}
-              />
+              <div className="cursor-pointer" onClick={() => navigate("/profile")}>
+                <AvatarWithFrame
+                  src={getImageUrl(currentUser.avatar_url)}
+                  frame={currentUser.avatar_frame}
+                  size={36}
+                  className="hover:opacity-90 transition"
+                />
+              </div>
             )}
             <button
               onClick={handleLogout}

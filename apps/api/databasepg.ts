@@ -36,7 +36,7 @@ client.on("end", () => {
 client
   .connect()
   .then(() => console.log("✅ Успешно подключено к PostgreSQL"))
-  .catch((err) => {
+  .catch((err: Error) => {
     console.error("❗️ КРИТИЧЕСКАЯ ОШИБКА подключения к PostgreSQL:", err.message);
     // Не убиваем процесс сразу, чтобы локально видеть ошибку, если БД еще поднимается
     // process.exit(1); 

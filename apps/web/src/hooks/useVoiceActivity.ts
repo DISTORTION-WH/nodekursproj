@@ -551,15 +551,17 @@ export function useVoiceActivity(options: UseVoiceActivityOptions): VoiceActivit
   // Cleanup analysers on unmount
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    const analysers = analysersRef.current;
+    const tracks = trackRef.current;
+    const speaking = currentlySpeakingRef.current;
     return () => {
-      // Read current ref values at cleanup time to catch all analysers
-      analysersRef.current.forEach((entry) => {
+      analysers.forEach((entry) => {
         try { entry.source.disconnect(); } catch { /* ignore */ }
         try { entry.context.close(); } catch { /* ignore */ }
       });
-      analysersRef.current.clear();
-      trackRef.current.clear();
-      currentlySpeakingRef.current.clear();
+      analysers.clear();
+      tracks.clear();
+      speaking.clear();
     };
   }, []);
 

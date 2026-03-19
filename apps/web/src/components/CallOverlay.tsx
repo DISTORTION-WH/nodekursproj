@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { getImageUrl } from "../utils/imageUrl";
 import { useCall } from "../context/CallContext";

@@ -13,6 +13,7 @@ interface FriendRow {
   id: number;
   username: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
 }
 
 interface IncomingRequestRow {
@@ -25,7 +26,7 @@ router.get("/", authMiddleware, async (req: AuthRequest, res: Response, next: Ne
   const userId = (req.user as any).id;
   try {
     const result = await client.query<FriendRow>(
-      `SELECT DISTINCT u.id, u.username, u.avatar_url
+      `SELECT DISTINCT u.id, u.username, u.avatar_url, u.avatar_frame
        FROM users u
        JOIN friends f ON (u.id = f.friend_id OR u.id = f.user_id)
        WHERE (f.user_id = $1 OR f.friend_id = $1)

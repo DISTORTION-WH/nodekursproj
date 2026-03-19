@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileFriendList from "../components/profile/ProfileFriendList";
 import ChangePasswordForm from "../components/profile/ChangePasswordForm";
+import AvatarFrameShop from "../components/profile/AvatarFrameShop";
 import { useAuth } from "../context/AuthContext";
 import { updateUserStatus, updateUserTheme } from "../services/api";
 import { UserStatus, AppTheme } from "../types";
@@ -119,6 +120,9 @@ export default function ProfilePage() {
             })}
           </div>
         </div>
+
+        {/* Avatar frame shop */}
+        <AvatarFrameShop currentUser={currentUser} setCurrentUser={setCurrentUser} />
 
         <ProfileFriendList />
         <ChangePasswordForm />

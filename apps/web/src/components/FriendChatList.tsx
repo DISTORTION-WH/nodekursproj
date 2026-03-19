@@ -5,6 +5,7 @@ import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
 import { User, UserStatus } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
+import { AvatarWithFrame } from "./profile/AvatarFrameShop";
 
 interface FriendChatListProps {
   onOpenProfile: (id: number) => void;
@@ -104,15 +105,11 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
             onClick={() => openChat(f)}
           >
             {/* Avatar with status dot */}
-            <div className="relative shrink-0">
-              <img
+            <div className="relative shrink-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); onOpenProfile(f.id); }}>
+              <AvatarWithFrame
                 src={getImageUrl(f.avatar_url)}
-                alt={f.username}
-                className="w-8 h-8 rounded-full object-cover cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenProfile(f.id);
-                }}
+                frame={(f as any).avatar_frame}
+                size={32}
               />
               <span
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-discord-secondary ${statusColor[status]}`}
