@@ -192,18 +192,12 @@ export const uploadFile = (chatId: number, file: File) => {
 export const getLinkPreview = (url: string) =>
   api.get(`/chats/preview?url=${encodeURIComponent(url)}`);
 
-// Call analytics
-export const saveCallAnalytics = (data: object) =>
-  api.post("/api/call-analytics", data);
-export const getCallHistory = (limit?: number) =>
-  api.get(`/api/call-analytics/history${limit ? `?limit=${limit}` : ""}`);
-export const getCallSessionDetail = (callId: string) =>
-  api.get(`/api/call-analytics/${callId}`);
-
-// User status, theme & avatar frame
+// User status, theme, avatar frame, bio & country
 export const updateUserStatus = (status: string) => api.patch('/users/me/status', { status });
 export const updateUserTheme = (theme: string) => api.patch('/users/me/theme', { theme });
 export const updateUserAvatarFrame = (frame: string | null) => api.patch('/users/me/frame', { frame });
+export const updateUserBio = (bio: string) => api.patch('/users/me/bio', { bio });
+export const updateUserCountry = (country: string) => api.patch('/users/me/country', { country });
 
 // Paginated messages
 export const getChatMessagesBefore = (chatId: number, beforeId: number) =>

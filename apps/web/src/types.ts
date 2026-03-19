@@ -23,6 +23,8 @@ export interface User {
   status?: UserStatus;
   theme?: AppTheme;
   is_invisible?: boolean;
+  bio?: string;
+  country?: string;
 }
 
 export interface ReactionGroup {
@@ -44,6 +46,7 @@ export interface Message {
   sender_id: number;
   created_at: string;
   sender_name?: string;
+  sender_avatar?: string | null;
   sender?: {
     id: number;
     username: string;

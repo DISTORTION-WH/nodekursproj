@@ -3,11 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../utils/imageUrl";
 import { AvatarWithFrame } from "./profile/AvatarFrameShop";
+import { useI18n, LANGUAGES } from "../i18n";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const { isAuth, currentUser, logout } = useAuth();
+  const { t, lang, setLang } = useI18n();
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
+  const [langOpen, setLangOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -47,6 +50,45 @@ export default function Navbar() {
         </span>
       </Link>
       <div className="flex items-center gap-2">
+        {/* Language switcher */}
+        <div className="relative">
+          <button
+            onClick={() => setLangOpen(!langOpen)}
+            className="px-2 py-1 rounded text-sm flex items-center gap-1"
+            style={navLinkStyle("lang")}
+            onMouseEnter={() => setHoveredLink("lang")}
+            onMouseLeave={() => { if (!langOpen) setHoveredLink(null); }}
+          >
+            {LANGUAGES.find((l) => l.code === lang)?.flag ?? "🌐"}
+          </button>
+          {langOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+              <div
+                className="absolute right-0 top-full mt-1 z-50 rounded-lg overflow-hidden shadow-xl"
+                style={{ background: "var(--color-secondary)", border: "1px solid var(--color-tertiary)", minWidth: 130 }}
+              >
+                {LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => { setLang(l.code); setLangOpen(false); }}
+                    className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition ${
+                      lang === l.code ? "text-discord-accent" : "text-discord-text-secondary hover:text-discord-text-primary"
+                    }`}
+                    style={{ background: lang === l.code ? "rgba(88,101,242,0.1)" : "transparent" }}
+                    onMouseEnter={(e) => { if (lang !== l.code) (e.currentTarget.style.background = "rgba(255,255,255,0.05)"); }}
+                    onMouseLeave={(e) => { if (lang !== l.code) (e.currentTarget.style.background = "transparent"); }}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.label}</span>
+                    {lang === l.code && <span className="ml-auto text-xs">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         {isAuth ? (
           <>
             {isAdmin && (
@@ -57,7 +99,7 @@ export default function Navbar() {
                 onMouseEnter={() => setHoveredLink("admin")}
                 onMouseLeave={() => setHoveredLink(null)}
               >
-                Админка
+                {t.nav.admin}
               </Link>
             )}
             {(isModerator || isAdmin) && (
@@ -76,7 +118,7 @@ export default function Navbar() {
                 onMouseEnter={() => setHoveredLink("moderator")}
                 onMouseLeave={() => setHoveredLink(null)}
               >
-                Модерация
+                {t.nav.moderation}
               </Link>
             )}
             {currentUser && (
@@ -96,7 +138,7 @@ export default function Navbar() {
               onMouseEnter={() => setHoveredLink("logout")}
               onMouseLeave={() => setHoveredLink(null)}
             >
-              Выход
+              {t.nav.logout}
             </button>
           </>
         ) : (
@@ -108,14 +150,14 @@ export default function Navbar() {
               onMouseEnter={() => setHoveredLink("login")}
               onMouseLeave={() => setHoveredLink(null)}
             >
-              Вход
+              {t.nav.login}
             </Link>
             <Link
               to="/register"
               className="px-3 py-1 rounded text-white text-sm no-underline hover:opacity-90 transition-opacity"
               style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)" }}
             >
-              Регистрация
+              {t.nav.register}
             </Link>
           </>
         )}

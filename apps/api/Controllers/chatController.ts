@@ -369,9 +369,8 @@ class ChatController {
       const { text, forwardedFromId } = req.body;
       if (!userId || !authReq.user) { res.status(401).json({ message: "Не авторизован" }); return; }
       const msg = await chatService.forwardMessage(targetChatId, userId, text, forwardedFromId);
-      const msgWithSender = { ...msg, sender_name: authReq.user.username };
-      req.app.get("io").to(`chat_${targetChatId}`).emit("new_message", msgWithSender);
-      res.json(msgWithSender);
+      req.app.get("io").to(`chat_${targetChatId}`).emit("new_message", msg);
+      res.json(msg);
     } catch (e) { next(e); }
   }
 
@@ -385,9 +384,8 @@ class ChatController {
       if (!file) { res.status(400).json({ message: "Файл не загружен" }); return; }
       const url = await minioService.uploadFile(file);
       const msg = await chatService.postMessage(chatId, userId, url);
-      const msgWithSender = { ...msg, sender_name: authReq.user.username };
-      req.app.get("io").to(`chat_${chatId}`).emit("new_message", msgWithSender);
-      res.json(msgWithSender);
+      req.app.get("io").to(`chat_${chatId}`).emit("new_message", msg);
+      res.json(msg);
     } catch (e) { next(e); }
   }
 
@@ -414,11 +412,9 @@ class ChatController {
 
       const msg = await chatService.postMessage(chatId, senderId, text, reply_to_id ?? null);
 
-      const msgWithSender = { ...msg, sender_name: authReq.user.username };
+      req.app.get("io").to(`chat_${chatId}`).emit("new_message", msg);
 
-      req.app.get("io").to(`chat_${chatId}`).emit("new_message", msgWithSender);
-
-      res.json(msgWithSender);
+      res.json(msg);
     } catch (e) {
       next(e);
     }

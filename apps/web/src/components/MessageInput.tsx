@@ -5,6 +5,7 @@ import VoiceRecorder from "./VoiceRecorder";
 import VideoNoteRecorder from "./VideoNoteRecorder";
 import StickerPicker from "./StickerPicker";
 import { uploadFile } from "../services/api";
+import { useI18n } from "../i18n";
 
 export default function MessageInput() {
   const [newMessage, setNewMessage] = useState("");
@@ -14,6 +15,7 @@ export default function MessageInput() {
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
+  const { t } = useI18n();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,40 +160,44 @@ export default function MessageInput() {
         {/* Emoji button */}
         <button
           type="button"
-          className="text-xl text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0"
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showEmojiPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={(e) => {
             e.stopPropagation();
             setShowEmojiPicker(!showEmojiPicker);
             setShowVoiceRecorder(false);
             setShowStickerPicker(false);
           }}
+          title="Emoji"
         >
-          😀
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
+          </svg>
         </button>
 
         {/* File attach button */}
         <button
           type="button"
-          className="text-discord-text-muted hover:text-discord-text-primary transition-transform duration-150 shrink-0 text-base leading-none"
-          onMouseEnter={(e) => { if (!uploading) e.currentTarget.style.transform = "scale(1.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary transition-all duration-150 shrink-0"
           onClick={() => !uploading && fileInputRef.current?.click()}
           title="Прикрепить файл"
           disabled={uploading}
         >
           {uploading ? (
             <span className="inline-block w-4 h-4 border-2 border-discord-text-muted border-t-transparent rounded-full animate-spin" />
-          ) : "📎"}
+          ) : (
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          )}
         </button>
 
         {/* Voice recorder toggle */}
         <button
           type="button"
-          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVoiceRecorder ? "text-discord-danger" : "hover:text-discord-text-primary"}`}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showVoiceRecorder ? "text-discord-danger bg-discord-danger/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={() => {
             setShowVoiceRecorder(!showVoiceRecorder);
             setShowVideoNote(false);
@@ -199,15 +205,18 @@ export default function MessageInput() {
           }}
           title="Голосовое сообщение"
         >
-          🎤
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+            <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
         </button>
 
         {/* Video note toggle */}
         <button
           type="button"
-          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showVideoNote ? "text-discord-accent" : "hover:text-discord-text-primary"}`}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showVideoNote ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={() => {
             setShowVideoNote(!showVideoNote);
             setShowVoiceRecorder(false);
@@ -216,15 +225,16 @@ export default function MessageInput() {
           }}
           title="Видеосообщение"
         >
-          🎥
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="23 7 16 12 23 17 23 7"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
         </button>
 
         {/* Sticker picker toggle */}
         <button
           type="button"
-          className={`text-discord-text-muted transition-transform duration-150 shrink-0 text-base leading-none ${showStickerPicker ? "text-discord-accent" : "hover:text-discord-text-primary"}`}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showStickerPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={() => {
             setShowStickerPicker(!showStickerPicker);
             setShowEmojiPicker(false);
@@ -233,13 +243,18 @@ export default function MessageInput() {
           }}
           title="Стикеры"
         >
-          🪄
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/>
+            <path d="M8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="currentColor"/>
+            <path d="M15.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="currentColor"/>
+            <path d="M8 14c.5 1.5 2 3 4 3s3.5-1.5 4-3"/>
+          </svg>
         </button>
 
         <input
           value={newMessage}
           onChange={handleChange}
-          placeholder={replyingTo ? `Ответить ${replyingTo.sender_name}...` : "Написать сообщение..."}
+          placeholder={replyingTo ? `${t.chat.reply_prefix} ${replyingTo.sender_name}...` : t.chat.message_placeholder}
           onKeyDown={handleKeyDown}
           onClick={() => setShowEmojiPicker(false)}
           className="flex-1 bg-transparent text-discord-text-primary text-sm outline-none placeholder-discord-text-muted min-w-0"

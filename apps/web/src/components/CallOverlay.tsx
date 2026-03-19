@@ -4,8 +4,6 @@ import { getImageUrl } from "../utils/imageUrl";
 import { useCall } from "../context/CallContext";
 import { GroupCallParticipant } from "../types";
 import { useAuth } from "../context/AuthContext";
-import { SpeakingIndicator } from "./TalkTimeFairnessPanel";
-import TalkTimeFairnessPanel from "./TalkTimeFairnessPanel";
 import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
@@ -119,15 +117,11 @@ function fmtDuration(s: number): string {
 interface ParticipantTileProps {
   participant: GroupCallParticipant;
   isLocal?: boolean;
-  voiceState?: { isSpeaking: boolean; talkPercent: number };
-  participantCount: number;
 }
 
 function ParticipantTile({
   participant,
   isLocal = false,
-  voiceState,
-  participantCount,
 }: ParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
@@ -141,8 +135,6 @@ function ParticipantTile({
     }
   }, [participant.stream]);
 
-  const isSpeaking = voiceState?.isSpeaking ?? false;
-
   return (
     <div
       style={{
@@ -154,13 +146,8 @@ function ParticipantTile({
         justifyContent: "center",
         aspectRatio: "16/9",
         background: "rgba(15,16,28,0.9)",
-        border: isSpeaking
-          ? "1px solid rgba(88,101,242,0.6)"
-          : "1px solid rgba(255,255,255,0.06)",
-        boxShadow: isSpeaking
-          ? "0 0 20px rgba(88,101,242,0.2), inset 0 0 0 1px rgba(88,101,242,0.3)"
-          : "0 4px 16px rgba(0,0,0,0.4)",
-        transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       }}
     >
       {hasVideo ? (
@@ -217,14 +204,6 @@ function ParticipantTile({
           border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {voiceState && (
-          <SpeakingIndicator
-            isSpeaking={voiceState.isSpeaking}
-            talkPercent={voiceState.talkPercent}
-            participantCount={participantCount}
-            size="sm"
-          />
-        )}
         {isLocal ? "Вы" : participant.username}
         {participant.audioMuted && <span>🔇</span>}
       </div>
@@ -421,17 +400,15 @@ function CallOverlayContent() {
   const { currentUser } = useAuth();
 
   const {
-    speakingState,
-    participantCount,
     subtitlesEnabled,
     speechLang,
     displayLang,
     toggleSubtitles,
     setSpeechLang,
     setDisplayLang,
-    fairnessPanelVisible,
-    toggleFairnessPanel,
   } = useCallFeatures();
+
+  const participantCount = groupCallState === "active" ? groupCallParticipants.length + 1 : 2;
 
   // ─── Minimize / tray state ────────────────────────────────────────────────
   const [minimized, setMinimized] = useState(false);
@@ -825,15 +802,11 @@ function CallOverlayContent() {
                     key={`local-${localParticipant.userId}`}
                     participant={localParticipant}
                     isLocal
-                    voiceState={speakingState.get("local")}
-                    participantCount={participantCount}
                   />
                   {groupCallParticipants.map((p) => (
                     <ParticipantTile
                       key={p.userId}
                       participant={p}
-                      voiceState={speakingState.get(String(p.userId))}
-                      participantCount={participantCount}
                     />
                   ))}
                 </div>
@@ -851,14 +824,6 @@ function CallOverlayContent() {
                 {isGroupVideoMuted ? "🚫" : "📷"}
               </ControlBtn>
             )}
-            {/* Fairness panel toggle */}
-            <ControlBtn
-              onClick={toggleFairnessPanel}
-              active={fairnessPanelVisible}
-              title={fairnessPanelVisible ? "Скрыть статистику речи" : "Показать статистику речи"}
-            >
-              📊
-            </ControlBtn>
             {/* Subtitles */}
             <div style={{ position: "relative" }}>
               <CCButton active={subtitlesEnabled} onToggle={() => {
@@ -888,9 +853,6 @@ function CallOverlayContent() {
               📞
             </ControlBtn>
           </div>
-
-          {/* Fairness panel */}
-          {fairnessPanelVisible && <TalkTimeFairnessPanel defaultCollapsed={false} />}
 
           {/* Subtitles overlay */}
           <SubtitlesOverlay
@@ -1253,42 +1215,33 @@ function CallOverlayContent() {
                   <div style={{
                     width: 220, height: 220, flexShrink: 0,
                     background: "rgba(15,16,28,0.85)",
-                    border: speakingState.get(remoteParticipantId)?.isSpeaking
-                      ? "2px solid #7c5cfc" : "2px solid rgba(255,255,255,0.07)",
+                    border: "2px solid rgba(255,255,255,0.07)",
                     borderRadius: 24,
-                    boxShadow: speakingState.get(remoteParticipantId)?.isSpeaking
-                      ? "0 0 28px rgba(124,92,252,0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                     display: "flex", flexDirection: "column", alignItems: "center",
                     justifyContent: "center", gap: 14,
-                    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   }}>
                     <CallAvatar
                       src={remoteAvatarSrc} initial={callerInitial} size={96}
-                      isSpeaking={speakingState.get(remoteParticipantId)?.isSpeaking ?? false}
+                      isSpeaking={false}
                     />
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{callerData?.name}</div>
-                    {speakingState.get(remoteParticipantId)?.isSpeaking && (
-                      <div style={{ fontSize: 11, color: "#7c5cfc", fontWeight: 600 }}>Говорит...</div>
-                    )}
                   </div>
 
                   {/* Local self block */}
                   <div style={{
                     width: 220, height: 220, flexShrink: 0,
                     background: "rgba(15,16,28,0.85)",
-                    border: speakingState.get("local")?.isSpeaking
-                      ? "2px solid #7c5cfc" : "2px solid rgba(255,255,255,0.07)",
+                    border: "2px solid rgba(255,255,255,0.07)",
                     borderRadius: 24,
-                    boxShadow: speakingState.get("local")?.isSpeaking
-                      ? "0 0 28px rgba(124,92,252,0.4)" : "0 8px 32px rgba(0,0,0,0.4)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                     display: "flex", flexDirection: "column", alignItems: "center",
                     justifyContent: "center", gap: 14,
-                    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   }}>
                     <div style={{ position: "relative" }}>
                       <CallAvatar
                         src={myAvatarSrc} initial={myInitial} size={96}
-                        isSpeaking={speakingState.get("local")?.isSpeaking ?? false}
+                        isSpeaking={false}
                       />
                       {isAudioMuted && (
                         <span style={{
@@ -1300,11 +1253,7 @@ function CallOverlayContent() {
                       )}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{currentUser?.username ?? "Вы"}</div>
-                    {isAudioMuted
-                      ? <div style={{ fontSize: 11, color: "#ed4245", fontWeight: 600 }}>Заглушён</div>
-                      : speakingState.get("local")?.isSpeaking
-                      ? <div style={{ fontSize: 11, color: "#7c5cfc", fontWeight: 600 }}>Говорит...</div>
-                      : null}
+                    {isAudioMuted && <div style={{ fontSize: 11, color: "#ed4245", fontWeight: 600 }}>Заглушён</div>}
                   </div>
                 </div>
               )}
@@ -1329,13 +1278,6 @@ function CallOverlayContent() {
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
-                <ControlBtn
-                  onClick={toggleFairnessPanel}
-                  active={fairnessPanelVisible}
-                  title={fairnessPanelVisible ? "Скрыть статистику речи" : "Показать статистику речи"}
-                >
-                  📊
-                </ControlBtn>
                 <div style={{ position: "relative" }}>
                   <CCButton active={subtitlesEnabled} onToggle={() => {
                     if (!subtitlesEnabled) { toggleSubtitles(); }
@@ -1364,13 +1306,6 @@ function CallOverlayContent() {
                   📞
                 </ControlBtn>
               </div>
-
-              {/* Fairness panel */}
-              {fairnessPanelVisible && (
-                <div style={{ position: "absolute", bottom: 80, left: 0, right: 0, zIndex: 15 }}>
-                  <TalkTimeFairnessPanel defaultCollapsed={false} />
-                </div>
-              )}
 
               {/* Subtitles overlay */}
               <SubtitlesOverlay

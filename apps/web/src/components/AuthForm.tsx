@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 interface Props {
   type: "login" | "register";
@@ -11,7 +13,9 @@ export default function AuthForm({ type }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,10 +25,28 @@ export default function AuthForm({ type }: Props) {
     try {
       await login(username, password);
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : (err.response?.data?.message || "Ошибка входа"));
+      setError(err instanceof Error ? err.message : (err.response?.data?.message || t.auth.login_error));
     } finally {
       setLoading(false);
     }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "white",
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid rgba(88,101,242,0.7)";
+    e.currentTarget.style.background = "rgba(255,255,255,0.09)";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(88,101,242,0.15)";
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.1)";
+    e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+    e.currentTarget.style.boxShadow = "none";
   };
 
   return (
@@ -111,7 +133,7 @@ export default function AuthForm({ type }: Props) {
               LUME
             </span>
             <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-              {type === "login" ? "С возвращением" : "Добро пожаловать"}
+              {type === "login" ? t.auth.welcome_back : t.auth.welcome}
             </p>
           </div>
 
@@ -126,7 +148,7 @@ export default function AuthForm({ type }: Props) {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Имя пользователя
+                {t.auth.username}
               </label>
               <input
                 type="text"
@@ -135,27 +157,15 @@ export default function AuthForm({ type }: Props) {
                 placeholder="username"
                 autoComplete="username"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "white",
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.border = "1px solid rgba(88,101,242,0.7)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.09)";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(88,101,242,0.15)";
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.1)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                style={inputStyle}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Пароль
+                {t.auth.password}
               </label>
               <input
                 type="password"
@@ -164,23 +174,23 @@ export default function AuthForm({ type }: Props) {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "white",
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.border = "1px solid rgba(88,101,242,0.7)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.09)";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(88,101,242,0.15)";
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.1)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                style={inputStyle}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
+
+            {/* Forgot password link */}
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              className="text-xs text-right -mt-2 transition-colors duration-200"
+              style={{ color: "rgba(168,180,255,0.7)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#a8b4ff")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(168,180,255,0.7)")}
+            >
+              {t.auth.forgot_password}
+            </button>
 
             <button
               type="submit"
@@ -211,15 +221,15 @@ export default function AuthForm({ type }: Props) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                   </svg>
-                  Входим...
+                  {t.auth.logging_in}
                 </span>
-              ) : "Войти"}
+              ) : t.auth.login}
             </button>
           </form>
 
           {/* Footer link */}
           <p className="text-center text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Нет аккаунта?{" "}
+            {t.auth.no_account}{" "}
             <Link
               to="/register"
               className="font-semibold transition-colors duration-200"
@@ -227,11 +237,14 @@ export default function AuthForm({ type }: Props) {
               onMouseEnter={e => (e.currentTarget.style.color = "#eb459e")}
               onMouseLeave={e => (e.currentTarget.style.color = "#a8b4ff")}
             >
-              Зарегистрироваться
+              {t.auth.register}
             </Link>
           </p>
         </div>
       </div>
+
+      {/* Forgot password modal */}
+      {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
     </div>
   );
 }

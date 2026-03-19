@@ -109,6 +109,30 @@ router.patch("/me/frame", authMiddleware, async (req: AuthRequest, res: Response
   }
 });
 
+router.patch("/me/bio", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { bio } = req.body;
+    const client = require("../databasepg").default;
+    await client.query("UPDATE users SET bio = $1 WHERE id = $2", [bio ?? "", userId]);
+    res.json({ bio: bio ?? "" });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
+router.patch("/me/country", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { country } = req.body;
+    const client = require("../databasepg").default;
+    await client.query("UPDATE users SET country = $1 WHERE id = $2", [country ?? "", userId]);
+    res.json({ country: country ?? "" });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);

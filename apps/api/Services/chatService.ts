@@ -279,6 +279,7 @@ class ChatService {
     const result = await client.query(
       `SELECT
          m.id, m.text, m.created_at, m.chat_id, u.id as sender_id, u.username as sender_name,
+         u.avatar_url as sender_avatar,
          m.reply_to_id, m.edited_at, m.forwarded_from_id,
          CASE WHEN rm.id IS NOT NULL THEN
            jsonb_build_object('id', rm.id, 'text', rm.text, 'sender_name', ru.username)
@@ -314,6 +315,13 @@ class ChatService {
     );
     const msg = result.rows[0];
 
+    // Fetch sender info
+    const senderRes = await client.query(
+      `SELECT username, avatar_url FROM users WHERE id = $1`,
+      [senderId]
+    );
+    const sender = senderRes.rows[0];
+
     // Fetch reply_to info if needed
     let reply_to = null;
     if (msg.reply_to_id) {
@@ -324,7 +332,7 @@ class ChatService {
       if (replyRes.rows.length > 0) reply_to = replyRes.rows[0];
     }
 
-    return { ...msg, reply_to, reactions: [] };
+    return { ...msg, sender_name: sender?.username, sender_avatar: sender?.avatar_url, reply_to, reactions: [] };
   }
 
   async addReaction(messageId: number, userId: number, emoji: string): Promise<ReactionGroup[]> {
@@ -396,6 +404,7 @@ class ChatService {
     const result = await client.query(
       `SELECT
          m.id, m.text, m.created_at, m.chat_id, u.id as sender_id, u.username as sender_name,
+         u.avatar_url as sender_avatar,
          m.reply_to_id, m.edited_at, m.forwarded_from_id,
          CASE WHEN rm.id IS NOT NULL THEN
            jsonb_build_object('id', rm.id, 'text', rm.text, 'sender_name', ru.username)
@@ -516,7 +525,13 @@ class ChatService {
        RETURNING id, text, created_at, sender_id, chat_id, reply_to_id, edited_at, forwarded_from_id`,
       [targetChatId, senderId, text, forwardedFromId]
     );
-    return { ...result.rows[0], reactions: [] };
+    const msg = result.rows[0];
+    const senderRes = await client.query(
+      `SELECT username, avatar_url FROM users WHERE id = $1`,
+      [senderId]
+    );
+    const sender = senderRes.rows[0];
+    return { ...msg, sender_name: sender?.username, sender_avatar: sender?.avatar_url, reactions: [] };
   }
 }
 

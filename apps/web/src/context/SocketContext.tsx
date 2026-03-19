@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import io, { Socket } from "socket.io-client";
 import api from "../services/api";
 import { UserStatus } from "../types";
+import { useI18n } from "../i18n";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -25,6 +26,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
   const [connected, setConnected] = useState(false);
   const [userStatuses, setUserStatuses] = useState<Record<number, UserStatus>>({});
   const notifPermission = useRef(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!currentUser) {
@@ -42,11 +44,14 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
       notifPermission.current = Notification.permission === "granted";
     }
 
-    const token = localStorage.getItem("token");
     const newSocket = io(SOCKET_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"],
-      auth: { token },
+      // Use a function so each reconnection attempt reads the latest token
+      // (token may have been refreshed via 401 interceptor since initial connect)
+      auth: (cb) => {
+        cb({ token: localStorage.getItem("token") });
+      },
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
@@ -115,7 +120,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
       {currentUser && !connected && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-discord-danger text-white text-sm px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
           <span>⚡</span>
-          <span>Нет соединения — переподключение...</span>
+          <span>{t.common.no_connection}</span>
         </div>
       )}
       {children}
