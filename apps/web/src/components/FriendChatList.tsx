@@ -6,6 +6,7 @@ import { useChat } from "../context/ChatContext";
 import { User, UserStatus } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
 import { AvatarWithFrame } from "./profile/AvatarFrameShop";
+import { useI18n } from "../i18n";
 
 interface FriendChatListProps {
   onOpenProfile: (id: number) => void;
@@ -25,6 +26,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const [friendChatIds, setFriendChatIds] = useState<Record<number, number>>({});
   const { socket, userStatuses } = useSocket() as { socket: Socket | null; userStatuses: Record<number, UserStatus> };
   const { selectChat, unreadCounts, activeChat } = useChat();
+  const { t } = useI18n();
 
   const fetchFriends = () => {
     setError(false);
@@ -75,7 +77,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
     <div className="px-2 mb-2">
       <div className="flex items-center px-2 py-2">
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide flex-1">
-          Друзья
+          {t.chat.friends}
         </span>
         <div className="flex-1 h-px ml-2" style={{ background: "var(--color-tertiary)" }} />
       </div>
@@ -112,7 +114,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
                 size={32}
               />
               <span
-                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-discord-secondary ${statusColor[status]}`}
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-discord-secondary ${statusColor[status]} ${status === "online" ? "animate-pulse" : ""}`}
               />
             </div>
 
@@ -137,7 +139,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
                 openChat(f);
               }}
             >
-              Чат
+              {t.chat.chat_btn}
             </button>
           </div>
         );
@@ -155,11 +157,11 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
       )}
       {!loading && error && (
         <p className="text-discord-danger text-xs px-2 py-1 cursor-pointer hover:underline" onClick={fetchFriends}>
-          Ошибка загрузки · Нажмите, чтобы повторить
+          {t.chat.error_retry}
         </p>
       )}
       {!loading && !error && friends.length === 0 && (
-        <p className="text-discord-text-muted text-xs px-2 py-1">Нет друзей</p>
+        <p className="text-discord-text-muted text-xs px-2 py-1">{t.chat.no_friends}</p>
       )}
     </div>
   );

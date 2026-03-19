@@ -28,7 +28,8 @@ export function toLangCode(bcp47: string): string {
   return BCP47_TO_CODE[bcp47] ?? bcp47.split("-")[0];
 }
 
-// In-memory cache
+// In-memory LRU cache (bounded to prevent memory leaks during long calls)
+const MAX_CACHE = 500;
 const cache = new Map<string, string>();
 
 /**
@@ -77,6 +78,11 @@ export async function translateText(
     const detectedLang: string = json?.[2] ?? "";
     if (from === "auto" && detectedLang === to) return text;
 
+    // Evict oldest entries if cache exceeds limit
+    if (cache.size >= MAX_CACHE) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey !== undefined) cache.delete(firstKey);
+    }
     cache.set(cacheKey, translated);
     return translated;
   } catch {

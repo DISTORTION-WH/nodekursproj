@@ -230,7 +230,9 @@ export function usePredictiveQuality({
 
     const tick = async () => {
       if (cancelled) return;
-      const raw = await pollStats(pcRef.current!);
+      const currentPc = pcRef.current;
+      if (!currentPc) return;
+      const raw = await pollStats(currentPc);
       if (!raw) return;
 
       // Compute delta packet loss rate

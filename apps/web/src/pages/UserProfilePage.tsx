@@ -4,6 +4,7 @@ import api from "../services/api";
 import { User } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n";
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -11,6 +12,7 @@ export default function UserProfilePage() {
   const [friends, setFriends] = useState<User[]>([]);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { t, lang } = useI18n();
 
   useEffect(() => {
     if (!userId) return;
@@ -48,7 +50,7 @@ export default function UserProfilePage() {
   };
 
   const removeFriend = async () => {
-    if (!user || !window.confirm("Удалить из друзей?")) return;
+    if (!user || !window.confirm(t.profile.remove_confirm)) return;
     try {
       await api.post(`/friends/remove`, { friendId: user.id });
       // Optimistic update: remove the viewed user from the friends list displayed on their profile
@@ -63,7 +65,7 @@ export default function UserProfilePage() {
             }
           : prev
       );
-      alert("Пользователь удалён из друзей");
+      alert(t.profile.removed_success);
     } catch (err) {
       console.error(err);
       alert("Ошибка при удалении из друзей");
@@ -73,7 +75,7 @@ export default function UserProfilePage() {
   if (!user) {
     return (
       <div className="flex-1 flex items-center justify-center text-discord-text-muted bg-discord-bg">
-        Загрузка...
+        {t.common.loading}
       </div>
     );
   }
@@ -81,10 +83,34 @@ export default function UserProfilePage() {
   const isMe = Number(currentUser?.id) === Number(user.id);
   const isFriend = currentUser?.friends?.some((f) => Number(f.id) === Number(user.id));
 
+  const COUNTRIES: Record<string, { flag: string; name_ru: string; name_en: string }> = {
+    RU: { flag: "\u{1F1F7}\u{1F1FA}", name_ru: "Россия", name_en: "Russia" },
+    US: { flag: "\u{1F1FA}\u{1F1F8}", name_ru: "США", name_en: "USA" },
+    GB: { flag: "\u{1F1EC}\u{1F1E7}", name_ru: "Великобритания", name_en: "UK" },
+    DE: { flag: "\u{1F1E9}\u{1F1EA}", name_ru: "Германия", name_en: "Germany" },
+    FR: { flag: "\u{1F1EB}\u{1F1F7}", name_ru: "Франция", name_en: "France" },
+    UA: { flag: "\u{1F1FA}\u{1F1E6}", name_ru: "Украина", name_en: "Ukraine" },
+    KZ: { flag: "\u{1F1F0}\u{1F1FF}", name_ru: "Казахстан", name_en: "Kazakhstan" },
+    BY: { flag: "\u{1F1E7}\u{1F1FE}", name_ru: "Беларусь", name_en: "Belarus" },
+    JP: { flag: "\u{1F1EF}\u{1F1F5}", name_ru: "Япония", name_en: "Japan" },
+    CN: { flag: "\u{1F1E8}\u{1F1F3}", name_ru: "Китай", name_en: "China" },
+    KR: { flag: "\u{1F1F0}\u{1F1F7}", name_ru: "Южная Корея", name_en: "South Korea" },
+    BR: { flag: "\u{1F1E7}\u{1F1F7}", name_ru: "Бразилия", name_en: "Brazil" },
+    IN: { flag: "\u{1F1EE}\u{1F1F3}", name_ru: "Индия", name_en: "India" },
+    TR: { flag: "\u{1F1F9}\u{1F1F7}", name_ru: "Турция", name_en: "Turkey" },
+    IT: { flag: "\u{1F1EE}\u{1F1F9}", name_ru: "Италия", name_en: "Italy" },
+    ES: { flag: "\u{1F1EA}\u{1F1F8}", name_ru: "Испания", name_en: "Spain" },
+    PL: { flag: "\u{1F1F5}\u{1F1F1}", name_ru: "Польша", name_en: "Poland" },
+    CA: { flag: "\u{1F1E8}\u{1F1E6}", name_ru: "Канада", name_en: "Canada" },
+    AU: { flag: "\u{1F1E6}\u{1F1FA}", name_ru: "Австралия", name_en: "Australia" },
+  };
+
+  const countryInfo = user.country ? COUNTRIES[user.country] : null;
+
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
-        <h2 className="text-white text-2xl font-bold">Профиль</h2>
+        <h2 className="text-white text-2xl font-bold">{t.profile.my_profile.replace("Мой п", "П").replace("My P", "P")}</h2>
 
         {/* Profile header */}
         <div className="bg-discord-secondary rounded-xl p-6 flex items-start gap-6 flex-wrap">
@@ -95,14 +121,19 @@ export default function UserProfilePage() {
           />
           <div className="flex flex-col gap-1 text-sm flex-1">
             <p className="text-white text-xl font-semibold">{user.username}</p>
+            {countryInfo && (
+              <p className="text-discord-text-secondary text-sm">
+                {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}
+              </p>
+            )}
             <p className="text-discord-text-muted">
-              Роль:{" "}
+              {t.profile.role}:{" "}
               <span className="text-discord-accent font-medium">
                 {user.role || "USER"}
               </span>
             </p>
             <p className="text-discord-text-muted">
-              Зарегистрирован:{" "}
+              {t.profile.registered}:{" "}
               <span className="text-discord-text-secondary">
                 {user.created_at
                   ? new Date(user.created_at).toLocaleDateString()
@@ -112,11 +143,19 @@ export default function UserProfilePage() {
           </div>
         </div>
 
+        {/* Bio */}
+        {user.bio && (
+          <div className="bg-discord-secondary rounded-xl p-6">
+            <h3 className="text-white font-semibold text-base mb-2">{t.profile.bio}</h3>
+            <p className="text-discord-text-secondary text-sm">{user.bio}</p>
+          </div>
+        )}
+
         {/* Friends */}
         <div className="bg-discord-secondary rounded-xl p-6">
-          <h3 className="text-white font-semibold text-base mb-3">Друзья</h3>
+          <h3 className="text-white font-semibold text-base mb-3">{t.profile.friends}</h3>
           {friends.length === 0 ? (
-            <p className="text-discord-text-muted text-sm">Нет друзей</p>
+            <p className="text-discord-text-muted text-sm">{t.profile.no_friends}</p>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2">
               {friends.map((friend) => (
@@ -146,14 +185,14 @@ export default function UserProfilePage() {
               onClick={startChat}
               className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold px-4 py-2 rounded transition"
             >
-              Начать чат
+              {t.profile.start_chat}
             </button>
-            {isFriend && (
+            {isFriend && user.username !== "LumeOfficial" && (
               <button
                 onClick={removeFriend}
                 className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white font-semibold px-4 py-2 rounded transition"
               >
-                Удалить из друзей
+                {t.profile.remove_friend}
               </button>
             )}
           </div>

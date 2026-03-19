@@ -685,7 +685,7 @@ export default function MessageList() {
               <div className="w-8 mr-2 flex-shrink-0 flex flex-col items-center justify-start pt-1">
                 {showGroupAvatar ? (
                   <img
-                    src={getImageUrl(msg.sender?.avatar_url)}
+                    src={getImageUrl(msg.sender_avatar ?? msg.sender?.avatar_url)}
                     alt={msg.sender_name || ""}
                     className="w-8 h-8 rounded-full object-cover"
                   />

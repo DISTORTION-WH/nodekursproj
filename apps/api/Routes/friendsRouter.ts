@@ -86,8 +86,15 @@ router.post("/accept", authMiddleware, async (req: AuthRequest, res: Response, n
 router.post("/remove", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   const userId = (req.user as any).id;
   const { friendId } = req.body as FriendBody;
-  
+
   try {
+    // Prevent removing LumeOfficial from friends
+    const lumeCheck = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial' AND id = $1", [friendId]);
+    if (lumeCheck.rows.length > 0) {
+      res.status(403).json({ message: "Нельзя удалить LumeOfficial из друзей" });
+      return;
+    }
+
     await client.query(
       `DELETE FROM friends
        WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)`,

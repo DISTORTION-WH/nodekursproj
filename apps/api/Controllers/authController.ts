@@ -288,6 +288,82 @@ class AuthController {
     }
   }
 
+  async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        const err = new Error("Email обязателен") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      const userRes = await client.query("SELECT id FROM users WHERE email = $1", [email]);
+      if (userRes.rows.length === 0) {
+        // Don't reveal whether email exists — just pretend it sent
+        res.json({ message: "Если аккаунт существует, код отправлен на email" });
+        return;
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      await client.query(
+        `INSERT INTO password_reset_codes (email, code, created_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (email) DO UPDATE SET code = $2, created_at = NOW()`,
+        [email, code]
+      );
+
+      await emailService.sendVerificationEmail(email, code);
+      res.json({ message: "Код восстановления отправлен на email" });
+    } catch (e: any) {
+      next(e);
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email, code, newPassword } = req.body;
+      if (!email || !code || !newPassword) {
+        const err = new Error("Все поля обязательны") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      const resetRes = await client.query(
+        "SELECT code, created_at FROM password_reset_codes WHERE email = $1",
+        [email]
+      );
+      if (resetRes.rows.length === 0) {
+        const err = new Error("Код не найден. Запросите новый.") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      const row = resetRes.rows[0];
+      // Codes expire after 15 minutes
+      const age = Date.now() - new Date(row.created_at).getTime();
+      if (age > 15 * 60 * 1000) {
+        await client.query("DELETE FROM password_reset_codes WHERE email = $1", [email]);
+        const err = new Error("Код истёк. Запросите новый.") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      if (String(row.code).trim() !== String(code).trim()) {
+        const err = new Error("Неверный код") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await client.query("UPDATE users SET password = $1 WHERE email = $2", [hashedPassword, email]);
+      await client.query("DELETE FROM password_reset_codes WHERE email = $1", [email]);
+
+      res.json({ message: "Пароль успешно изменён" });
+    } catch (e: any) {
+      next(e);
+    }
+  }
+
   async getUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const users = await userService.getAllUsers();

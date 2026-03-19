@@ -159,8 +159,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       peerConnection.current.ontrack = null;
       peerConnection.current.onicecandidate = null;
       peerConnection.current.close();
-      peerConnection.current = null;
     }
+    setPeerConnection(null);
     setLocalStream(null);
     setRemoteStream(null);
     setCallState("idle");
@@ -172,6 +172,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setIsVideoMuted(false);
   }, []); // stable — reads refs, no state deps
 
+  // Track p2pPeerConnection as state so context consumers get updates
+  const [p2pPcState, setP2pPcState] = useState<RTCPeerConnection | null>(null);
+
+  const setPeerConnection = (pc: RTCPeerConnection | null) => {
+    peerConnection.current = pc;
+    setP2pPcState(pc);
+  };
+
   const createPeerConnection = (iceConfig: RTCConfiguration) => {
     if (peerConnection.current) {
       peerConnection.current.close();
@@ -181,8 +189,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log("[CALL] ICE candidate:", event.candidate.type, event.candidate.protocol, event.candidate.address);
-        if (otherUserId.current && socket) {
-          socket.emit("send_ice_candidate", { to: otherUserId.current, candidate: event.candidate });
+        // Use socketRef to avoid stale closure
+        if (otherUserId.current && socketRef.current) {
+          socketRef.current.emit("send_ice_candidate", { to: otherUserId.current, candidate: event.candidate });
         }
       } else {
         console.log("[CALL] ICE gathering complete");
@@ -203,7 +212,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     pc.oniceconnectionstatechange = () => {
       console.log("[CALL] ICE connection state:", pc.iceConnectionState);
       if (pc.iceConnectionState === "failed") {
-        console.error("[CALL] ICE connection FAILED — TURN server may be needed. Check REACT_APP_TURN_URL env var.");
+        console.warn("[CALL] ICE connection FAILED — attempting ICE restart...");
+        // Attempt ICE restart instead of giving up
+        try {
+          pc.restartIce();
+        } catch (e) {
+          console.error("[CALL] ICE restart failed:", e);
+        }
       }
       if (pc.iceConnectionState === "disconnected") {
         console.warn("[CALL] ICE connection disconnected — may reconnect...");
@@ -688,7 +703,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (!stream) return;
 
     const pc = createPeerConnection(iceConfig);
-    peerConnection.current = pc;
+    setPeerConnection(pc);
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
     const offer = await pc.createOffer();
@@ -711,7 +726,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     if (!stream) return;
 
     const pc = createPeerConnection(iceConfig);
-    peerConnection.current = pc;
+    setPeerConnection(pc);
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
     if (pendingOffer.current) {
@@ -781,7 +796,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         isGroupVideoMuted,
         incomingGroupCall,
         dismissGroupCallBanner,
-        p2pPeerConnection: peerConnection.current,
+        p2pPeerConnection: p2pPcState,
       }}
     >
       {children}

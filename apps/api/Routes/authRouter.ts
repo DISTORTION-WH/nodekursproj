@@ -91,4 +91,22 @@ router.get(
   }
 );
 
-export default router; 
+// Forgot password: send reset code
+router.post("/forgot-password", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await authController.forgotPassword(req, res, next);
+  } catch (e: any) {
+    next(e);
+  }
+});
+
+// Reset password with code
+router.post("/reset-password", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await authController.resetPassword(req, res, next);
+  } catch (e: any) {
+    next(e);
+  }
+});
+
+export default router;

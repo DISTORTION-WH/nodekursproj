@@ -19,6 +19,7 @@ import { ChatProvider } from "./context/ChatContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CallProvider } from "./context/CallContext";
 import CallOverlay from "./components/CallOverlay";
+import { I18nProvider } from "./i18n";
 import "./index.css";
 
 function AppRoutes() {
@@ -117,10 +118,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </Router>
+    <I18nProvider>
+      <Router>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </Router>
+    </I18nProvider>
   );
 }

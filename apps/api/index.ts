@@ -17,7 +17,6 @@ import usersRouter from "./Routes/usersRouter";
 import friendsRouter from "./Routes/friendsRouter";
 import adminRouter from "./Routes/adminRouter";
 import moderatorRouter from "./Routes/moderatorRouter";
-import callAnalyticsRouter from "./Routes/callAnalyticsRouter";
 import logger from "./Services/logService";
 import * as mediasoupService from "./Services/mediasoupService";
 
@@ -429,21 +428,29 @@ app.use("/friends", friendsRouter);
 app.use("/users", usersRouter);
 app.use("/admin", adminRouter);
 app.use("/moderator", moderatorRouter);
-app.use("/api/call-analytics", callAnalyticsRouter);
-
 // ─── TURN credentials endpoint ─────────────────────────────────────────────
 // Fetches temporary TURN credentials from Metered.ca REST API.
+// Cached for 1 hour to avoid hitting Metered API on every call.
 // Set METERED_API_KEY env var on Render dashboard.
+let turnCache: { servers: any[]; expiresAt: number } | null = null;
+const TURN_CACHE_TTL = 60 * 60 * 1000; // 1 hour (credentials valid ~24h)
+
+const STUN_FALLBACK = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:global.stun.twilio.com:3478" },
+];
+
 app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
   try {
     const apiKey = process.env.METERED_API_KEY;
     if (!apiKey) {
-      // No API key — return only STUN servers
-      return res.json([
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478" },
-      ]);
+      return res.json(STUN_FALLBACK);
+    }
+
+    // Return cached credentials if still valid
+    if (turnCache && Date.now() < turnCache.expiresAt) {
+      return res.json(turnCache.servers);
     }
 
     const response = await fetch(
@@ -452,21 +459,16 @@ app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
 
     if (!response.ok) {
       console.error("[TURN] Metered API error:", response.status, await response.text());
-      return res.json([
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-      ]);
+      return res.json(turnCache?.servers ?? STUN_FALLBACK);
     }
 
     const iceServers = await response.json() as any[];
-    console.log("[TURN] Got", iceServers.length, "ICE servers from Metered");
+    turnCache = { servers: iceServers, expiresAt: Date.now() + TURN_CACHE_TTL };
+    console.log("[TURN] Got", iceServers.length, "ICE servers from Metered (cached for 1h)");
     return res.json(iceServers);
   } catch (e) {
     console.error("[TURN] Error fetching credentials:", e);
-    return res.json([
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ]);
+    return res.json(turnCache?.servers ?? STUN_FALLBACK);
   }
 });
 
@@ -621,54 +623,21 @@ async function initializeDatabase() {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invisible BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    // ── Call analytics tables ────────────────────────────────────────────────
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS call_sessions (
-        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        started_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-        ended_at      TIMESTAMP WITH TIME ZONE NOT NULL,
-        participant_count INTEGER NOT NULL DEFAULT 0,
-        fairness_index    FLOAT   NOT NULL DEFAULT 1
-      );`
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS idx_call_sessions_started_at
-       ON call_sessions(started_at DESC);`
-    );
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';`);
+    } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS participant_stats (
-        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        call_session_id  UUID    NOT NULL REFERENCES call_sessions(id) ON DELETE CASCADE,
-        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        talk_time_seconds   FLOAT NOT NULL DEFAULT 0,
-        talk_percent        FLOAT NOT NULL DEFAULT 0,
-        interruptions_made     INTEGER NOT NULL DEFAULT 0,
-        interruptions_received INTEGER NOT NULL DEFAULT 0,
-        avg_audio_level     FLOAT NOT NULL DEFAULT 0
-      );`
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS idx_participant_stats_session
-       ON participant_stats(call_session_id);`
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS idx_participant_stats_user
-       ON participant_stats(user_id);`
-    );
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(4) DEFAULT '';`);
+    } catch (e: any) { if (e.code !== "42701") throw e; }
 
+    // Password reset codes
     await client.query(
-      `CREATE TABLE IF NOT EXISTS interruption_events (
-        id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        call_session_id     UUID    NOT NULL REFERENCES call_sessions(id) ON DELETE CASCADE,
-        interrupter_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        interrupted_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        occurred_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      `CREATE TABLE IF NOT EXISTS password_reset_codes (
+        email VARCHAR(255) PRIMARY KEY NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );`
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS idx_interruption_events_session
-       ON interruption_events(call_session_id);`
     );
 
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");

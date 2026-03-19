@@ -119,6 +119,7 @@ export function useLiveSubtitles({
 
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const activeRef = useRef(false);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldShowRef = useRef(shouldShow);
   const speechLangRef = useRef(speechLang);
   const displayLangRef = useRef(displayLang);
@@ -173,18 +174,27 @@ export function useLiveSubtitles({
   // ALWAYS broadcasts recognized text to the remote participant via socket,
   // regardless of whether subtitles are enabled locally — so if only the
   // remote side has subtitles on, they still see our speech.
+  // Creates a fresh SpeechRecognition instance and starts it.
+  // On any end/error it automatically restarts with a NEW instance after a
+  // short delay, which avoids the Chrome bug where restarting the same
+  // dead instance silently fails.
   const startRecognition = useCallback(() => {
     const Ctor = getRecognitionCtor();
     if (!Ctor) return;
 
+    // Clean up previous instance
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch { /* */ }
+      recognitionRef.current = null;
+    }
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
     }
 
     const rec = new Ctor();
     rec.continuous = true;
     rec.interimResults = true;
-    // "Мой язык" — распознаём собственную речь на этом языке
     rec.lang = displayLangRef.current;
     rec.maxAlternatives = 1;
     recognitionRef.current = rec;
@@ -199,14 +209,13 @@ export function useLiveSubtitles({
 
         const isFinal = result.isFinal;
 
-        // Send our recognized text to the remote participant
         if (socketRef.current) {
           const payload = {
             text,
             speakerId: localSpeakerIdRef.current,
             username: localUsernameRef.current,
             isFinal,
-            lang: displayLangRef.current, // tell remote: "this text is in MY language"
+            lang: displayLangRef.current,
           };
           if (remoteUserIdRef.current) {
             socketRef.current.emit("subtitle_broadcast", { ...payload, to: remoteUserIdRef.current });
@@ -221,23 +230,39 @@ export function useLiveSubtitles({
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Нет доступа к микрофону. Разрешите доступ в настройках браузера.");
       }
+      // "aborted" is expected when we intentionally stop — don't log it.
+      // All other errors (no-speech, network, audio-capture) are transient;
+      // onend fires after onerror and will handle the restart.
     };
 
     rec.onend = () => {
       activeRef.current = false;
-      if (recognitionRef.current === rec) {
-        try { rec.start(); } catch { /* */ }
-      } else {
+      // Only restart if this instance is still the "current" one (i.e. not
+      // explicitly stopped via stopRecognition which sets ref to null).
+      if (recognitionRef.current !== rec) {
         setIsListening(false);
+        return;
       }
+      // Create a BRAND NEW instance after a short delay.
+      // Re-using the same dead instance is unreliable in Chrome/Edge.
+      recognitionRef.current = null;
+      restartTimerRef.current = setTimeout(() => {
+        restartTimerRef.current = null;
+        startRecognition();
+      }, 300);
     };
 
     try { rec.start(); } catch { /* */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopRecognition = useCallback(() => {
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     const rec = recognitionRef.current;
-    recognitionRef.current = null;
+    recognitionRef.current = null; // signal onend not to restart
     if (rec) { try { rec.abort(); } catch { /* */ } }
     activeRef.current = false;
     setIsListening(false);
