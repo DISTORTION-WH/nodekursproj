@@ -20,9 +20,7 @@ export interface StreamDescriptor {
 
 export interface UseLiveSubtitlesOptions {
   localStream: MediaStream | null;
-  /** "Язык собеседника" — source language for translating incoming text */
   speechLang?: string;
-  /** "Мой язык" — recognition language + translation target */
   displayLang?: string;
   showSubtitles?: boolean;
   callActive?: boolean;
@@ -48,8 +46,7 @@ export interface UseLiveSubtitlesResult {
 let _idSeq = 0;
 const uid = () => ++_idSeq;
 
-// ─── AudioWorklet processor inline code ──────────────────────────────────────
-// We create a Blob URL for the worklet processor so we don't need a separate file.
+// ─── AudioWorklet processor (inline blob) ────────────────────────────────────
 
 const WORKLET_CODE = `
 class PCMProcessor extends AudioWorkletProcessor {
@@ -57,22 +54,17 @@ class PCMProcessor extends AudioWorkletProcessor {
     super();
     this._buffer = [];
     this._bufferSize = 0;
-    // Send chunks of ~4096 samples (256ms at 16kHz) for efficient network usage
     this._targetSize = 4096;
   }
   process(inputs) {
     const input = inputs[0];
     if (!input || !input[0]) return true;
-    const samples = input[0]; // Float32 mono
-    // Downsample from 48kHz (or whatever) to 16kHz inline
-    // AudioContext usually runs at 48kHz; Deepgram expects 16kHz
-    // Simple decimation by factor of 3 (48000/16000 = 3)
-    const ratio = Math.round(sampleRate / 16000);
+    const samples = input[0];
+    const ratio = Math.round(sampleRate / 16000) || 3;
     const downsampled = new Float32Array(Math.ceil(samples.length / ratio));
     for (let i = 0, j = 0; i < samples.length; i += ratio, j++) {
       downsampled[j] = samples[i];
     }
-    // Convert to PCM16 LE
     const pcm16 = new Int16Array(downsampled.length);
     for (let i = 0; i < downsampled.length; i++) {
       const s = Math.max(-1, Math.min(1, downsampled[i]));
@@ -81,7 +73,6 @@ class PCMProcessor extends AudioWorkletProcessor {
     this._buffer.push(pcm16);
     this._bufferSize += pcm16.length;
     if (this._bufferSize >= this._targetSize) {
-      // Merge and send
       const merged = new Int16Array(this._bufferSize);
       let offset = 0;
       for (const chunk of this._buffer) {
@@ -128,7 +119,7 @@ export function useLiveSubtitles({
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs
+  // Sync refs
   const shouldShowRef = useRef(shouldShow);
   const speechLangRef = useRef(speechLang);
   const displayLangRef = useRef(displayLang);
@@ -138,15 +129,6 @@ export function useLiveSubtitles({
   const localUsernameRef = useRef(localUsername);
   const localSpeakerIdRef = useRef(localSpeakerId);
 
-  // Audio pipeline refs
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const streamingRef = useRef(false);
-
-  // Interim translation debounce
-  const interimTranslateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   shouldShowRef.current = shouldShow;
   speechLangRef.current = speechLang;
   displayLangRef.current = displayLang;
@@ -155,6 +137,13 @@ export function useLiveSubtitles({
   groupChatIdRef.current = groupChatId;
   localUsernameRef.current = localUsername;
   localSpeakerIdRef.current = localSpeakerId;
+
+  // Audio pipeline refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const streamingRef = useRef(false);
+  const interimTranslateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Upsert subtitle entry ──────────────────────────────────────────────────
   const upsertSubtitle = useCallback(
@@ -171,11 +160,7 @@ export function useLiveSubtitles({
 
         if (!isFinal && lastInterimIdx !== -1) {
           const updated = [...prev];
-          updated[lastInterimIdx] = {
-            ...updated[lastInterimIdx],
-            text,
-            timestamp: Date.now(),
-          };
+          updated[lastInterimIdx] = { ...updated[lastInterimIdx], text, timestamp: Date.now() };
           return updated;
         }
 
@@ -184,12 +169,7 @@ export function useLiveSubtitles({
           : prev;
 
         const entry: Subtitle = {
-          id: uid(),
-          speakerId,
-          speakerName,
-          text,
-          isFinal,
-          timestamp: Date.now(),
+          id: uid(), speakerId, speakerName, text, isFinal, timestamp: Date.now(),
         };
         const next = [...base, entry];
         return next.length > 30 ? next.slice(next.length - 30) : next;
@@ -198,25 +178,26 @@ export function useLiveSubtitles({
     []
   );
 
-  // ── Start streaming audio to backend Deepgram ─────────────────────────────
+  // ── Build subtitle_audio_start payload ────────────────────────────────────
+  const buildPayload = useCallback(() => {
+    const payload: Record<string, any> = {
+      lang: displayLangRef.current,
+      username: localUsernameRef.current,
+    };
+    if (remoteUserIdRef.current) payload.to = remoteUserIdRef.current;
+    else if (groupChatIdRef.current) payload.chatId = groupChatIdRef.current;
+    return payload;
+  }, []);
+
+  // ── Start audio pipeline + Deepgram session ───────────────────────────────
   const startStreaming = useCallback(async () => {
     if (!localStream || !socket || streamingRef.current) return;
 
     try {
-      // Tell server to start a Deepgram session
-      const startPayload: any = {
-        lang: displayLangRef.current,
-        username: localUsernameRef.current,
-      };
-      if (remoteUserIdRef.current) {
-        startPayload.to = remoteUserIdRef.current;
-      } else if (groupChatIdRef.current) {
-        startPayload.chatId = groupChatIdRef.current;
-      }
-      console.log("[SUBTITLES] Starting audio stream, payload:", startPayload);
-      socket.emit("subtitle_audio_start", startPayload);
+      const payload = buildPayload();
+      console.log("[SUBTITLES] subtitle_audio_start →", payload);
+      socket.emit("subtitle_audio_start", payload);
 
-      // Set up AudioWorklet pipeline to capture PCM from microphone
       const audioCtx = new AudioContext({ sampleRate: 48000 });
       audioContextRef.current = audioCtx;
 
@@ -228,21 +209,18 @@ export function useLiveSubtitles({
       const workletNode = new AudioWorkletNode(audioCtx, "pcm-processor");
       workletNodeRef.current = workletNode;
 
-      // When the worklet sends PCM chunks, forward them to the server
       let chunkCount = 0;
       workletNode.port.onmessage = (event: MessageEvent) => {
         if (socketRef.current && streamingRef.current) {
           socketRef.current.emit("subtitle_audio_chunk", event.data);
-          chunkCount++;
-          if (chunkCount <= 3) {
-            console.log(`[SUBTITLES] Audio chunk #${chunkCount} sent, size: ${event.data.byteLength} bytes`);
+          if (++chunkCount <= 3) {
+            console.log(`[SUBTITLES] chunk #${chunkCount} → ${event.data.byteLength}B`);
           }
         }
       };
 
       source.connect(workletNode);
-      // Connect to a silent GainNode to keep the audio graph alive
-      // (AudioWorklet needs to be connected to process() to fire)
+      // Silent sink — keeps the audio graph alive without echo
       const silentGain = audioCtx.createGain();
       silentGain.gain.value = 0;
       workletNode.connect(silentGain);
@@ -251,62 +229,63 @@ export function useLiveSubtitles({
       streamingRef.current = true;
       setIsListening(true);
       setError(null);
+      console.log("[SUBTITLES] Audio pipeline started");
     } catch (err: any) {
-      console.error("[SUBTITLES] Error starting audio stream:", err);
-      setError("Не удалось запустить аудиозахват");
+      console.error("[SUBTITLES] Failed to start pipeline:", err);
+      setError("Не удалось запустить захват аудио");
       setIsListening(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localStream, socket]);
 
   const stopStreaming = useCallback(() => {
+    if (!streamingRef.current) return;
     streamingRef.current = false;
     setIsListening(false);
 
-    // Disconnect audio nodes
-    if (workletNodeRef.current) {
-      try { workletNodeRef.current.disconnect(); } catch { /* */ }
-      workletNodeRef.current = null;
-    }
-    if (sourceNodeRef.current) {
-      try { sourceNodeRef.current.disconnect(); } catch { /* */ }
-      sourceNodeRef.current = null;
-    }
-    if (audioContextRef.current) {
-      try { audioContextRef.current.close(); } catch { /* */ }
-      audioContextRef.current = null;
-    }
+    try { workletNodeRef.current?.disconnect(); } catch { /**/ }
+    try { sourceNodeRef.current?.disconnect(); } catch { /**/ }
+    try { audioContextRef.current?.close(); } catch { /**/ }
 
-    // Tell server to stop Deepgram session
-    if (socketRef.current) {
-      socketRef.current.emit("subtitle_audio_stop");
-    }
+    workletNodeRef.current = null;
+    sourceNodeRef.current = null;
+    audioContextRef.current = null;
+
+    socketRef.current?.emit("subtitle_audio_stop");
+    console.log("[SUBTITLES] Audio pipeline stopped");
   }, []);
 
-  // ── Start/stop streaming when call becomes active ──────────────────────────
+  // ── Re-notify server when routing info changes (remoteUserId / groupChatId) ─
+  // This handles the case where startStreaming ran before callerData was set
+  useEffect(() => {
+    if (!streamingRef.current || !socketRef.current) return;
+    const payload = buildPayload();
+    console.log("[SUBTITLES] subtitle_session_update →", payload);
+    socketRef.current.emit("subtitle_session_update", payload);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteUserId, groupChatId]);
+
+  // ── Start/stop based on callActive ─────────────────────────────────────────
   useEffect(() => {
     if (callActive && localStream && socket) {
       startStreaming();
     } else {
       stopStreaming();
     }
-    return () => {
-      stopStreaming();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { stopStreaming(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callActive, localStream, socket]);
 
-  // ── Restart Deepgram when displayLang changes ──────────────────────────────
+  // ── Restart when displayLang changes ──────────────────────────────────────
   useEffect(() => {
-    if (callActive && localStream && socket && streamingRef.current) {
-      stopStreaming();
-      const t = setTimeout(() => startStreaming(), 200);
-      return () => clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!streamingRef.current || !socketRef.current) return;
+    stopStreaming();
+    const t = setTimeout(() => startStreaming(), 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayLang]);
 
-  // ── Receive transcription results from server → translate → show ───────────
+  // ── Receive transcription results from server ──────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
@@ -317,21 +296,21 @@ export function useLiveSubtitles({
       isFinal: boolean;
       lang?: string;
     }) => {
-      console.log("[SUBTITLES] Received:", data.text?.substring(0, 50), "isFinal:", data.isFinal, "show:", shouldShowRef.current);
+      console.log("[SUBTITLES] subtitle_received:", data.text?.substring(0, 60), "| final:", data.isFinal, "| show:", shouldShowRef.current);
       if (!shouldShowRef.current) return;
 
       const sourceLang = data.lang || speechLangRef.current;
       const targetLang = displayLangRef.current;
+      const isLocalSpeaker = data.speakerId === localSpeakerIdRef.current;
 
-      // If text is from ourselves, show directly without translation
-      if (data.speakerId === localSpeakerIdRef.current) {
+      // Our own speech — show as-is (no translation needed)
+      if (isLocalSpeaker) {
         upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
         return;
       }
 
-      // Check if translation is needed
-      const needsTranslation =
-        toLangCode(sourceLang) !== toLangCode(targetLang);
+      // Remote speech — translate if languages differ
+      const needsTranslation = toLangCode(sourceLang) !== toLangCode(targetLang);
 
       if (!needsTranslation) {
         upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
@@ -339,30 +318,20 @@ export function useLiveSubtitles({
       }
 
       if (data.isFinal) {
-        // Final — always translate via DeepL backend
         translateText(data.text, sourceLang, targetLang).then((translated) => {
           upsertSubtitle(data.speakerId, data.username, translated, true);
         });
       } else {
-        // Interim — show original immediately, translate with debounce
+        // Show original immediately, translate with debounce
         upsertSubtitle(data.speakerId, data.username, data.text, false);
 
-        if (interimTranslateTimerRef.current) {
-          clearTimeout(interimTranslateTimerRef.current);
-        }
+        if (interimTranslateTimerRef.current) clearTimeout(interimTranslateTimerRef.current);
         interimTranslateTimerRef.current = setTimeout(() => {
-          translateText(data.text, sourceLang, targetLang).then(
-            (translated) => {
-              if (translated !== data.text) {
-                upsertSubtitle(
-                  data.speakerId,
-                  data.username,
-                  translated,
-                  false
-                );
-              }
+          translateText(data.text, sourceLang, targetLang).then((translated) => {
+            if (translated !== data.text) {
+              upsertSubtitle(data.speakerId, data.username, translated, false);
             }
-          );
+          });
         }, 600);
       }
     };
@@ -370,14 +339,11 @@ export function useLiveSubtitles({
     socket.on("subtitle_received", onReceived);
     return () => {
       socket.off("subtitle_received", onReceived);
-      if (interimTranslateTimerRef.current) {
-        clearTimeout(interimTranslateTimerRef.current);
-        interimTranslateTimerRef.current = null;
-      }
+      if (interimTranslateTimerRef.current) clearTimeout(interimTranslateTimerRef.current);
     };
   }, [socket, upsertSubtitle]);
 
-  // Clear on disable
+  // Clear when disabled
   useEffect(() => {
     if (!shouldShow) setSubtitles([]);
   }, [shouldShow]);
