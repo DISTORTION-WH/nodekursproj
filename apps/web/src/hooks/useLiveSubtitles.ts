@@ -213,6 +213,7 @@ export function useLiveSubtitles({
       } else if (groupChatIdRef.current) {
         startPayload.chatId = groupChatIdRef.current;
       }
+      console.log("[SUBTITLES] Starting audio stream, payload:", startPayload);
       socket.emit("subtitle_audio_start", startPayload);
 
       // Set up AudioWorklet pipeline to capture PCM from microphone
@@ -228,14 +229,24 @@ export function useLiveSubtitles({
       workletNodeRef.current = workletNode;
 
       // When the worklet sends PCM chunks, forward them to the server
+      let chunkCount = 0;
       workletNode.port.onmessage = (event: MessageEvent) => {
         if (socketRef.current && streamingRef.current) {
           socketRef.current.emit("subtitle_audio_chunk", event.data);
+          chunkCount++;
+          if (chunkCount <= 3) {
+            console.log(`[SUBTITLES] Audio chunk #${chunkCount} sent, size: ${event.data.byteLength} bytes`);
+          }
         }
       };
 
       source.connect(workletNode);
-      workletNode.connect(audioCtx.destination); // needed to keep pipeline alive (silent)
+      // Connect to a silent GainNode to keep the audio graph alive
+      // (AudioWorklet needs to be connected to process() to fire)
+      const silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0;
+      workletNode.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
 
       streamingRef.current = true;
       setIsListening(true);
@@ -306,6 +317,7 @@ export function useLiveSubtitles({
       isFinal: boolean;
       lang?: string;
     }) => {
+      console.log("[SUBTITLES] Received:", data.text?.substring(0, 50), "isFinal:", data.isFinal, "show:", shouldShowRef.current);
       if (!shouldShowRef.current) return;
 
       const sourceLang = data.lang || speechLangRef.current;
