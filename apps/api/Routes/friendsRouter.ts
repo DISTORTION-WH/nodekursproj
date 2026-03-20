@@ -125,4 +125,32 @@ router.get("/incoming", authMiddleware, async (req: AuthRequest, res: Response, 
   }
 });
 
+// Returns friendship status with a specific user: 'none' | 'pending_sent' | 'pending_received' | 'accepted'
+router.get("/status/:userId", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const myId = (req.user as any).id;
+  const otherId = parseInt(req.params.userId, 10);
+  if (isNaN(otherId)) { res.status(400).json({ status: "none" }); return; }
+  try {
+    const result = await client.query(
+      `SELECT status, user_id FROM friends
+       WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+      [myId, otherId]
+    );
+    if (result.rows.length === 0) {
+      res.json({ status: "none" });
+      return;
+    }
+    const row = result.rows[0];
+    if (row.status === "accepted") { res.json({ status: "accepted" }); return; }
+    // pending
+    if (Number(row.user_id) === Number(myId)) {
+      res.json({ status: "pending_sent" });
+    } else {
+      res.json({ status: "pending_received" });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router;

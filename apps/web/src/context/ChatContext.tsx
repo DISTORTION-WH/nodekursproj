@@ -280,6 +280,16 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       }
     };
 
+    const handleUserRenamed = (data: { userId: number; username: string }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          Number(m.sender_id) === Number(data.userId)
+            ? { ...m, sender_name: data.username }
+            : m
+        )
+      );
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("messages_cleared", handleMessagesCleared);
     socket.on("chat_member_updated", handleChatMemberUpdated);
@@ -291,6 +301,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     socket.on("user_stop_typing", handleUserStopTyping);
     socket.on("message_pinned", handleMessagePinned);
     socket.on("message_unpinned", handleMessageUnpinned);
+    socket.on("user_renamed", handleUserRenamed);
 
     return () => {
       socket.emit("leave_chat", activeChat.id);
@@ -305,6 +316,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       socket.off("user_stop_typing", handleUserStopTyping);
       socket.off("message_pinned", handleMessagePinned);
       socket.off("message_unpinned", handleMessageUnpinned);
+      socket.off("user_renamed", handleUserRenamed);
       // Clear all pending typing timeouts
       Object.values(typingTimeouts.current).forEach(clearTimeout);
       typingTimeouts.current = {};

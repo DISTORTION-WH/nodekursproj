@@ -2,18 +2,21 @@ import React, { useState, useEffect, useRef, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import { useI18n } from "../i18n";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
 
   // Revoke previous blob URL to avoid memory leaks
   const prevBlobUrl = useRef<string | null>(null);
@@ -37,6 +40,10 @@ export default function RegisterPage() {
   const handlePreRegister = async (e: FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !email.trim() || !password.trim()) return;
+    if (password !== confirmPassword) {
+      setError(t.auth.passwords_mismatch);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -50,7 +57,7 @@ export default function RegisterPage() {
       });
       setStep(2);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Ошибка регистрации");
+      setError(err.response?.data?.message || t.auth.reg_error);
     } finally {
       setLoading(false);
     }
@@ -68,7 +75,7 @@ export default function RegisterPage() {
       });
       await login(username, password);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Ошибка подтверждения");
+      setError(err.response?.data?.message || t.auth.confirm_error);
     } finally {
       setLoading(false);
     }
@@ -120,7 +127,7 @@ export default function RegisterPage() {
               LUME
             </span>
             <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-              {step === 1 ? "Создать аккаунт" : "Подтвердите email"}
+              {step === 1 ? t.auth.create_account : t.auth.confirm_email}
             </p>
             {/* Step dots */}
             <div className="flex justify-center gap-2 mt-3">
@@ -162,9 +169,10 @@ export default function RegisterPage() {
               </div>
 
               {[
-                { label: "Имя пользователя", value: username, setter: setUsername, type: "text", placeholder: "username", autocomplete: "username" },
+                { label: t.auth.username, value: username, setter: setUsername, type: "text", placeholder: "username", autocomplete: "username" },
                 { label: "Email", value: email, setter: setEmail, type: "email", placeholder: "you@example.com", autocomplete: "email" },
-                { label: "Пароль", value: password, setter: setPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
+                { label: t.auth.password, value: password, setter: setPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
+                { label: t.auth.confirm_password, value: confirmPassword, setter: setConfirmPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
               ].map(({ label, value, setter, type, placeholder, autocomplete }) => (
                 <div key={label} className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</label>
@@ -190,16 +198,16 @@ export default function RegisterPage() {
                 onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(88,101,242,0.5)"; } }}
                 onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)"; }}
               >
-                {loading ? "Отправляем код..." : "Далее →"}
+                {loading ? t.auth.sending_code : t.auth.next}
               </button>
             </form>
           ) : (
             <form onSubmit={handleConfirm} className="flex flex-col gap-4">
               <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Мы отправили код на <span className="text-white font-medium">{email}</span>
+                {t.auth.code_sent_to} <span className="text-white font-medium">{email}</span>
               </p>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>Код подтверждения</label>
+                <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>{t.auth.confirm_code}</label>
                 <input
                   type="text"
                   value={verificationCode}
@@ -221,7 +229,7 @@ export default function RegisterPage() {
                 onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(88,101,242,0.5)"; } }}
                 onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)"; }}
               >
-                {loading ? "Регистрируемся..." : "Создать аккаунт"}
+                {loading ? t.auth.registering : t.auth.create_account}
               </button>
 
               <button
@@ -232,13 +240,13 @@ export default function RegisterPage() {
                 onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
                 onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
               >
-                ← Назад
+                {t.auth.back}
               </button>
             </form>
           )}
 
           <p className="text-center text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Уже есть аккаунт?{" "}
+            {t.auth.have_account}{" "}
             <Link
               to="/login"
               className="font-semibold transition-colors duration-200"
@@ -246,7 +254,7 @@ export default function RegisterPage() {
               onMouseEnter={e => (e.currentTarget.style.color = "#eb459e")}
               onMouseLeave={e => (e.currentTarget.style.color = "#a8b4ff")}
             >
-              Войти
+              {t.auth.login}
             </Link>
           </p>
         </div>

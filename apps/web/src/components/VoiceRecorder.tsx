@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { uploadFile } from "../services/api";
+import { useI18n } from "../i18n";
 
 interface Props {
   chatId: number;
@@ -24,6 +25,7 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     return () => {
@@ -45,16 +47,15 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     } catch (e) {
-      // Clean up stream tracks if MediaRecorder creation failed
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      alert("Нет доступа к микрофону");
+      alert(t.chat.voice_no_mic);
     }
   };
 
   const stopAndSend = () => {
     const mr = mediaRecorderRef.current;
     if (!mr || mr.state === "inactive") return;
-    mediaRecorderRef.current = null; // prevent double-call
+    mediaRecorderRef.current = null;
     mr.onstop = async () => {
       if (timerRef.current) clearInterval(timerRef.current);
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
@@ -64,7 +65,7 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
         await uploadFile(chatId, file);
         onClose();
       } catch (e) {
-        alert("Ошибка отправки голосового сообщения");
+        alert(t.chat.voice_send_error);
       } finally {
         setUploading(false);
       }
@@ -90,24 +91,20 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
   return (
     <>
       <style>{waveKeyframes}</style>
-      <div style={{
-        background: "rgba(20,21,35,0.97)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 -8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(88,101,242,0.1)",
-        borderRadius: "16px 16px 0 0",
-        padding: "16px 20px",
-        marginBottom: "2px",
-        display: "flex",
-        alignItems: "center",
-        gap: "16px",
-      }}>
+      <div
+        className="rounded-t-2xl mb-0.5 px-5 py-4 flex items-center gap-4"
+        style={{
+          background: "var(--color-secondary)",
+          border: "1px solid var(--color-tertiary)",
+          borderBottom: "none",
+        }}
+      >
         {uploading ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%" }}>
-            <svg style={{ width: 18, height: 18, animation: "spin 1s linear infinite", color: "#5865f2" }} viewBox="0 0 24 24" fill="none">
+          <div className="flex items-center gap-3 w-full">
+            <svg className="w-4 h-4 text-discord-accent animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4 31.4" strokeLinecap="round"/>
             </svg>
-            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Отправка голосового...</span>
+            <span className="text-discord-text-secondary text-sm">{t.chat.voice_sending}</span>
           </div>
         ) : recording ? (
           <>
@@ -133,56 +130,35 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
             </div>
 
             {/* Timer */}
-            <span style={{ fontFamily: "monospace", fontSize: 16, fontWeight: 600, color: "white", letterSpacing: "0.05em" }}>
+            <span className="text-discord-text-primary font-mono text-base font-semibold tracking-wider">
               {fmt(seconds)}
             </span>
 
             {/* Actions */}
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <div className="ml-auto flex gap-2">
               <button
                 onClick={stopAndSend}
-                style={{
-                  background: "linear-gradient(135deg, #5865f2, #7b68ee)",
-                  color: "white", border: "none", borderRadius: 10,
-                  padding: "7px 16px", fontSize: 13, fontWeight: 600,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                  boxShadow: "0 2px 12px rgba(88,101,242,0.4)",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(88,101,242,0.5)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 2px 12px rgba(88,101,242,0.4)"; }}
+                className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold text-sm px-4 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                style={{ boxShadow: "0 2px 12px rgba(88,101,242,0.4)" }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                 </svg>
-                Отправить
+                {t.chat.voice_send}
               </button>
               <button
                 onClick={cancel}
-                style={{
-                  background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)",
-                  border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10,
-                  padding: "7px 12px", fontSize: 13, cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(237,66,69,0.15)"; e.currentTarget.style.color = "#ed4245"; e.currentTarget.style.borderColor = "rgba(237,66,69,0.3)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+                className="text-discord-text-muted hover:text-discord-danger border border-discord-tertiary hover:border-discord-danger/40 bg-discord-input hover:bg-discord-danger/10 text-sm px-3 py-1.5 rounded-lg transition"
               >
-                Отмена
+                {t.chat.cancel}
               </button>
             </div>
           </>
         ) : (
           <>
             {/* Mic icon */}
-            <div style={{
-              width: 36, height: 36, borderRadius: "50%",
-              background: "rgba(88,101,242,0.15)",
-              border: "1px solid rgba(88,101,242,0.3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-9 h-9 rounded-full bg-discord-accent/15 border border-discord-accent/30 flex items-center justify-center shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-discord-text-primary">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                 <line x1="12" y1="19" x2="12" y2="23"/>
@@ -190,38 +166,23 @@ export default function VoiceRecorder({ chatId, onClose }: Props) {
               </svg>
             </div>
 
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, color: "white", fontWeight: 500 }}>Голосовое сообщение</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Нажмите запись, чтобы начать</div>
+            <div className="flex-1">
+              <div className="text-discord-text-primary text-sm font-medium">{t.chat.voice_message}</div>
+              <div className="text-discord-text-muted text-xs mt-0.5">{t.chat.voice_start_hint}</div>
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 onClick={startRecording}
-                style={{
-                  background: "linear-gradient(135deg, #ed4245, #c0392b)",
-                  color: "white", border: "none", borderRadius: 10,
-                  padding: "7px 16px", fontSize: 13, fontWeight: 600,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                  boxShadow: "0 2px 12px rgba(237,66,69,0.35)",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(237,66,69,0.5)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 2px 12px rgba(237,66,69,0.35)"; }}
+                className="bg-discord-danger hover:opacity-90 text-white font-semibold text-sm px-4 py-1.5 rounded-lg transition flex items-center gap-2"
+                style={{ boxShadow: "0 2px 12px rgba(237,66,69,0.35)" }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "white", display: "inline-block" }} />
-                Запись
+                <span className="w-2 h-2 rounded-full bg-white inline-block" />
+                {t.chat.voice_record}
               </button>
               <button
                 onClick={cancel}
-                style={{
-                  background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)",
-                  border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10,
-                  padding: "7px 10px", fontSize: 16, cursor: "pointer",
-                  transition: "all 0.15s ease", lineHeight: 1,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "white"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                className="text-discord-text-muted hover:text-discord-text-primary border border-discord-tertiary bg-discord-input hover:bg-discord-input-hover text-sm px-3 py-1.5 rounded-lg transition"
               >
                 ✕
               </button>

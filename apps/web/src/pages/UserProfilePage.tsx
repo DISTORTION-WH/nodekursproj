@@ -6,10 +6,14 @@ import { getImageUrl } from "../utils/imageUrl";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
 
+type FriendStatus = "none" | "pending_sent" | "pending_received" | "accepted";
+
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const [user, setUser] = useState<User | null>(null);
   const [friends, setFriends] = useState<User[]>([]);
+  const [friendStatus, setFriendStatus] = useState<FriendStatus>("none");
+  const [friendLoading, setFriendLoading] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { t, lang } = useI18n();
@@ -25,9 +29,14 @@ export default function UserProfilePage() {
       })
       .catch((err) => {
         console.error(err);
-        alert("Ошибка при загрузке профиля пользователя");
+        alert(t.profile.loading);
         navigate(-1);
       });
+
+    api
+      .get<{ status: FriendStatus }>(`/friends/status/${userId}`)
+      .then((res) => setFriendStatus(res.data.status))
+      .catch(() => setFriendStatus("none"));
   }, [userId, navigate]);
 
   const startChat = async () => {
@@ -35,7 +44,7 @@ export default function UserProfilePage() {
     try {
       const res = await api.post<{ id: number }>("/chats/private", { friendId: user.id });
       if (!res.data?.id) {
-        alert("Ошибка: сервер не вернул ID чата");
+        alert(t.common.error);
         return;
       }
       navigate("/", {
@@ -45,15 +54,28 @@ export default function UserProfilePage() {
         },
       });
     } catch (err: any) {
-      alert("Ошибка при создании чата: " + (err.response?.data?.message || err.message));
+      alert(err.response?.data?.message || err.message);
+    }
+  };
+
+  const addFriend = async () => {
+    if (!user || friendLoading) return;
+    setFriendLoading(true);
+    try {
+      await api.post("/friends/request", { friendId: user.id });
+      setFriendStatus("pending_sent");
+    } catch (err: any) {
+      alert(err.response?.data?.message || t.common.error);
+    } finally {
+      setFriendLoading(false);
     }
   };
 
   const removeFriend = async () => {
     if (!user || !window.confirm(t.profile.remove_confirm)) return;
+    setFriendLoading(true);
     try {
       await api.post(`/friends/remove`, { friendId: user.id });
-      // Optimistic update: remove the viewed user from the friends list displayed on their profile
       setFriends((prev) => prev.filter((f) => Number(f.id) !== Number(user.id)));
       setUser((prev) =>
         prev
@@ -65,10 +87,13 @@ export default function UserProfilePage() {
             }
           : prev
       );
+      setFriendStatus("none");
       alert(t.profile.removed_success);
     } catch (err) {
       console.error(err);
-      alert("Ошибка при удалении из друзей");
+      alert(t.common.error);
+    } finally {
+      setFriendLoading(false);
     }
   };
 
@@ -81,7 +106,6 @@ export default function UserProfilePage() {
   }
 
   const isMe = Number(currentUser?.id) === Number(user.id);
-  const isFriend = currentUser?.friends?.some((f) => Number(f.id) === Number(user.id));
 
   const COUNTRIES: Record<string, { flag: string; name_ru: string; name_en: string }> = {
     RU: { flag: "\u{1F1F7}\u{1F1FA}", name_ru: "Россия", name_en: "Russia" },
@@ -110,7 +134,7 @@ export default function UserProfilePage() {
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
-        <h2 className="text-white text-2xl font-bold">{t.profile.my_profile.replace("Мой п", "П").replace("My P", "P")}</h2>
+        <h2 className="text-white text-2xl font-bold">{user.username}</h2>
 
         {/* Profile header */}
         <div className="bg-discord-secondary rounded-xl p-6 flex items-start gap-6 flex-wrap">
@@ -180,19 +204,40 @@ export default function UserProfilePage() {
 
         {/* Actions */}
         {!isMe && (
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button
               onClick={startChat}
               className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold px-4 py-2 rounded transition"
             >
               {t.profile.start_chat}
             </button>
-            {isFriend && user.username !== "LumeOfficial" && (
+
+            {friendStatus === "accepted" && user.username !== "LumeOfficial" && (
               <button
                 onClick={removeFriend}
-                className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white font-semibold px-4 py-2 rounded transition"
+                disabled={friendLoading}
+                className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white font-semibold px-4 py-2 rounded transition disabled:opacity-50"
               >
                 {t.profile.remove_friend}
+              </button>
+            )}
+
+            {friendStatus === "none" && (
+              <button
+                onClick={addFriend}
+                disabled={friendLoading}
+                className="bg-discord-success/20 hover:bg-discord-success text-discord-success hover:text-white font-semibold px-4 py-2 rounded transition disabled:opacity-50"
+              >
+                {friendLoading ? "..." : t.profile.add_friend}
+              </button>
+            )}
+
+            {(friendStatus === "pending_sent" || friendStatus === "pending_received") && (
+              <button
+                disabled
+                className="bg-discord-tertiary text-discord-text-muted font-semibold px-4 py-2 rounded cursor-not-allowed opacity-60"
+              >
+                {t.profile.friend_request_pending}
               </button>
             )}
           </div>

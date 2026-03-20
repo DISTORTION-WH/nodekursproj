@@ -3,21 +3,25 @@ import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import VoiceRecorder from "./VoiceRecorder";
 import VideoNoteRecorder from "./VideoNoteRecorder";
-import StickerPicker from "./StickerPicker";
 import { uploadFile } from "../services/api";
 import { useI18n } from "../i18n";
 
+const STICKER_COUNT = 27;
+const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
+const stickerUrls: string[] = Array.from({ length: STICKER_COUNT }, (_, i) => `${API_BASE}/stickers/${i + 1}.png`);
+
 export default function MessageInput() {
   const [newMessage, setNewMessage] = useState("");
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaTab, setMediaTab] = useState<"emoji" | "stickers">("emoji");
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showVideoNote, setShowVideoNote] = useState(false);
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
   const { t } = useI18n();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -25,13 +29,25 @@ export default function MessageInput() {
     };
   }, []);
 
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showMediaPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowMediaPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMediaPicker]);
+
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newMessage.trim()) return;
     sendStopTyping();
     sendMessage(newMessage, replyingTo?.id ?? null);
     setNewMessage("");
-    setShowEmojiPicker(false);
+    setShowMediaPicker(false);
     setReplyingTo(null);
     if (typingTimeout.current) {
       clearTimeout(typingTimeout.current);
@@ -61,7 +77,7 @@ export default function MessageInput() {
   const handleStickerSelect = (stickerUrl: string) => {
     sendMessage(stickerUrl, replyingTo?.id ?? null);
     setReplyingTo(null);
-    setShowStickerPicker(false);
+    setShowMediaPicker(false);
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -71,8 +87,8 @@ export default function MessageInput() {
     try {
       await uploadFile(activeChat.id, file);
     } catch (err) {
-      console.error("Ошибка загрузки файла:", err);
-      alert("Ошибка загрузки файла");
+      console.error("File upload error:", err);
+      alert(t.chat.file_upload_error);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -98,7 +114,7 @@ export default function MessageInput() {
           <button
             onClick={() => setReplyingTo(null)}
             className="text-discord-text-muted hover:text-discord-text-primary text-sm transition shrink-0 ml-1"
-            title="Отмена"
+            title={t.chat.cancel}
           >
             ✕
           </button>
@@ -121,24 +137,70 @@ export default function MessageInput() {
         />
       )}
 
-      {/* Sticker picker */}
-      {showStickerPicker && (
-        <div className="absolute bottom-full left-4 mb-2 z-20">
-          <StickerPicker
-            onSelect={handleStickerSelect}
-            onClose={() => setShowStickerPicker(false)}
-          />
-        </div>
-      )}
+      {/* Combined emoji + sticker picker */}
+      {showMediaPicker && (
+        <div
+          ref={pickerRef}
+          className="absolute bottom-full left-4 mb-2 z-20 rounded-xl shadow-2xl overflow-hidden"
+          style={{
+            background: "var(--color-secondary)",
+            border: "1px solid var(--color-tertiary)",
+            width: 350,
+          }}
+        >
+          {/* Tabs */}
+          <div className="flex" style={{ borderBottom: "1px solid var(--color-tertiary)" }}>
+            <button
+              onClick={() => setMediaTab("emoji")}
+              className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition ${
+                mediaTab === "emoji"
+                  ? "text-discord-accent border-b-2 border-discord-accent"
+                  : "text-discord-text-muted hover:text-discord-text-primary"
+              }`}
+            >
+              {t.chat.emojis}
+            </button>
+            <button
+              onClick={() => setMediaTab("stickers")}
+              className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition ${
+                mediaTab === "stickers"
+                  ? "text-discord-accent border-b-2 border-discord-accent"
+                  : "text-discord-text-muted hover:text-discord-text-primary"
+              }`}
+            >
+              {t.chat.stickers}
+            </button>
+          </div>
 
-      {showEmojiPicker && (
-        <div className="absolute bottom-full left-4 mb-2 w-[350px] z-20">
-          <EmojiPicker
-            onEmojiClick={onEmojiClick}
-            theme={Theme.DARK}
-            lazyLoadEmojis={true}
-            skinTonesDisabled={true}
-          />
+          {mediaTab === "emoji" ? (
+            <EmojiPicker
+              onEmojiClick={onEmojiClick}
+              theme={Theme.DARK}
+              lazyLoadEmojis={true}
+              skinTonesDisabled={true}
+              width={350}
+            />
+          ) : (
+            <div className="p-2 overflow-y-auto" style={{ maxHeight: 280 }}>
+              <div className="grid grid-cols-5 gap-1">
+                {stickerUrls.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleStickerSelect(url)}
+                    className="rounded-lg overflow-hidden hover:bg-discord-input transition p-1 flex items-center justify-center"
+                    title={`Sticker ${i + 1}`}
+                  >
+                    <img
+                      src={url}
+                      alt={`sticker-${i + 1}`}
+                      className="w-12 h-12 object-contain"
+                      loading="lazy"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -157,17 +219,16 @@ export default function MessageInput() {
         }`}
         style={{ background: "var(--color-input)", border: "1px solid var(--color-tertiary)" }}
       >
-        {/* Emoji button */}
+        {/* Emoji+Sticker combined button */}
         <button
           type="button"
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showEmojiPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showMediaPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={(e) => {
             e.stopPropagation();
-            setShowEmojiPicker(!showEmojiPicker);
+            setShowMediaPicker(!showMediaPicker);
             setShowVoiceRecorder(false);
-            setShowStickerPicker(false);
           }}
-          title="Emoji"
+          title="Emoji & Stickers"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -182,7 +243,7 @@ export default function MessageInput() {
           type="button"
           className="w-8 h-8 flex items-center justify-center rounded-lg text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary transition-all duration-150 shrink-0"
           onClick={() => !uploading && fileInputRef.current?.click()}
-          title="Прикрепить файл"
+          title={t.chat.attach_file}
           disabled={uploading}
         >
           {uploading ? (
@@ -201,9 +262,9 @@ export default function MessageInput() {
           onClick={() => {
             setShowVoiceRecorder(!showVoiceRecorder);
             setShowVideoNote(false);
-            setShowEmojiPicker(false);
+            setShowMediaPicker(false);
           }}
-          title="Голосовое сообщение"
+          title={t.chat.voice_message}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
@@ -220,34 +281,13 @@ export default function MessageInput() {
           onClick={() => {
             setShowVideoNote(!showVideoNote);
             setShowVoiceRecorder(false);
-            setShowEmojiPicker(false);
-            setShowStickerPicker(false);
+            setShowMediaPicker(false);
           }}
-          title="Видеосообщение"
+          title={t.chat.video_message}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="23 7 16 12 23 17 23 7"/>
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-          </svg>
-        </button>
-
-        {/* Sticker picker toggle */}
-        <button
-          type="button"
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showStickerPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
-          onClick={() => {
-            setShowStickerPicker(!showStickerPicker);
-            setShowEmojiPicker(false);
-            setShowVoiceRecorder(false);
-            setShowVideoNote(false);
-          }}
-          title="Стикеры"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/>
-            <path d="M8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="currentColor"/>
-            <path d="M15.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="currentColor"/>
-            <path d="M8 14c.5 1.5 2 3 4 3s3.5-1.5 4-3"/>
           </svg>
         </button>
 
@@ -256,7 +296,7 @@ export default function MessageInput() {
           onChange={handleChange}
           placeholder={replyingTo ? `${t.chat.reply_prefix} ${replyingTo.sender_name}...` : t.chat.message_placeholder}
           onKeyDown={handleKeyDown}
-          onClick={() => setShowEmojiPicker(false)}
+          onClick={() => setShowMediaPicker(false)}
           className="flex-1 bg-transparent text-discord-text-primary text-sm outline-none placeholder-discord-text-muted min-w-0"
         />
         <button

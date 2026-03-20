@@ -133,6 +133,36 @@ router.patch("/me/country", authMiddleware, async (req: AuthRequest, res: Respon
   }
 });
 
+router.patch("/me/username", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { username } = req.body as { username?: string };
+    if (!username || !username.trim()) {
+      res.status(400).json({ message: "Имя пользователя не может быть пустым" });
+      return;
+    }
+    const trimmed = username.trim();
+    if (trimmed.length < 3 || trimmed.length > 32) {
+      res.status(400).json({ message: "Имя пользователя должно быть от 3 до 32 символов" });
+      return;
+    }
+    const db = require("../databasepg").default;
+    // Check uniqueness
+    const existing = await db.query("SELECT id FROM users WHERE username = $1 AND id != $2", [trimmed, userId]);
+    if (existing.rows.length > 0) {
+      res.status(409).json({ message: "Это имя пользователя уже занято" });
+      return;
+    }
+    await db.query("UPDATE users SET username = $1 WHERE id = $2", [trimmed, userId]);
+    // Broadcast to all connected sockets
+    const io = req.app.get("io");
+    io.emit("user_renamed", { userId, username: trimmed });
+    res.json({ username: trimmed });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);
