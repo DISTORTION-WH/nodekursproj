@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Socket } from "socket.io-client";
+import { translateText, toLangCode } from "./useTranslate";
 
 // ─── Web Speech API ambient types ────────────────────────────────────────────
 
@@ -95,6 +96,16 @@ export interface UseLiveSubtitlesResult {
 let _idSeq = 0;
 const uid = () => ++_idSeq;
 
+// ─── Throttle helper for socket emit ─────────────────────────────────────────
+
+const THROTTLE_MS = 333;
+
+interface ThrottleState {
+  lastEmitTime: number;
+  pendingInterim: string | null;
+  throttleTimer: ReturnType<typeof setTimeout> | null;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useLiveSubtitles({
@@ -116,7 +127,9 @@ export function useLiveSubtitles({
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  // ── Double-buffering refs (Step 2) ────────────────────────────────────────
+  const activeRecRef = useRef<ISpeechRecognition | null>(null);
+  const standbyRecRef = useRef<ISpeechRecognition | null>(null);
   const activeRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldShowRef = useRef(shouldShow);
@@ -127,6 +140,20 @@ export function useLiveSubtitles({
   const groupChatIdRef = useRef(groupChatId);
   const localUsernameRef = useRef(localUsername);
   const localSpeakerIdRef = useRef(localSpeakerId);
+
+  // ── Heartbeat refs (Step 2b) ──────────────────────────────────────────────
+  const lastResultTimestampRef = useRef<number>(0);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Throttle state (Step 3) ───────────────────────────────────────────────
+  const throttleRef = useRef<ThrottleState>({
+    lastEmitTime: 0,
+    pendingInterim: null,
+    throttleTimer: null,
+  });
+
+  // ── Interim translation debounce (Step 6) ─────────────────────────────────
+  const interimTranslateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   shouldShowRef.current = shouldShow;
   speechLangRef.current = speechLang;
@@ -167,61 +194,105 @@ export function useLiveSubtitles({
     });
   }, []);
 
-  // ── SpeechRecognition ──────────────────────────────────────────────────────
-  // Captures LOCAL speech via microphone.
-  // rec.lang = displayLang ("Мой язык") — so recognition matches the user's own language.
-  // ALWAYS broadcasts recognized text to the remote participant via socket,
-  // regardless of whether subtitles are enabled locally — so if only the
-  // remote side has subtitles on, they still see our speech.
-  // Creates a fresh SpeechRecognition instance and starts it.
-  // On any end/error it automatically restarts with a NEW instance after a
-  // short delay, which avoids the Chrome bug where restarting the same
-  // dead instance silently fails.
-  const startRecognition = useCallback(() => {
+  // ── Throttled socket emit (Step 3) ─────────────────────────────────────────
+  const emitSubtitle = useCallback((text: string, isFinal: boolean) => {
+    if (!socketRef.current) return;
+
+    const payload = {
+      text,
+      speakerId: localSpeakerIdRef.current,
+      username: localUsernameRef.current,
+      isFinal,
+      lang: displayLangRef.current, // Step 4: язык на котором я говорю
+    };
+
+    const dest = remoteUserIdRef.current
+      ? { to: remoteUserIdRef.current }
+      : groupChatIdRef.current
+      ? { chatId: groupChatIdRef.current }
+      : null;
+
+    if (!dest) return;
+
+    const emit = () => {
+      socketRef.current?.emit("subtitle_broadcast", { ...payload, ...dest });
+    };
+
+    const ts = throttleRef.current;
+
+    if (isFinal) {
+      // Final — always send immediately, cancel pending interim
+      if (ts.throttleTimer) {
+        clearTimeout(ts.throttleTimer);
+        ts.throttleTimer = null;
+      }
+      ts.pendingInterim = null;
+      emit();
+      return;
+    }
+
+    // Interim — throttle to max 3/sec
+    const now = Date.now();
+    if (now - ts.lastEmitTime >= THROTTLE_MS) {
+      emit();
+      ts.lastEmitTime = now;
+      ts.pendingInterim = null;
+    } else {
+      // Save and send later
+      ts.pendingInterim = text;
+      if (!ts.throttleTimer) {
+        ts.throttleTimer = setTimeout(() => {
+          if (ts.pendingInterim) {
+            const delayedPayload = {
+              text: ts.pendingInterim,
+              speakerId: localSpeakerIdRef.current,
+              username: localUsernameRef.current,
+              isFinal: false,
+              lang: displayLangRef.current,
+            };
+            const delayedDest = remoteUserIdRef.current
+              ? { to: remoteUserIdRef.current }
+              : groupChatIdRef.current
+              ? { chatId: groupChatIdRef.current }
+              : null;
+            if (delayedDest) {
+              socketRef.current?.emit("subtitle_broadcast", { ...delayedPayload, ...delayedDest });
+            }
+            ts.lastEmitTime = Date.now();
+            ts.pendingInterim = null;
+          }
+          ts.throttleTimer = null;
+        }, THROTTLE_MS);
+      }
+    }
+  }, []);
+
+  // ── Create a standby SpeechRecognition instance (Step 2a) ──────────────────
+  const createRecognitionInstance = useCallback((): ISpeechRecognition | null => {
     const Ctor = getRecognitionCtor();
-    if (!Ctor) return;
-
-    // Clean up previous instance
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch { /* */ }
-      recognitionRef.current = null;
-    }
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
-    }
-
+    if (!Ctor) return null;
     const rec = new Ctor();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = displayLangRef.current;
     rec.maxAlternatives = 1;
-    recognitionRef.current = rec;
+    return rec;
+  }, []);
 
-    rec.onstart = () => { activeRef.current = true; setIsListening(true); };
+  // ── Wire up event handlers on a recognition instance ──────────────────────
+  const wireRecognition = useCallback((rec: ISpeechRecognition) => {
+    rec.onstart = () => {
+      activeRef.current = true;
+      setIsListening(true);
+    };
 
     rec.onresult = (event: SpeechRecognitionEvent) => {
+      lastResultTimestampRef.current = Date.now();
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const text = result[0]?.transcript?.trim() ?? "";
         if (!text) continue;
-
-        const isFinal = result.isFinal;
-
-        // Broadcast own speech to remote participant(s) via socket
-        if (socketRef.current) {
-          const payload = {
-            text,
-            speakerId: localSpeakerIdRef.current,
-            username: localUsernameRef.current,
-            isFinal,
-          };
-          if (remoteUserIdRef.current) {
-            socketRef.current.emit("subtitle_broadcast", { ...payload, to: remoteUserIdRef.current });
-          } else if (groupChatIdRef.current) {
-            socketRef.current.emit("subtitle_broadcast", { ...payload, chatId: groupChatIdRef.current });
-          }
-        }
+        emitSubtitle(text, result.isFinal);
       }
     };
 
@@ -229,48 +300,93 @@ export function useLiveSubtitles({
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Нет доступа к микрофону. Разрешите доступ в настройках браузера.");
       }
-      // "aborted" is expected when we intentionally stop — don't log it.
-      // All other errors (no-speech, network, audio-capture) are transient;
-      // onend fires after onerror and will handle the restart.
+      // "aborted" is expected when we intentionally stop.
+      // "no-speech", "network", "audio-capture" are transient — onend handles restart.
     };
 
     rec.onend = () => {
       activeRef.current = false;
-      // Only restart if this instance is still the "current" one (i.e. not
-      // explicitly stopped via stopRecognition which sets ref to null).
-      if (recognitionRef.current !== rec) {
+      // Only restart if this instance is still the "current" one
+      if (activeRecRef.current !== rec) {
         setIsListening(false);
         return;
       }
-      // Create a BRAND NEW instance after a short delay.
-      // Re-using the same dead instance is unreliable in Chrome/Edge.
-      recognitionRef.current = null;
-      restartTimerRef.current = setTimeout(() => {
-        restartTimerRef.current = null;
-        startRecognition();
-      }, 300);
-    };
 
+      // Step 2a: Double-buffering — instantly switch to standby
+      activeRecRef.current = null;
+
+      if (standbyRecRef.current) {
+        const next = standbyRecRef.current;
+        standbyRecRef.current = null;
+        activeRecRef.current = next;
+        wireRecognition(next);
+        try { next.start(); } catch { /* */ }
+        // Prepare next standby
+        standbyRecRef.current = createRecognitionInstance();
+      } else {
+        // Fallback: create new instance after short delay
+        restartTimerRef.current = setTimeout(() => {
+          restartTimerRef.current = null;
+          startRecognition();
+        }, 200);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emitSubtitle, createRecognitionInstance]);
+
+  // ── Start recognition with double-buffering ───────────────────────────────
+  const startRecognition = useCallback(() => {
+    // Clean up previous instances
+    if (activeRecRef.current) {
+      try { activeRecRef.current.abort(); } catch { /* */ }
+      activeRecRef.current = null;
+    }
+    if (standbyRecRef.current) {
+      try { standbyRecRef.current.abort(); } catch { /* */ }
+      standbyRecRef.current = null;
+    }
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+
+    const rec = createRecognitionInstance();
+    if (!rec) return;
+
+    activeRecRef.current = rec;
+    wireRecognition(rec);
+
+    // Prepare standby
+    standbyRecRef.current = createRecognitionInstance();
+
+    lastResultTimestampRef.current = Date.now();
     try { rec.start(); } catch { /* */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [createRecognitionInstance, wireRecognition]);
 
   const stopRecognition = useCallback(() => {
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
-    const rec = recognitionRef.current;
-    recognitionRef.current = null; // signal onend not to restart
+    // Stop active
+    const rec = activeRecRef.current;
+    activeRecRef.current = null; // signal onend not to restart
     if (rec) { try { rec.abort(); } catch { /* */ } }
+    // Stop standby
+    const standby = standbyRecRef.current;
+    standbyRecRef.current = null;
+    if (standby) { try { standby.abort(); } catch { /* */ } }
+    // Clean throttle
+    if (throttleRef.current.throttleTimer) {
+      clearTimeout(throttleRef.current.throttleTimer);
+      throttleRef.current.throttleTimer = null;
+    }
     activeRef.current = false;
     setIsListening(false);
   }, []);
 
   // ── ALWAYS start recognition when a call is active ─────────────────────────
-  // Both participants always recognize & broadcast their own speech so that
-  // subtitles work immediately when either side enables them — no signaling
-  // round-trip needed.
   useEffect(() => {
     if (!isSupported) {
       setError("SpeechRecognition не поддерживается. Используйте Chrome или Edge.");
@@ -287,7 +403,6 @@ export function useLiveSubtitles({
   }, [callActive, localStream]);
 
   // Restart recognition when displayLang changes (user changed "Мой язык")
-  // because rec.lang needs to match the user's language for accurate recognition
   useEffect(() => {
     if (callActive && localStream && isSupported) {
       stopRecognition();
@@ -297,17 +412,77 @@ export function useLiveSubtitles({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayLang]);
 
-  // ── Receive remote subtitles → show directly ──────────────────────────────
+  // ── Step 2b: Heartbeat — restart if no results for 45s ────────────────────
+  useEffect(() => {
+    if (!callActive || !localStream || !isSupported) return;
+
+    heartbeatTimerRef.current = setInterval(() => {
+      if (!activeRecRef.current) return;
+      const elapsed = Date.now() - lastResultTimestampRef.current;
+      if (elapsed > 45000) {
+        // Force restart — recognition may have silently died
+        stopRecognition();
+        startRecognition();
+      }
+    }, 15000);
+
+    return () => {
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callActive, localStream]);
+
+  // ── Step 1+4+6: Receive remote subtitles → translate → show ───────────────
   useEffect(() => {
     if (!socket) return;
 
-    const onReceived = (data: { text: string; speakerId: string; username: string; isFinal: boolean }) => {
+    const onReceived = (data: { text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
       if (!shouldShowRef.current) return;
-      upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
+
+      const sourceLang = data.lang || speechLangRef.current;
+      const targetLang = displayLangRef.current;
+
+      // Check if translation is needed
+      const needsTranslation = toLangCode(sourceLang) !== toLangCode(targetLang);
+
+      if (!needsTranslation) {
+        upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
+        return;
+      }
+
+      if (data.isFinal) {
+        // Final — always translate
+        translateText(data.text, sourceLang, targetLang).then((translated) => {
+          upsertSubtitle(data.speakerId, data.username, translated, true);
+        });
+      } else {
+        // Interim — show original immediately, then translate with debounce (Step 6)
+        upsertSubtitle(data.speakerId, data.username, data.text, false);
+
+        if (interimTranslateTimerRef.current) {
+          clearTimeout(interimTranslateTimerRef.current);
+        }
+        interimTranslateTimerRef.current = setTimeout(() => {
+          translateText(data.text, sourceLang, targetLang).then((translated) => {
+            if (translated !== data.text) {
+              upsertSubtitle(data.speakerId, data.username, translated, false);
+            }
+          });
+        }, 600);
+      }
     };
 
     socket.on("subtitle_received", onReceived);
-    return () => { socket.off("subtitle_received", onReceived); };
+    return () => {
+      socket.off("subtitle_received", onReceived);
+      if (interimTranslateTimerRef.current) {
+        clearTimeout(interimTranslateTimerRef.current);
+        interimTranslateTimerRef.current = null;
+      }
+    };
   }, [socket, upsertSubtitle]);
 
   // Clear on disable
