@@ -19,6 +19,8 @@ import adminRouter from "./Routes/adminRouter";
 import moderatorRouter from "./Routes/moderatorRouter";
 import logger from "./Services/logService";
 import * as mediasoupService from "./Services/mediasoupService";
+import * as deepgramService from "./Services/deepgramService";
+import { translateText as deeplTranslate } from "./Services/deeplService";
 
 const AUTO_MODERATOR_NAME = "USER2"; 
 
@@ -330,20 +332,54 @@ io.on("connection", async (socket: Socket) => {
 
   // ─── End Group Call ───────────────────────────────────────────────────────
 
-  // ─── Subtitle broadcast ───────────────────────────────────────────────────
-  // For 1-on-1: relay subtitle to the other participant via their user room
-  // For group: relay to all others in the call room
+  // ─── Subtitle broadcast (text-based, kept for backwards compat) ──────────
   socket.on("subtitle_broadcast", (data: { to?: number; chatId?: number; text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
     const userId = (socket as any).userId;
     if (!userId) return;
     const payload = { text: data.text, speakerId: data.speakerId, username: data.username, isFinal: data.isFinal, lang: data.lang };
     if (data.to) {
-      // 1-on-1: send to the specific user's room
       io.to(`user_${data.to}`).emit("subtitle_received", payload);
     } else if (data.chatId) {
-      // Group: broadcast to others in the call room
       socket.to(`call_${data.chatId}`).emit("subtitle_received", payload);
     }
+  });
+
+  // ─── Server-side STT via Deepgram ──────────────────────────────────────────
+  // Client sends raw PCM16 audio chunks; server transcribes via Deepgram
+  // and broadcasts results as subtitle_received events.
+
+  socket.on("subtitle_audio_start", async (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+
+    const lang = data.lang || "en-US";
+    const speakerId = String(userId);
+    const username = data.username || "User";
+
+    await deepgramService.startSession(userId, lang, (text: string, isFinal: boolean) => {
+      const payload = { text, speakerId, username, isFinal, lang };
+      if (data.to) {
+        // 1-on-1: send to remote + back to self
+        io.to(`user_${data.to}`).emit("subtitle_received", payload);
+        socket.emit("subtitle_received", payload);
+      } else if (data.chatId) {
+        // Group: broadcast to entire call room (including self)
+        io.to(`call_${data.chatId}`).emit("subtitle_received", payload);
+      }
+    });
+  });
+
+  socket.on("subtitle_audio_chunk", (audioData: ArrayBuffer | Buffer) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    const buf = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData);
+    deepgramService.sendAudio(userId, buf);
+  });
+
+  socket.on("subtitle_audio_stop", () => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    deepgramService.stopSession(userId);
   });
 
   // Typing indicators
@@ -361,6 +397,9 @@ io.on("connection", async (socket: Socket) => {
     console.log("Socket disconnected:", socket.id);
     const userId = (socket as any).userId;
     if (userId) {
+      // Clean up Deepgram STT session on disconnect
+      deepgramService.stopSession(userId);
+
       // Clean up 1-on-1 call busy state on disconnect
       if (usersInCall.has(userId)) {
         const otherId = usersInCall.get(userId);
@@ -469,6 +508,21 @@ app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
   } catch (e) {
     console.error("[TURN] Error fetching credentials:", e);
     return res.json(turnCache?.servers ?? STUN_FALLBACK);
+  }
+});
+
+// ─── DeepL Translation endpoint ───────────────────────────────────────────
+app.post("/api/translate", async (req: Request, res: Response) => {
+  try {
+    const { text, from, to } = req.body as { text?: string; from?: string; to?: string };
+    if (!text || !from || !to) {
+      return res.status(400).json({ error: "Missing text, from, or to" });
+    }
+    const translated = await deeplTranslate(text, from, to);
+    return res.json({ translated });
+  } catch (e: any) {
+    console.error("[TRANSLATE] Error:", e);
+    return res.status(500).json({ error: "Translation failed", translated: req.body?.text || "" });
   }
 });
 
