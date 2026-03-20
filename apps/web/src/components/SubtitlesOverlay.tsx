@@ -44,13 +44,7 @@ export interface CCButtonProps {
   onToggle: () => void;
 }
 
-const isSpeechSupported = (): boolean => {
-  const w = window as any;
-  return !!(w.SpeechRecognition || w.webkitSpeechRecognition);
-};
-
 export function CCButton({ active, onToggle }: CCButtonProps) {
-  if (!isSpeechSupported()) return null;
   return (
     <button
       onClick={onToggle}

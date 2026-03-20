@@ -1,10 +1,11 @@
 /**
- * Translation module using Google Translate (free tier, no API key).
- * Uses the same endpoint as translate.google.com.
- * Auto-detects source language — just specify the target.
+ * Translation module — uses the backend DeepL endpoint.
+ * Falls back to returning original text on failure.
  */
 
-// BCP-47 → Google Translate language code
+import api from "../services/api";
+
+// BCP-47 → base language code (for same-language check)
 const BCP47_TO_CODE: Record<string, string> = {
   "ru-RU": "ru",
   "en-US": "en",
@@ -12,7 +13,7 @@ const BCP47_TO_CODE: Record<string, string> = {
   "de-DE": "de",
   "fr-FR": "fr",
   "es-ES": "es",
-  "zh-CN": "zh-CN",
+  "zh-CN": "zh",
   "ja-JP": "ja",
   "it-IT": "it",
   "pt-BR": "pt",
@@ -33,8 +34,8 @@ const MAX_CACHE = 500;
 const cache = new Map<string, string>();
 
 /**
- * Translate text using Google Translate free API.
- * fromLang: source language BCP-47 or "auto"/"autodetect"/"" for auto-detection
+ * Translate text via the backend DeepL API endpoint.
+ * fromLang: source language BCP-47
  * toLang: target language BCP-47
  */
 export async function translateText(
@@ -44,39 +45,25 @@ export async function translateText(
 ): Promise<string> {
   if (!text.trim()) return text;
 
+  const from = toLangCode(fromLang);
   const to = toLangCode(toLang);
-  const from = (fromLang === "autodetect" || fromLang === "auto" || fromLang === "")
-    ? "auto"
-    : toLangCode(fromLang);
 
-  // Same language and not auto — skip
-  if (from === to && from !== "auto") return text;
+  // Same language — skip
+  if (from === to) return text;
 
-  const cacheKey = `${from}|${to}|${text}`;
+  const cacheKey = `${fromLang}|${toLang}|${text}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey)!;
 
   try {
-    const url =
-      `https://translate.googleapis.com/translate_a/single?client=gtx` +
-      `&sl=${from}&tl=${to}&dt=t` +
-      `&q=${encodeURIComponent(text)}`;
+    const res = await api.post("/api/translate", {
+      text,
+      from: fromLang,
+      to: toLang,
+    });
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return text;
+    const translated: string = res.data?.translated || text;
 
-    const json = await res.json();
-    // Response format: [[["translated text","original text",null,null,10]],null,"detected_lang"]
-    const sentences: any[] = json?.[0] ?? [];
-    const translated = sentences
-      .map((s: any) => s?.[0] ?? "")
-      .join("")
-      .trim();
-
-    if (!translated) return text;
-
-    // If auto-detected source is same as target, return original
-    const detectedLang: string = json?.[2] ?? "";
-    if (from === "auto" && detectedLang === to) return text;
+    if (!translated || translated === text) return text;
 
     // Evict oldest entries if cache exceeds limit
     if (cache.size >= MAX_CACHE) {
