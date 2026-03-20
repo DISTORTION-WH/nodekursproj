@@ -107,8 +107,10 @@ export function CallFeaturesProvider({ children }: { children: React.ReactNode }
 
   // ── Subtitles UI state ──────────────────────────────────────────────────────
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
-  const [speechLang, setSpeechLangState] = useState("en-US");
-  const [displayLang, setDisplayLangState] = useState("ru-RU");
+  // Use browser language for speech recognition so it matches what the user actually speaks
+  const browserLang = navigator.language || "ru-RU";
+  const [speechLang, setSpeechLangState] = useState(browserLang);
+  const [displayLang, setDisplayLangState] = useState(browserLang);
 
   const toggleSubtitles = useCallback(() => setSubtitlesEnabled((v) => !v), []);
   const setSpeechLang   = useCallback((l: string) => setSpeechLangState(l), []);

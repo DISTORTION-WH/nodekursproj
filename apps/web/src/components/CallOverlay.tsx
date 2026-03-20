@@ -4,7 +4,7 @@ import { getImageUrl } from "../utils/imageUrl";
 import { useCall } from "../context/CallContext";
 import { GroupCallParticipant } from "../types";
 import { useAuth } from "../context/AuthContext";
-import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOverlay";
+import SubtitlesOverlay, { CCButton } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
 
@@ -401,25 +401,11 @@ function CallOverlayContent() {
 
   const {
     subtitlesEnabled,
-    speechLang,
-    displayLang,
     toggleSubtitles,
-    setSpeechLang,
-    setDisplayLang,
   } = useCallFeatures();
 
   // ─── Minimize / tray state ────────────────────────────────────────────────
   const [minimized, setMinimized] = useState(false);
-  const [subtitlePopupOpen, setSubtitlePopupOpen] = useState(false);
-
-  // Show popup automatically when subtitles are first enabled
-  const prevSubtitlesEnabled = useRef(subtitlesEnabled);
-  useEffect(() => {
-    if (subtitlesEnabled && !prevSubtitlesEnabled.current) {
-      setSubtitlePopupOpen(true);
-    }
-    prevSubtitlesEnabled.current = subtitlesEnabled;
-  }, [subtitlesEnabled]);
 
   // ─── Call duration timer ──────────────────────────────────────────────────
   const [callDuration, setDuration] = useState(0);
@@ -537,7 +523,7 @@ function CallOverlayContent() {
   const showBanner =
     incomingGroupCall !== null && groupCallState === "idle" && callState === "idle";
 
-  const remoteParticipantId = callerData ? String(callerData.id) : "remote";
+
 
   // Derived: whether a call is currently active and can be minimized
   const isCallActive =
@@ -824,28 +810,7 @@ function CallOverlayContent() {
             )}
             {/* Subtitles */}
             <div style={{ position: "relative" }}>
-              <CCButton active={subtitlesEnabled} onToggle={() => {
-                if (!subtitlesEnabled) { toggleSubtitles(); }
-                else { setSubtitlePopupOpen((v) => !v); }
-              }} />
-              {subtitlesEnabled && (
-                <button
-                  onClick={() => { toggleSubtitles(); setSubtitlePopupOpen(false); }}
-                  title="Отключить субтитры"
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center leading-none hover:bg-red-400"
-                >
-                  x
-                </button>
-              )}
-              {subtitlePopupOpen && subtitlesEnabled && (
-                <SubtitleSettingsPopup
-                  speechLang={speechLang}
-                  displayLang={displayLang}
-                  onSpeechLangChange={setSpeechLang}
-                  onDisplayLangChange={setDisplayLang}
-                  onClose={() => setSubtitlePopupOpen(false)}
-                />
-              )}
+              <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
             </div>
             <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
               📞
@@ -855,12 +820,6 @@ function CallOverlayContent() {
           {/* Subtitles overlay */}
           <SubtitlesOverlay
             localStream={localStream}
-            remoteStreams={groupCallParticipants
-              .filter((p) => p.stream !== null)
-              .map((p) => ({
-                participantId: String(p.userId),
-                stream: p.stream as MediaStream,
-              }))}
             callActive
             bottomOffset={88}
           />
@@ -1277,28 +1236,7 @@ function CallOverlayContent() {
                   </ControlBtn>
                 )}
                 <div style={{ position: "relative" }}>
-                  <CCButton active={subtitlesEnabled} onToggle={() => {
-                    if (!subtitlesEnabled) { toggleSubtitles(); }
-                    else { setSubtitlePopupOpen((v) => !v); }
-                  }} />
-                  {subtitlesEnabled && (
-                    <button
-                      onClick={() => { toggleSubtitles(); setSubtitlePopupOpen(false); }}
-                      title="Отключить субтитры"
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center leading-none hover:bg-red-400"
-                    >
-                      x
-                    </button>
-                  )}
-                  {subtitlePopupOpen && subtitlesEnabled && (
-                    <SubtitleSettingsPopup
-                      speechLang={speechLang}
-                      displayLang={displayLang}
-                      onSpeechLangChange={setSpeechLang}
-                      onDisplayLangChange={setDisplayLang}
-                      onClose={() => setSubtitlePopupOpen(false)}
-                    />
-                  )}
+                  <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
                 </div>
                 <ControlBtn onClick={endCall} danger title="Завершить">
                   📞
@@ -1308,11 +1246,6 @@ function CallOverlayContent() {
               {/* Subtitles overlay */}
               <SubtitlesOverlay
                 localStream={localStream}
-                remoteStreams={
-                  remoteStream
-                    ? [{ participantId: remoteParticipantId, stream: remoteStream }]
-                    : []
-                }
                 callActive
                 bottomOffset={76}
               />

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Socket } from "socket.io-client";
-import { translateText } from "./useTranslate";
 
 // ─── Web Speech API ambient types ────────────────────────────────────────────
 
@@ -209,13 +208,13 @@ export function useLiveSubtitles({
 
         const isFinal = result.isFinal;
 
+        // Broadcast own speech to remote participant(s) via socket
         if (socketRef.current) {
           const payload = {
             text,
             speakerId: localSpeakerIdRef.current,
             username: localUsernameRef.current,
             isFinal,
-            lang: displayLangRef.current,
           };
           if (remoteUserIdRef.current) {
             socketRef.current.emit("subtitle_broadcast", { ...payload, to: remoteUserIdRef.current });
@@ -298,32 +297,13 @@ export function useLiveSubtitles({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayLang]);
 
-  // ── Receive remote subtitles → translate to displayLang → show ─────────────
+  // ── Receive remote subtitles → show directly ──────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
-    const onReceived = (data: { text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
+    const onReceived = (data: { text: string; speakerId: string; username: string; isFinal: boolean }) => {
       if (!shouldShowRef.current) return;
-
-      // "Мой язык" = target language for translation
-      const targetLang = displayLangRef.current;
-      // "Язык собеседника" = source language for translation
-      // Prefer our setting; fall back to what the remote told us; then auto-detect
-      const sourceLang = speechLangRef.current || data.lang || "auto";
-      const speakerId = data.speakerId;
-      const speakerName = data.username;
-
-      if (!data.isFinal) {
-        upsertSubtitle(speakerId, speakerName, data.text, false);
-        return;
-      }
-
-      // Translate: sourceLang → targetLang
-      translateText(data.text, sourceLang, targetLang).then((translated) => {
-        upsertSubtitle(speakerId, speakerName, translated, true);
-      }).catch(() => {
-        upsertSubtitle(speakerId, speakerName, data.text, true);
-      });
+      upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
     };
 
     socket.on("subtitle_received", onReceived);
