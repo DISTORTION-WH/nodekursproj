@@ -52,36 +52,30 @@ const WORKLET_CODE = `
 class PCMProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this._buffer = [];
-    this._bufferSize = 0;
-    this._targetSize = 4096;
+    this._buf = [];
+    this._size = 0;
+    this._target = 4096; // ~256ms at 16kHz
   }
   process(inputs) {
-    const input = inputs[0];
-    if (!input || !input[0]) return true;
-    const samples = input[0];
+    const ch = inputs[0]?.[0];
+    if (!ch) return true;
     const ratio = Math.round(sampleRate / 16000) || 3;
-    const downsampled = new Float32Array(Math.ceil(samples.length / ratio));
-    for (let i = 0, j = 0; i < samples.length; i += ratio, j++) {
-      downsampled[j] = samples[i];
+    const ds = new Float32Array(Math.ceil(ch.length / ratio));
+    for (let i = 0, j = 0; i < ch.length; i += ratio, j++) ds[j] = ch[i];
+    const pcm = new Int16Array(ds.length);
+    for (let i = 0; i < ds.length; i++) {
+      const s = Math.max(-1, Math.min(1, ds[i]));
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
-    const pcm16 = new Int16Array(downsampled.length);
-    for (let i = 0; i < downsampled.length; i++) {
-      const s = Math.max(-1, Math.min(1, downsampled[i]));
-      pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    this._buffer.push(pcm16);
-    this._bufferSize += pcm16.length;
-    if (this._bufferSize >= this._targetSize) {
-      const merged = new Int16Array(this._bufferSize);
-      let offset = 0;
-      for (const chunk of this._buffer) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-      this.port.postMessage(merged.buffer, [merged.buffer]);
-      this._buffer = [];
-      this._bufferSize = 0;
+    this._buf.push(pcm);
+    this._size += pcm.length;
+    if (this._size >= this._target) {
+      const out = new Int16Array(this._size);
+      let off = 0;
+      for (const c of this._buf) { out.set(c, off); off += c.length; }
+      this.port.postMessage(out.buffer, [out.buffer]);
+      this._buf = [];
+      this._size = 0;
     }
     return true;
   }
@@ -89,13 +83,14 @@ class PCMProcessor extends AudioWorkletProcessor {
 registerProcessor('pcm-processor', PCMProcessor);
 `;
 
-let workletBlobUrl: string | null = null;
+let _workletBlobUrl: string | null = null;
 function getWorkletUrl(): string {
-  if (!workletBlobUrl) {
-    const blob = new Blob([WORKLET_CODE], { type: "application/javascript" });
-    workletBlobUrl = URL.createObjectURL(blob);
+  if (!_workletBlobUrl) {
+    _workletBlobUrl = URL.createObjectURL(
+      new Blob([WORKLET_CODE], { type: "application/javascript" })
+    );
   }
-  return workletBlobUrl;
+  return _workletBlobUrl;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -119,173 +114,193 @@ export function useLiveSubtitles({
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync refs
-  const shouldShowRef = useRef(shouldShow);
-  const speechLangRef = useRef(speechLang);
-  const displayLangRef = useRef(displayLang);
-  const socketRef = useRef(socket);
-  const remoteUserIdRef = useRef(remoteUserId);
-  const groupChatIdRef = useRef(groupChatId);
-  const localUsernameRef = useRef(localUsername);
-  const localSpeakerIdRef = useRef(localSpeakerId);
+  // ─── Always-current refs (no stale closures) ───────────────────────────────
+  const refs = useRef({
+    shouldShow,
+    speechLang,
+    displayLang,
+    socket,
+    remoteUserId,
+    groupChatId,
+    localUsername,
+    localSpeakerId,
+  });
+  refs.current = { shouldShow, speechLang, displayLang, socket, remoteUserId, groupChatId, localUsername, localSpeakerId };
 
-  shouldShowRef.current = shouldShow;
-  speechLangRef.current = speechLang;
-  displayLangRef.current = displayLang;
-  socketRef.current = socket;
-  remoteUserIdRef.current = remoteUserId;
-  groupChatIdRef.current = groupChatId;
-  localUsernameRef.current = localUsername;
-  localSpeakerIdRef.current = localSpeakerId;
+  // ─── Audio pipeline state ─────────────────────────────────────────────────
+  // We use a ref-object so start/stop can always access the latest handles
+  const pipeline = useRef<{
+    audioCtx: AudioContext | null;
+    worklet: AudioWorkletNode | null;
+    source: MediaStreamAudioSourceNode | null;
+    silentGain: GainNode | null;
+    active: boolean;
+  }>({ audioCtx: null, worklet: null, source: null, silentGain: null, active: false });
 
-  // Audio pipeline refs
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const streamingRef = useRef(false);
-  const interimTranslateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Upsert subtitle entry ──────────────────────────────────────────────────
+  // ─── Subtitle upsert ──────────────────────────────────────────────────────
   const upsertSubtitle = useCallback(
     (speakerId: string, speakerName: string, text: string, isFinal: boolean) => {
       setSubtitles((prev) => {
-        const lastInterimIdx = !isFinal
-          ? (() => {
-              for (let i = prev.length - 1; i >= 0; i--) {
-                if (prev[i].speakerId === speakerId && !prev[i].isFinal) return i;
-              }
-              return -1;
-            })()
-          : -1;
+        // Find last non-final entry for this speaker
+        let interimIdx = -1;
+        if (!isFinal) {
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].speakerId === speakerId && !prev[i].isFinal) {
+              interimIdx = i;
+              break;
+            }
+          }
+        }
 
-        if (!isFinal && lastInterimIdx !== -1) {
+        if (!isFinal && interimIdx !== -1) {
+          // Update existing interim in place
           const updated = [...prev];
-          updated[lastInterimIdx] = { ...updated[lastInterimIdx], text, timestamp: Date.now() };
+          updated[interimIdx] = { ...updated[interimIdx], text, timestamp: Date.now() };
           return updated;
         }
 
+        // For final: remove any pending interim for this speaker first
         const base = isFinal
           ? prev.filter((s) => !(s.speakerId === speakerId && !s.isFinal))
           : prev;
 
-        const entry: Subtitle = {
-          id: uid(), speakerId, speakerName, text, isFinal, timestamp: Date.now(),
-        };
-        const next = [...base, entry];
-        return next.length > 30 ? next.slice(next.length - 30) : next;
+        const next = [
+          ...base,
+          { id: uid(), speakerId, speakerName, text, isFinal, timestamp: Date.now() },
+        ];
+        return next.length > 30 ? next.slice(-30) : next;
       });
     },
     []
   );
 
-  // ── Build subtitle_audio_start payload ────────────────────────────────────
-  const buildPayload = useCallback(() => {
-    const payload: Record<string, any> = {
-      lang: displayLangRef.current,
-      username: localUsernameRef.current,
-    };
-    if (remoteUserIdRef.current) payload.to = remoteUserIdRef.current;
-    else if (groupChatIdRef.current) payload.chatId = groupChatIdRef.current;
-    return payload;
+  // ─── Teardown audio pipeline (no guard — always safe to call) ─────────────
+  const teardown = useCallback(() => {
+    const p = pipeline.current;
+    if (!p.active) return;
+    p.active = false;
+
+    try { p.worklet?.disconnect(); } catch { /**/ }
+    try { p.source?.disconnect(); } catch { /**/ }
+    try { p.silentGain?.disconnect(); } catch { /**/ }
+    try { p.audioCtx?.close(); } catch { /**/ }
+
+    p.worklet = null;
+    p.source = null;
+    p.silentGain = null;
+    p.audioCtx = null;
+
+    setIsListening(false);
+    console.log("[SUBTITLES] pipeline torn down");
   }, []);
 
-  // ── Start audio pipeline + Deepgram session ───────────────────────────────
-  const startStreaming = useCallback(async () => {
-    if (!localStream || !socket || streamingRef.current) return;
+  // ─── Send subtitle_audio_stop to server ──────────────────────────────────
+  const stopOnServer = useCallback(() => {
+    refs.current.socket?.emit("subtitle_audio_stop");
+  }, []);
+
+  // ─── Full stop (pipeline + server) ───────────────────────────────────────
+  const stop = useCallback(() => {
+    teardown();
+    stopOnServer();
+  }, [teardown, stopOnServer]);
+
+  // ─── Start pipeline + notify server ──────────────────────────────────────
+  const start = useCallback(async (stream: MediaStream, sock: Socket) => {
+    // Ensure any previous session is fully cleaned up first
+    teardown();
+    stopOnServer();
+
+    const { displayLang: lang, remoteUserId: to, groupChatId: chatId, localUsername: uname } = refs.current;
+
+    const payload: Record<string, any> = { lang, username: uname };
+    if (to) payload.to = to;
+    else if (chatId) payload.chatId = chatId;
+
+    console.log("[SUBTITLES] → subtitle_audio_start", payload);
+    sock.emit("subtitle_audio_start", payload);
 
     try {
-      const payload = buildPayload();
-      console.log("[SUBTITLES] subtitle_audio_start →", payload);
-      socket.emit("subtitle_audio_start", payload);
-
       const audioCtx = new AudioContext({ sampleRate: 48000 });
-      audioContextRef.current = audioCtx;
-
       await audioCtx.audioWorklet.addModule(getWorkletUrl());
 
-      const source = audioCtx.createMediaStreamSource(localStream);
-      sourceNodeRef.current = source;
-
-      const workletNode = new AudioWorkletNode(audioCtx, "pcm-processor");
-      workletNodeRef.current = workletNode;
-
-      let chunkCount = 0;
-      workletNode.port.onmessage = (event: MessageEvent) => {
-        if (socketRef.current && streamingRef.current) {
-          socketRef.current.emit("subtitle_audio_chunk", event.data);
-          if (++chunkCount <= 3) {
-            console.log(`[SUBTITLES] chunk #${chunkCount} → ${event.data.byteLength}B`);
-          }
-        }
-      };
-
-      source.connect(workletNode);
-      // Silent sink — keeps the audio graph alive without echo
+      const source = audioCtx.createMediaStreamSource(stream);
+      const worklet = new AudioWorkletNode(audioCtx, "pcm-processor");
       const silentGain = audioCtx.createGain();
       silentGain.gain.value = 0;
-      workletNode.connect(silentGain);
+
+      let chunkN = 0;
+      worklet.port.onmessage = (ev: MessageEvent) => {
+        const p = pipeline.current;
+        if (!p.active) return;
+        refs.current.socket?.emit("subtitle_audio_chunk", ev.data);
+        if (++chunkN <= 3) console.log(`[SUBTITLES] chunk #${chunkN} ${ev.data.byteLength}B`);
+      };
+
+      source.connect(worklet);
+      worklet.connect(silentGain);
       silentGain.connect(audioCtx.destination);
 
-      streamingRef.current = true;
+      pipeline.current = { audioCtx, worklet, source, silentGain, active: true };
       setIsListening(true);
       setError(null);
-      console.log("[SUBTITLES] Audio pipeline started");
+      console.log("[SUBTITLES] pipeline started, lang:", lang);
     } catch (err: any) {
-      console.error("[SUBTITLES] Failed to start pipeline:", err);
+      console.error("[SUBTITLES] pipeline start failed:", err);
+      // Server session was already started — stop it
+      sock.emit("subtitle_audio_stop");
       setError("Не удалось запустить захват аудио");
-      setIsListening(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localStream, socket]);
+  }, [teardown, stopOnServer]);
 
-  const stopStreaming = useCallback(() => {
-    if (!streamingRef.current) return;
-    streamingRef.current = false;
-    setIsListening(false);
-
-    try { workletNodeRef.current?.disconnect(); } catch { /**/ }
-    try { sourceNodeRef.current?.disconnect(); } catch { /**/ }
-    try { audioContextRef.current?.close(); } catch { /**/ }
-
-    workletNodeRef.current = null;
-    sourceNodeRef.current = null;
-    audioContextRef.current = null;
-
-    socketRef.current?.emit("subtitle_audio_stop");
-    console.log("[SUBTITLES] Audio pipeline stopped");
-  }, []);
-
-  // ── Re-notify server when routing info changes (remoteUserId / groupChatId) ─
-  // This handles the case where startStreaming ran before callerData was set
-  useEffect(() => {
-    if (!streamingRef.current || !socketRef.current) return;
-    const payload = buildPayload();
-    console.log("[SUBTITLES] subtitle_session_update →", payload);
-    socketRef.current.emit("subtitle_session_update", payload);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteUserId, groupChatId]);
-
-  // ── Start/stop based on callActive ─────────────────────────────────────────
+  // ─── Master effect: start/stop when call active/inactive ─────────────────
   useEffect(() => {
     if (callActive && localStream && socket) {
-      startStreaming();
+      start(localStream, socket);
     } else {
-      stopStreaming();
+      stop();
     }
-    return () => { stopStreaming(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callActive, localStream, socket]);
 
-  // ── Restart when displayLang changes ──────────────────────────────────────
+  // ─── Restart when recognition language (displayLang) changes ─────────────
+  // Only restart if already streaming
   useEffect(() => {
-    if (!streamingRef.current || !socketRef.current) return;
-    stopStreaming();
-    const t = setTimeout(() => startStreaming(), 300);
+    if (!pipeline.current.active) return;
+    if (!localStream || !refs.current.socket) return;
+
+    console.log("[SUBTITLES] displayLang changed →", displayLang, "— restarting");
+    // Use a short delay to let React settle any concurrent state updates
+    const t = setTimeout(() => {
+      if (localStream && refs.current.socket) {
+        start(localStream, refs.current.socket);
+      }
+    }, 150);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayLang]);
 
-  // ── Receive transcription results from server ──────────────────────────────
+  // ─── Sync routing when remoteUserId/groupChatId become available ──────────
+  // Handles case where start() ran before callerData was loaded
+  useEffect(() => {
+    if (!pipeline.current.active || !refs.current.socket) return;
+
+    const payload: Record<string, any> = {
+      lang: refs.current.displayLang,
+      username: refs.current.localUsername,
+    };
+    if (remoteUserId) payload.to = remoteUserId;
+    else if (groupChatId) payload.chatId = groupChatId;
+
+    console.log("[SUBTITLES] → subtitle_session_update", payload);
+    refs.current.socket.emit("subtitle_session_update", payload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteUserId, groupChatId]);
+
+  // ─── Receive subtitles from server, translate, display ────────────────────
   useEffect(() => {
     if (!socket) return;
 
@@ -296,59 +311,74 @@ export function useLiveSubtitles({
       isFinal: boolean;
       lang?: string;
     }) => {
-      console.log("[SUBTITLES] subtitle_received:", data.text?.substring(0, 60), "| final:", data.isFinal, "| show:", shouldShowRef.current);
-      if (!shouldShowRef.current) return;
+      const { shouldShow, speechLang, displayLang, localSpeakerId } = refs.current;
 
-      const sourceLang = data.lang || speechLangRef.current;
-      const targetLang = displayLangRef.current;
-      const isLocalSpeaker = data.speakerId === localSpeakerIdRef.current;
+      console.log(
+        `[SUBTITLES] ← subtitle_received "${data.text?.slice(0, 50)}"`,
+        `final:${data.isFinal} show:${shouldShow} speaker:${data.speakerId} me:${localSpeakerId}`
+      );
 
-      // Our own speech — show as-is (no translation needed)
-      if (isLocalSpeaker) {
+      if (!shouldShow) return;
+
+      const isMe = data.speakerId === localSpeakerId;
+
+      // Own speech: show as-is (we already know the language)
+      if (isMe) {
         upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
         return;
       }
 
-      // Remote speech — translate if languages differ
-      const needsTranslation = toLangCode(sourceLang) !== toLangCode(targetLang);
+      // Remote speech: translate from their lang → our display lang
+      const from = data.lang || speechLang;
+      const to   = displayLang;
 
-      if (!needsTranslation) {
+      if (toLangCode(from) === toLangCode(to)) {
+        // Same language — no translation needed
         upsertSubtitle(data.speakerId, data.username, data.text, data.isFinal);
         return;
       }
 
       if (data.isFinal) {
-        translateText(data.text, sourceLang, targetLang).then((translated) => {
-          upsertSubtitle(data.speakerId, data.username, translated, true);
-        });
+        translateText(data.text, from, to).then((translated) =>
+          upsertSubtitle(data.speakerId, data.username, translated, true)
+        );
       } else {
-        // Show original immediately, translate with debounce
+        // Show original instantly, replace with translation after debounce
         upsertSubtitle(data.speakerId, data.username, data.text, false);
 
-        if (interimTranslateTimerRef.current) clearTimeout(interimTranslateTimerRef.current);
-        interimTranslateTimerRef.current = setTimeout(() => {
-          translateText(data.text, sourceLang, targetLang).then((translated) => {
+        if (interimTimerRef.current) clearTimeout(interimTimerRef.current);
+        interimTimerRef.current = setTimeout(() => {
+          translateText(data.text, from, to).then((translated) => {
             if (translated !== data.text) {
               upsertSubtitle(data.speakerId, data.username, translated, false);
             }
           });
-        }, 600);
+        }, 500);
       }
     };
 
     socket.on("subtitle_received", onReceived);
     return () => {
       socket.off("subtitle_received", onReceived);
-      if (interimTranslateTimerRef.current) clearTimeout(interimTranslateTimerRef.current);
+      if (interimTimerRef.current) {
+        clearTimeout(interimTimerRef.current);
+        interimTimerRef.current = null;
+      }
     };
   }, [socket, upsertSubtitle]);
 
-  // Clear when disabled
+  // ─── Clear subtitles when disabled ───────────────────────────────────────
   useEffect(() => {
     if (!shouldShow) setSubtitles([]);
   }, [shouldShow]);
 
-  const setLanguage = useCallback((_lang: string) => {}, []);
+  // ─── Cleanup on unmount ───────────────────────────────────────────────────
+  useEffect(() => {
+    return () => { stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setLanguage = useCallback((_: string) => {}, []);
   const toggleSubtitles = useCallback(() => {}, []);
 
   return { subtitles, isListening, error, setLanguage, toggleSubtitles };
