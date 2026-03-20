@@ -4,7 +4,7 @@ import { getImageUrl } from "../utils/imageUrl";
 import { useCall } from "../context/CallContext";
 import { GroupCallParticipant } from "../types";
 import { useAuth } from "../context/AuthContext";
-import SubtitlesOverlay, { CCButton } from "./SubtitlesOverlay";
+import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
 
@@ -402,7 +402,14 @@ function CallOverlayContent() {
   const {
     subtitlesEnabled,
     toggleSubtitles,
+    speechLang,
+    displayLang,
+    setSpeechLang,
+    setDisplayLang,
   } = useCallFeatures();
+
+  // ─── Subtitle settings popup state ──────────────────────────────────────
+  const [showSubSettings, setShowSubSettings] = useState(false);
 
   // ─── Minimize / tray state ────────────────────────────────────────────────
   const [minimized, setMinimized] = useState(false);
@@ -809,8 +816,26 @@ function CallOverlayContent() {
               </ControlBtn>
             )}
             {/* Subtitles */}
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
               <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
+              {subtitlesEnabled && (
+                <button
+                  onClick={() => setShowSubSettings((v) => !v)}
+                  title="Настройки субтитров"
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
+                >
+                  ⚙
+                </button>
+              )}
+              {showSubSettings && (
+                <SubtitleSettingsPopup
+                  speechLang={speechLang}
+                  displayLang={displayLang}
+                  onSpeechLangChange={setSpeechLang}
+                  onDisplayLangChange={setDisplayLang}
+                  onClose={() => setShowSubSettings(false)}
+                />
+              )}
             </div>
             <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
               📞
@@ -1235,8 +1260,26 @@ function CallOverlayContent() {
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
-                <div style={{ position: "relative" }}>
+                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
                   <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
+                  {subtitlesEnabled && (
+                    <button
+                      onClick={() => setShowSubSettings((v) => !v)}
+                      title="Настройки субтитров"
+                      className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
+                    >
+                      ⚙
+                    </button>
+                  )}
+                  {showSubSettings && (
+                    <SubtitleSettingsPopup
+                      speechLang={speechLang}
+                      displayLang={displayLang}
+                      onSpeechLangChange={setSpeechLang}
+                      onDisplayLangChange={setDisplayLang}
+                      onClose={() => setShowSubSettings(false)}
+                    />
+                  )}
                 </div>
                 <ControlBtn onClick={endCall} danger title="Завершить">
                   📞

@@ -278,7 +278,7 @@ export default function SubtitlesOverlay({
 
   const speechLang = ctx.speechLang ?? "en-US";
 
-  const { subtitles, error } = useLiveSubtitles({
+  const { subtitles, isListening, error } = useLiveSubtitles({
     localStream: callActive ? localStreamProp : null,
     speechLang,
     displayLang,
@@ -414,6 +414,12 @@ export default function SubtitlesOverlay({
       {error && (
         <div style={{ background: "rgba(0,0,0,0.72)", color: "#f87171", fontSize: "0.7rem", borderRadius: 4, padding: "2px 8px" }}>
           {error}
+        </div>
+      )}
+      {!error && visibleLines.length === 0 && (
+        <div style={{ background: "rgba(0,0,0,0.52)", color: isListening ? "rgba(87,242,135,0.8)" : "rgba(255,255,255,0.4)", fontSize: "0.65rem", borderRadius: 4, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: isListening ? "#57f287" : "#f87171", display: "inline-block", flexShrink: 0 }} />
+          {isListening ? "Слушаю..." : "Переподключение..."}
         </div>
       )}
     </div>
