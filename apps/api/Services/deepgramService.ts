@@ -110,11 +110,11 @@ export function startSession(
     }
   });
 
-  ws.on("error", (err) => {
+  ws.on("error", (err: Error) => {
     console.error(`[DEEPGRAM] WebSocket error for user ${userId}:`, err.message);
   });
 
-  ws.on("close", (code, reason) => {
+  ws.on("close", (code: number, _reason: Buffer) => {
     console.log(`[DEEPGRAM] Session closed for user ${userId} (code: ${code})`);
     const s = sessions.get(userId);
     if (s && s.ws === ws) {
