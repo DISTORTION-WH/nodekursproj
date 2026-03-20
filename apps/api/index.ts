@@ -351,30 +351,54 @@ io.on("connection", async (socket: Socket) => {
   // Client sends raw PCM16 audio chunks; server transcribes via Deepgram
   // and broadcasts results as subtitle_received events.
 
+  // Mutable routing state for this socket — updated via subtitle_session_update
+  const subtitleRoute: { to?: number; chatId?: number; username: string; lang: string; speakerId: string } = {
+    username: "User",
+    lang: "en-US",
+    speakerId: "",
+  };
+
+  const broadcastSubtitle = (text: string, isFinal: boolean) => {
+    const payload = {
+      text,
+      speakerId: subtitleRoute.speakerId,
+      username: subtitleRoute.username,
+      isFinal,
+      lang: subtitleRoute.lang,
+    };
+    if (subtitleRoute.to) {
+      io.to(`user_${subtitleRoute.to}`).emit("subtitle_received", payload);
+      socket.emit("subtitle_received", payload);
+    } else if (subtitleRoute.chatId) {
+      io.to(`call_${subtitleRoute.chatId}`).emit("subtitle_received", payload);
+    } else {
+      // Fallback: echo back to sender (they see their own speech)
+      socket.emit("subtitle_received", payload);
+    }
+  };
+
   socket.on("subtitle_audio_start", (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
     const userId = (socket as any).userId;
     if (!userId) return;
 
-    const lang = data.lang || "en-US";
-    const speakerId = String(userId);
-    const username = data.username || "User";
+    subtitleRoute.speakerId = String(userId);
+    subtitleRoute.lang = data.lang || "en-US";
+    subtitleRoute.username = data.username || "User";
+    subtitleRoute.to = data.to;
+    subtitleRoute.chatId = data.chatId;
 
-    console.log(`[SUBTITLE] audio_start from user ${userId}, lang=${lang}, to=${data.to}, chatId=${data.chatId}`);
+    console.log(`[SUBTITLE] audio_start user=${userId} lang=${subtitleRoute.lang} to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
 
-    deepgramService.startSession(userId, lang, (text: string, isFinal: boolean) => {
-      const payload = { text, speakerId, username, isFinal, lang };
-      if (data.to) {
-        // 1-on-1: send to remote + back to self
-        io.to(`user_${data.to}`).emit("subtitle_received", payload);
-        socket.emit("subtitle_received", payload);
-      } else if (data.chatId) {
-        // Group: broadcast to entire call room (including self)
-        io.to(`call_${data.chatId}`).emit("subtitle_received", payload);
-      } else {
-        // Fallback: no target specified — send back to the sender so they see their own speech
-        socket.emit("subtitle_received", payload);
-      }
-    });
+    deepgramService.startSession(userId, subtitleRoute.lang, broadcastSubtitle);
+  });
+
+  // Client calls this when routing info becomes available (e.g. callerData loads after stream starts)
+  socket.on("subtitle_session_update", (data: { to?: number; chatId?: number; username?: string; lang?: string }) => {
+    if (data.to !== undefined) subtitleRoute.to = data.to;
+    if (data.chatId !== undefined) subtitleRoute.chatId = data.chatId;
+    if (data.username) subtitleRoute.username = data.username;
+    if (data.lang) subtitleRoute.lang = data.lang;
+    console.log(`[SUBTITLE] session_update → to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
   });
 
   let chunkLogCount = 0;
@@ -382,9 +406,8 @@ io.on("connection", async (socket: Socket) => {
     const userId = (socket as any).userId;
     if (!userId) return;
     const buf = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData);
-    if (chunkLogCount < 3) {
-      console.log(`[SUBTITLE] audio_chunk from user ${userId}, size=${buf.length}`);
-      chunkLogCount++;
+    if (chunkLogCount++ < 3) {
+      console.log(`[SUBTITLE] audio_chunk user=${userId} size=${buf.length}B`);
     }
     deepgramService.sendAudio(userId, buf);
   });
