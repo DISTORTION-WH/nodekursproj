@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
+import path from "path";
 // Инициализация переменных окружения ДО всего остального
-dotenv.config(); 
+// Try local .env first, then fall back to monorepo root .env
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
@@ -348,7 +351,7 @@ io.on("connection", async (socket: Socket) => {
   // Client sends raw PCM16 audio chunks; server transcribes via Deepgram
   // and broadcasts results as subtitle_received events.
 
-  socket.on("subtitle_audio_start", async (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
+  socket.on("subtitle_audio_start", (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
     const userId = (socket as any).userId;
     if (!userId) return;
 
@@ -356,7 +359,9 @@ io.on("connection", async (socket: Socket) => {
     const speakerId = String(userId);
     const username = data.username || "User";
 
-    await deepgramService.startSession(userId, lang, (text: string, isFinal: boolean) => {
+    console.log(`[SUBTITLE] audio_start from user ${userId}, lang=${lang}, to=${data.to}, chatId=${data.chatId}`);
+
+    deepgramService.startSession(userId, lang, (text: string, isFinal: boolean) => {
       const payload = { text, speakerId, username, isFinal, lang };
       if (data.to) {
         // 1-on-1: send to remote + back to self
@@ -365,14 +370,22 @@ io.on("connection", async (socket: Socket) => {
       } else if (data.chatId) {
         // Group: broadcast to entire call room (including self)
         io.to(`call_${data.chatId}`).emit("subtitle_received", payload);
+      } else {
+        // Fallback: no target specified — send back to the sender so they see their own speech
+        socket.emit("subtitle_received", payload);
       }
     });
   });
 
+  let chunkLogCount = 0;
   socket.on("subtitle_audio_chunk", (audioData: ArrayBuffer | Buffer) => {
     const userId = (socket as any).userId;
     if (!userId) return;
     const buf = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData);
+    if (chunkLogCount < 3) {
+      console.log(`[SUBTITLE] audio_chunk from user ${userId}, size=${buf.length}`);
+      chunkLogCount++;
+    }
     deepgramService.sendAudio(userId, buf);
   });
 
