@@ -144,41 +144,41 @@ export default function UserProfilePage() {
         </h2>
 
         {/* Profile header with banner */}
-        <div className="bg-discord-secondary rounded-xl">
+        <div className="bg-discord-secondary rounded-xl overflow-hidden">
           <ProfileBackground profileBg={user.profile_bg} height={100} />
-          <div className="px-6 pb-6">
-            <div className="flex items-end gap-4 -mt-10 mb-3 flex-wrap">
-              <div className="ring-4 ring-discord-secondary rounded-full shrink-0">
+          <div className="relative px-6 pb-6">
+            <div className="absolute -top-10 left-6">
+              <div className="ring-4 ring-discord-secondary rounded-full">
                 <AvatarWithFrame
                   src={getImageUrl(user.avatar_url)}
                   frame={user.avatar_frame}
                   size={80}
                 />
               </div>
-              <div className="flex flex-col gap-0.5 pb-1 min-w-0">
-                <UsernameDisplay
-                  username={user.username}
-                  color={user.username_color}
-                  anim={user.username_anim}
-                  badge={user.profile_badge}
-                  className="text-white text-xl font-bold truncate"
-                />
-                {countryInfo && (
-                  <p className="text-discord-text-secondary text-sm">
-                    {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}
-                  </p>
-                )}
-                <p className="text-discord-text-muted text-sm">
-                  {t.profile.role}:{" "}
-                  <span className="text-discord-accent font-medium">{user.role || "USER"}</span>
+            </div>
+            <div className="pt-12 flex flex-col gap-0.5 min-w-0">
+              <UsernameDisplay
+                username={user.username}
+                color={user.username_color}
+                anim={user.username_anim}
+                badge={user.profile_badge}
+                className="text-white text-xl font-bold truncate"
+              />
+              {countryInfo && (
+                <p className="text-discord-text-secondary text-sm">
+                  {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}
                 </p>
-                <p className="text-discord-text-muted text-sm">
-                  {t.profile.registered}:{" "}
-                  <span className="text-discord-text-secondary">
-                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
-                  </span>
-                </p>
-              </div>
+              )}
+              <p className="text-discord-text-muted text-sm">
+                {t.profile.role}:{" "}
+                <span className="text-discord-accent font-medium">{user.role || "USER"}</span>
+              </p>
+              <p className="text-discord-text-muted text-sm">
+                {t.profile.registered}:{" "}
+                <span className="text-discord-text-secondary">
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
+                </span>
+              </p>
             </div>
           </div>
         </div>

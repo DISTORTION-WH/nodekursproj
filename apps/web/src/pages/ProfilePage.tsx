@@ -236,28 +236,31 @@ export default function ProfilePage() {
         {tab === "view" && (
           <>
             {/* Profile card preview */}
-            <div className="bg-discord-secondary rounded-xl">
+            <div className="bg-discord-secondary rounded-xl overflow-hidden">
               <ProfileBackground profileBg={currentUser?.profile_bg} height={120} />
-              <div className="px-6 pb-6">
-                <div className="flex items-end gap-4 -mt-10 mb-3">
-                  <div className="ring-4 ring-discord-secondary rounded-full shrink-0">
+              {/* Avatar overlapping banner — sits outside overflow-hidden via relative wrapper */}
+              <div className="relative px-6 pb-6">
+                <div className="absolute -top-10 left-6">
+                  <div className="ring-4 ring-discord-secondary rounded-full">
                     <AvatarWithFrame
                       src={getImageUrl(currentUser?.avatar_url)}
                       frame={currentUser?.avatar_frame}
                       size={80}
                     />
                   </div>
-                  <div className="pb-1 flex flex-col min-w-0">
-                    <UsernameDisplay
-                      username={currentUser?.username ?? ""}
-                      color={currentUser?.username_color}
-                      anim={currentUser?.username_anim}
-                      badge={currentUser?.profile_badge}
-                      className="text-white text-xl font-bold truncate"
-                    />
-                    <span className="text-discord-text-muted text-sm">{currentUser?.role || "USER"}</span>
-                  </div>
                 </div>
+                {/* Spacer so content starts below the avatar */}
+                <div className="pt-12 flex flex-col min-w-0">
+                  <UsernameDisplay
+                    username={currentUser?.username ?? ""}
+                    color={currentUser?.username_color}
+                    anim={currentUser?.username_anim}
+                    badge={currentUser?.profile_badge}
+                    className="text-white text-xl font-bold truncate"
+                  />
+                  <span className="text-discord-text-muted text-sm">{currentUser?.role || "USER"}</span>
+                </div>
+                <div className="mt-2">
                 {countryInfo && countryInfo.code && (
                   <p className="text-discord-text-secondary text-sm mb-2">
                     {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}

@@ -71,39 +71,39 @@ export default function ProfileHoverCard() {
         zIndex: 9999,
         pointerEvents: "auto",
       }}
-      className="rounded-xl shadow-2xl bg-discord-secondary border border-white/10 animate-message-pop"
+      className="rounded-xl shadow-2xl overflow-hidden bg-discord-secondary border border-white/10 animate-message-pop"
     >
       {/* Banner */}
       <ProfileBackground profileBg={user?.profile_bg} height={64} />
 
-      {/* Avatar + info */}
-      <div className="px-3 pb-3">
-        <div className="flex items-end gap-3 -mt-6 mb-2">
-          <div className="shrink-0 ring-4 ring-discord-secondary rounded-full">
+      {/* Avatar overlapping banner */}
+      <div className="relative px-3 pb-3">
+        <div className="absolute -top-6 left-3">
+          <div className="ring-4 ring-discord-secondary rounded-full">
             <AvatarWithFrame
               src={getImageUrl(user?.avatar_url)}
               frame={user?.avatar_frame}
               size={48}
             />
           </div>
-          <div className="flex flex-col min-w-0 pb-1">
-            {loading || !user ? (
-              <div className="h-4 w-24 bg-discord-input rounded animate-pulse" />
-            ) : (
-              <UsernameDisplay
-                username={user.username}
-                color={user.username_color}
-                anim={user.username_anim}
-                badge={user.profile_badge}
-                className="font-bold text-sm text-white truncate"
-              />
-            )}
-            {user && (
-              <span className="text-discord-text-muted text-xs truncate">
-                {user.role || "USER"}
-              </span>
-            )}
-          </div>
+        </div>
+        <div className="pt-7 flex flex-col min-w-0 mb-2">
+          {loading || !user ? (
+            <div className="h-4 w-24 bg-discord-input rounded animate-pulse" />
+          ) : (
+            <UsernameDisplay
+              username={user.username}
+              color={user.username_color}
+              anim={user.username_anim}
+              badge={user.profile_badge}
+              className="font-bold text-sm text-white truncate"
+            />
+          )}
+          {user && (
+            <span className="text-discord-text-muted text-xs truncate">
+              {user.role || "USER"}
+            </span>
+          )}
         </div>
 
         {user?.bio && (
