@@ -207,6 +207,24 @@ router.patch("/me/profile-extras", authMiddleware, async (req: AuthRequest, res:
   }
 });
 
+router.post("/me/reset-profile", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const db = require("../databasepg").default;
+    await db.query(
+      `UPDATE users SET
+        profile_bg='', username_color='', username_anim='',
+        profile_badge='', bubble_color='', social_link='', accent_color='',
+        bio='', country=''
+       WHERE id=$1`,
+      [userId]
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);

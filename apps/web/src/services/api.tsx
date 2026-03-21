@@ -204,6 +204,7 @@ export const updateUsernameStyle = (username_color: string, username_anim: strin
   api.patch('/users/me/username-style', { username_color, username_anim });
 export const updateProfileExtras = (profile_badge: string, bubble_color: string, social_link: string, accent_color: string) =>
   api.patch('/users/me/profile-extras', { profile_badge, bubble_color, social_link, accent_color });
+export const resetProfile = () => api.post('/users/me/reset-profile', {});
 
 // Paginated messages
 export const getChatMessagesBefore = (chatId: number, beforeId: number) =>
