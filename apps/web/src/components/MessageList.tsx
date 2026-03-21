@@ -177,6 +177,7 @@ function VideoNotePlayer({ src }: { src: string }) {
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const { t } = useI18n();
 
   useEffect(() => {
     const v = videoRef.current;
