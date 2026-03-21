@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useChat } from "../context/ChatContext";
 import { kickUserFromGroup, setChatMemberRole } from "../services/api";
 import { ChatRole, ChatParticipant } from "../types";
+import { useI18n } from "../i18n";
 
 function getRoleBadge(member: ChatParticipant, creatorId: number | undefined): { label: string; className: string } | null {
   if (member.id === creatorId) return { label: "👑", className: "text-yellow-400" };
@@ -23,6 +24,7 @@ export default function ChatModals() {
     setChatMembers,
   } = useChat();
 
+  const { t } = useI18n();
   const [updatingRole, setUpdatingRole] = useState<number | null>(null);
 
   if (!modalView || !activeChat || !currentUser) return null;
@@ -41,13 +43,13 @@ export default function ChatModals() {
   const canKick = isOwner || isModerator || myRoomRole === "moderator";
 
   const onKick = async (userId: number) => {
-    if (!window.confirm("Исключить пользователя?")) return;
+    if (!window.confirm(t.chat.members + "?")) return;
     try {
       await kickUserFromGroup(activeChat.id, userId);
       setChatMembers((prev) => prev.filter((m) => m.id !== userId));
     } catch (e) {
       console.error(e);
-      alert("Не удалось исключить пользователя");
+      alert(t.common.error);
     }
   };
 
@@ -60,7 +62,7 @@ export default function ChatModals() {
       );
     } catch (e) {
       console.error(e);
-      alert("Не удалось изменить роль");
+      alert(t.common.error);
     } finally {
       setUpdatingRole(null);
     }
@@ -78,7 +80,7 @@ export default function ChatModals() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold text-lg">
-            {isInvite ? "Пригласить" : "Участники"}
+            {isInvite ? t.chat.invite : t.chat.members}
           </h3>
           <button
             onClick={closeModal}
@@ -92,7 +94,7 @@ export default function ChatModals() {
         <div className="flex-1 overflow-y-auto flex flex-col gap-1">
           {list.length === 0 && (
             <p className="text-discord-text-muted text-sm text-center py-4">
-              {isInvite ? "Все друзья уже в чате" : "Нет участников"}
+              {isInvite ? t.chat.no_friends : t.chat.members}
             </p>
           )}
 
@@ -118,7 +120,7 @@ export default function ChatModals() {
                     onClick={() => handleInvite((item as any).id)}
                     className="bg-discord-success hover:bg-discord-success-hover text-white text-xs px-3 py-1 rounded transition shrink-0"
                   >
-                    Пригласить
+                    {t.chat.invite_btn}
                   </button>
                 ) : (
                   <div className="flex items-center gap-1 shrink-0">
@@ -130,9 +132,9 @@ export default function ChatModals() {
                         onChange={(e) => onRoleChange(item.id, e.target.value)}
                         className="text-xs bg-discord-input text-discord-text-secondary rounded px-1 py-0.5 border border-discord-tertiary focus:outline-none cursor-pointer disabled:opacity-50"
                       >
-                        <option value="moderator">🛡️ Модератор</option>
-                        <option value="trusted">✅ Доверенный</option>
-                        <option value="member">Участник</option>
+                        <option value="moderator">🛡️ {t.chat.role_moderator}</option>
+                        <option value="trusted">✅ {t.chat.role_trusted}</option>
+                        <option value="member">{t.chat.role_member}</option>
                       </select>
                     )}
 
@@ -159,7 +161,7 @@ export default function ChatModals() {
               onClick={handleGetInviteCode}
               className="w-full bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-sm py-2 rounded transition"
             >
-              Получить код приглашения
+              {t.chat.get_invite_code}
             </button>
           </div>
         )}

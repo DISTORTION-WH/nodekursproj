@@ -4,6 +4,7 @@ import type { Subtitle, StreamDescriptor } from "../hooks/useLiveSubtitles";
 import { useCallFeatures } from "../context/CallFeaturesContext";
 import { useSocket } from "../context/SocketContext";
 import type { Socket } from "socket.io-client";
+import { useI18n } from "../i18n";
 
 export type { StreamDescriptor };
 
@@ -45,10 +46,11 @@ export interface CCButtonProps {
 }
 
 export function CCButton({ active, onToggle }: CCButtonProps) {
+  const { t } = useI18n();
   return (
     <button
       onClick={onToggle}
-      title={active ? "Отключить субтитры" : "Включить субтитры"}
+      title={active ? t.call.subtitles_off : t.call.subtitles_on}
       className={[
         "w-12 h-12 rounded-full flex items-center justify-center",
         "text-sm font-bold tracking-wide transition",
@@ -70,7 +72,7 @@ export interface SubtitleLangSelectProps {
   title?: string;
 }
 
-export function SubtitleLangSelect({ value, onChange, title = "Язык субтитров" }: SubtitleLangSelectProps) {
+export function SubtitleLangSelect({ value, onChange, title }: SubtitleLangSelectProps) {
   return (
     <select
       value={value}
@@ -108,6 +110,7 @@ export function SubtitleSettingsPopup({
   onClose,
 }: SubtitleSettingsPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
 
   // Close on click outside
   useEffect(() => {
@@ -135,16 +138,16 @@ export function SubtitleSettingsPopup({
     >
       <div className="bg-discord-secondary rounded-xl shadow-2xl border border-white/10 p-4 flex flex-col gap-4">
         <div className="text-white text-sm font-semibold text-center">
-          Настройки субтитров
+          {t.call.subtitle_settings}
         </div>
 
-        {/* Display lang — "Мой язык" (rec.lang + translation target) */}
+        {/* Display lang — my language (rec.lang + translation target) */}
         <div className="flex flex-col gap-1.5">
           <label className="text-discord-text-muted text-xs font-medium">
-            Мой язык
+            {t.call.my_language}
           </label>
           <p className="text-discord-text-muted text-[10px] -mt-1 leading-tight">
-            Язык, на котором вы говорите. Субтитры собеседника будут переведены на этот язык.
+            {t.call.my_language_hint}
           </p>
           <select
             value={displayLang}
@@ -161,13 +164,13 @@ export function SubtitleSettingsPopup({
           </select>
         </div>
 
-        {/* Speech lang — "Язык собеседника" (translation source) */}
+        {/* Speech lang — partner's language (translation source) */}
         <div className="flex flex-col gap-1.5">
           <label className="text-discord-text-muted text-xs font-medium">
-            Язык собеседника
+            {t.call.partner_language}
           </label>
           <p className="text-discord-text-muted text-[10px] -mt-1 leading-tight">
-            Язык, на котором говорит ваш собеседник. Его речь будет распознана и переведена.
+            {t.call.partner_language_hint}
           </p>
           <select
             value={speechLang}
@@ -188,7 +191,7 @@ export function SubtitleSettingsPopup({
           onClick={onClose}
           className="mt-1 h-9 rounded-lg bg-discord-accent hover:bg-discord-accent/80 text-white text-sm font-medium transition-colors"
         >
-          Готово
+          {t.call.done}
         </button>
       </div>
     </div>
@@ -260,6 +263,7 @@ export default function SubtitlesOverlay({
 }: SubtitlesOverlayProps) {
   const ctx = useCallFeatures();
   const { socket } = useSocket() as { socket: Socket | null };
+  const { t } = useI18n();
 
   const enabled     = enabledProp !== undefined ? enabledProp : ctx.subtitlesEnabled;
   const displayLang = ctx.displayLang ?? (langProp ?? "ru-RU");
@@ -267,7 +271,7 @@ export default function SubtitlesOverlay({
 
   const remoteUserId: number | null = ctx.scenario === "p2p" ? (ctx.remoteParticipantUserId ?? null) : null;
   const groupChatId: number | null = ctx.scenario === "group" ? (ctx.groupChatId ?? null) : null;
-  const localUsername = ctx.participantNames.get("local") ?? "Вы";
+  const localUsername = ctx.participantNames.get("local") ?? t.call.you;
   const localSpeakerId = ctx.localSpeakerId ?? "local";
 
   const speechLang = ctx.speechLang ?? "en-US";
@@ -379,7 +383,7 @@ export default function SubtitlesOverlay({
   return (
     <div
       aria-live="polite"
-      aria-label="Субтитры"
+      aria-label={t.call.subtitle_settings}
       style={{
         position: "absolute",
         bottom: bottomOffset,
@@ -402,7 +406,7 @@ export default function SubtitlesOverlay({
       ))}
       {audioAdapting && (
         <div style={{ background: "rgba(0,0,0,0.72)", color: "#faa81a", fontSize: "0.7rem", borderRadius: 4, padding: "2px 8px" }}>
-          ⚠️ Качество аудио снижено
+          ⚠️ {t.call.audio_quality_reduced}
         </div>
       )}
       {error && (
@@ -413,7 +417,7 @@ export default function SubtitlesOverlay({
       {!error && visibleLines.length === 0 && (
         <div style={{ background: "rgba(0,0,0,0.52)", color: isListening ? "rgba(87,242,135,0.8)" : "rgba(255,255,255,0.4)", fontSize: "0.65rem", borderRadius: 4, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: isListening ? "#57f287" : "#f87171", display: "inline-block", flexShrink: 0 }} />
-          {isListening ? "Слушаю..." : "Переподключение..."}
+          {isListening ? t.call.listening : t.call.reconnecting}
         </div>
       )}
     </div>

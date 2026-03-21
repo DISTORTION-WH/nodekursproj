@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { useChat } from "../context/ChatContext";
 import { Chat } from "../types";
+import { useI18n } from "../i18n";
 
 interface GroupChatListProps {
   onOpenGroupChat: (chat: Chat) => void;
@@ -15,6 +16,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
   const [error, setError] = useState(false);
   const { socket } = useSocket() as { socket: Socket | null };
   const { unreadCounts, activeChat } = useChat();
+  const { t } = useI18n();
 
   const fetchGroupChats = () => {
     setError(false);
@@ -45,19 +47,19 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
   }, [socket]);
 
   const joinByCode = async () => {
-    const code = prompt("Код приглашения:");
+    const code = prompt(t.chat.join_prompt);
     if (!code?.trim()) return;
     try {
       const res = await api.post<Chat>("/chats/join", { inviteCode: code });
-      alert(`Вы вошли в: ${res.data.name}`);
+      alert(`${t.chat.join_success}: ${res.data.name}`);
       fetchGroupChats();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Ошибка");
+      alert(err.response?.data?.message || t.common.error);
     }
   };
 
   const createGroupChat = async () => {
-    const name = prompt("Название комнаты:");
+    const name = prompt(t.chat.create_room);
     if (!name?.trim()) return;
     try {
       const res = await api.post<Chat>("/chats/group", { name });
@@ -65,7 +67,7 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
       onOpenGroupChat(res.data);
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.message || "Не удалось создать комнату");
+      alert(err.response?.data?.message || t.common.error);
     }
   };
 
@@ -73,21 +75,21 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
     <div className="px-2 mb-2">
       <div className="flex items-center justify-between px-2 py-2">
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
-          Комнаты
+          {t.chat.rooms}
         </span>
         <div className="flex-1 h-px mx-2" style={{ background: "var(--color-tertiary)" }} />
         <div className="flex gap-1">
           <button
             onClick={joinByCode}
             className="text-discord-text-muted hover:text-discord-text-primary text-xs px-2 py-0.5 rounded hover:bg-discord-input transition"
-            title="Войти по коду"
+            title={t.chat.join_by_code}
           >
             Join
           </button>
           <button
             onClick={createGroupChat}
             className="text-discord-text-muted hover:text-discord-text-primary text-sm px-2 py-0.5 rounded hover:bg-discord-input transition font-bold"
-            title="Создать комнату"
+            title={t.chat.create_room}
           >
             +
           </button>
@@ -146,11 +148,11 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
       )}
       {!loading && error && (
         <p className="text-discord-danger text-xs px-2 py-1 cursor-pointer hover:underline" onClick={fetchGroupChats}>
-          Ошибка загрузки · Нажмите, чтобы повторить
+          {t.chat.error_retry}
         </p>
       )}
       {!loading && !error && groupChats.length === 0 && (
-        <p className="text-discord-text-muted text-xs px-2 py-1">Нет комнат</p>
+        <p className="text-discord-text-muted text-xs px-2 py-1">{t.chat.no_rooms}</p>
       )}
     </div>
   );

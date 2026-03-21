@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { User } from "../../types";
 import { getImageUrl } from "../../utils/imageUrl";
 import { AvatarWithFrame } from "./AvatarFrameShop";
@@ -56,8 +56,8 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
       setUsernameMessage(t.profile.username_saved);
       setEditingUsername(false);
     } catch (err: any) {
-      const msg = err.response?.data?.message || t.common.error;
-      setUsernameMessage(msg.includes("занято") || msg.includes("taken") ? t.profile.username_taken : msg);
+      const status = err.response?.status;
+      setUsernameMessage(status === 409 ? t.profile.username_taken : (err.response?.data?.message || t.common.error));
     } finally {
       setUsernameSaving(false);
     }

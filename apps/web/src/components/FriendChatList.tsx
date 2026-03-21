@@ -69,7 +69,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
       });
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.message || "Не удалось открыть чат");
+      alert(err.response?.data?.message || t.common.error);
     }
   };
 

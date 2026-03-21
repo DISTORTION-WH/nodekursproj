@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOverlay";
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
+import { useI18n } from "../i18n";
 
 // ─── Control button (standalone component to allow useState hook) ─────────────
 
@@ -77,10 +78,11 @@ interface MinimizeBtnProps {
 
 function MinimizeBtn({ onClick }: MinimizeBtnProps) {
   const [hovered, setHovered] = useState(false);
+  const { t } = useI18n();
   return (
     <button
       onClick={onClick}
-      title="Свернуть"
+      title={t.call.minimize}
       style={{
         background: hovered ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
         border: "none",
@@ -99,7 +101,7 @@ function MinimizeBtn({ onClick }: MinimizeBtnProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <span style={{ fontSize: 12, lineHeight: 1 }}>—</span>
-      <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>Свернуть</span>
+      <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>{t.call.minimize}</span>
     </button>
   );
 }
@@ -124,6 +126,7 @@ function ParticipantTile({
   isLocal = false,
 }: ParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { t } = useI18n();
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
   const hasVideo = participant.stream
     ? participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
@@ -204,7 +207,7 @@ function ParticipantTile({
           border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {isLocal ? "Вы" : participant.username}
+        {isLocal ? t.call.you : participant.username}
         {participant.audioMuted && <span>🔇</span>}
       </div>
     </div>
@@ -232,6 +235,7 @@ function TrayPill({
 }: TrayPillProps) {
   const [expandHovered, setExpandHovered] = useState(false);
   const [endHovered, setEndHovered] = useState(false);
+  const { t } = useI18n();
 
   return (
     <div
@@ -281,7 +285,7 @@ function TrayPill({
           cursor: "pointer",
         }}
         onClick={onExpand}
-        title="Развернуть"
+        title={t.call.expand}
       >
         {isGroupCall ? (
           <>
@@ -294,7 +298,7 @@ function TrayPill({
                 whiteSpace: "nowrap",
               }}
             >
-              {participantCount} участн.
+              {participantCount} {t.chat.participants}
             </span>
           </>
         ) : (
@@ -309,7 +313,7 @@ function TrayPill({
               textOverflow: "ellipsis",
             }}
           >
-            {callerName ?? "Звонок"}
+            {callerName ?? t.call.calling}
           </span>
         )}
 
@@ -332,7 +336,7 @@ function TrayPill({
       {/* Expand button */}
       <button
         onClick={onExpand}
-        title="Развернуть"
+        title={t.call.expand}
         style={{
           background: expandHovered ? "rgba(88,101,242,0.25)" : "rgba(88,101,242,0.12)",
           border: "1px solid rgba(88,101,242,0.3)",
@@ -357,7 +361,7 @@ function TrayPill({
       {/* End call button */}
       <button
         onClick={onEnd}
-        title="Завершить звонок"
+        title={t.call.end}
         style={{
           background: endHovered
             ? "linear-gradient(135deg, #f05154, #c0392b)"
@@ -398,6 +402,7 @@ function CallOverlayContent() {
   } = useCall();
 
   const { currentUser } = useAuth();
+  const { t } = useI18n();
 
   const {
     subtitlesEnabled,
@@ -634,7 +639,7 @@ function CallOverlayContent() {
               {incomingGroupCall!.startedBy.username}
             </div>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 400 }}>
-              Входящий групповой звонок
+              {t.chat.incoming_group_call}
             </div>
           </div>
 
@@ -656,7 +661,7 @@ function CallOverlayContent() {
                 boxShadow: "0 4px 16px rgba(87,242,135,0.3)",
               }}
             >
-              📞 Присоединиться
+              📞 {t.chat.join}
             </button>
             <button
               onClick={dismissGroupCallBanner}
@@ -724,7 +729,7 @@ function CallOverlayContent() {
                   fontSize: 15,
                 }}
               >
-                Групповой звонок
+                {t.chat.group_call}
               </span>
               <span
                 style={{
@@ -737,7 +742,7 @@ function CallOverlayContent() {
                   padding: "2px 10px",
                 }}
               >
-                {groupCallParticipants.length + 1} участн.
+                {groupCallParticipants.length + 1} {t.chat.participants}
               </span>
               {/* Duration timer */}
               <span
@@ -773,7 +778,7 @@ function CallOverlayContent() {
             {(() => {
               const localParticipant: GroupCallParticipant = {
                 userId: currentUser?.id ?? 0,
-                username: currentUser?.username ?? "Вы",
+                username: currentUser?.username ?? t.call.you,
                 stream: localStream,
                 audioMuted: isGroupAudioMuted,
                 videoMuted: isGroupVideoMuted,
@@ -807,11 +812,11 @@ function CallOverlayContent() {
 
           {/* Control bar — sticky to bottom */}
           <div style={glassControlBar}>
-            <ControlBtn onClick={muteGroupAudio} active={isGroupAudioMuted} title="Микрофон">
+            <ControlBtn onClick={muteGroupAudio} active={isGroupAudioMuted} title={t.call.mic}>
               {isGroupAudioMuted ? "🔇" : "🎤"}
             </ControlBtn>
             {groupCallIsVideo && (
-              <ControlBtn onClick={muteGroupVideo} active={isGroupVideoMuted} title="Камера">
+              <ControlBtn onClick={muteGroupVideo} active={isGroupVideoMuted} title={t.call.camera}>
                 {isGroupVideoMuted ? "🚫" : "📷"}
               </ControlBtn>
             )}
@@ -821,7 +826,7 @@ function CallOverlayContent() {
               {subtitlesEnabled && (
                 <button
                   onClick={() => setShowSubSettings((v) => !v)}
-                  title="Настройки субтитров"
+                  title={t.call.subtitle_settings}
                   className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
                 >
                   ⚙
@@ -837,7 +842,7 @@ function CallOverlayContent() {
                 />
               )}
             </div>
-            <ControlBtn onClick={leaveGroupCall} danger title="Покинуть звонок">
+            <ControlBtn onClick={leaveGroupCall} danger title={t.call.leave}>
               📞
             </ControlBtn>
           </div>
@@ -917,14 +922,14 @@ function CallOverlayContent() {
                   {callerData?.name}
                 </div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>
-                  {isVideoCall ? "Входящий видеозвонок..." : "Входящий аудиозвонок..."}
+                  {isVideoCall ? t.call.incoming_video : t.call.incoming_audio}
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button
                   onClick={endCall}
-                  title="Отклонить"
+                  title={t.call.decline}
                   style={{
                     background: "linear-gradient(135deg, #ed4245, #c0392b)",
                     border: "none",
@@ -940,11 +945,11 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(237,66,69,0.4)",
                   }}
                 >
-                  📵 Отклонить
+                  📵 {t.call.decline}
                 </button>
                 <button
                   onClick={answerCall}
-                  title="Принять"
+                  title={t.call.accept}
                   style={{
                     background: "linear-gradient(135deg, #57f287, #3ba55d)",
                     border: "none",
@@ -960,7 +965,7 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(87,242,135,0.4)",
                   }}
                 >
-                  📞 Принять
+                  📞 {t.call.accept}
                 </button>
               </div>
             </div>
@@ -1033,14 +1038,14 @@ function CallOverlayContent() {
                   style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}
                   className="animate-pulse"
                 >
-                  Звонок...
+                  {t.call.calling}
                 </div>
               </div>
 
               <div style={{ marginTop: 8 }}>
                 <button
                   onClick={endCall}
-                  title="Отмена"
+                  title={t.call.cancel}
                   style={{
                     background: "linear-gradient(135deg, #ed4245, #c0392b)",
                     border: "none",
@@ -1056,7 +1061,7 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(237,66,69,0.4)",
                   }}
                 >
-                  📵 Отмена
+                  📵 {t.call.cancel}
                 </button>
               </div>
             </div>
@@ -1183,7 +1188,7 @@ function CallOverlayContent() {
                         color: "rgba(255,255,255,0.7)",
                       }}
                     >
-                      Вы
+                      {t.call.you}
                     </div>
                   </div>
                 </div>
@@ -1234,8 +1239,8 @@ function CallOverlayContent() {
                         }}>🔇</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{currentUser?.username ?? "Вы"}</div>
-                    {isAudioMuted && <div style={{ fontSize: 11, color: "#ed4245", fontWeight: 600 }}>Заглушён</div>}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{currentUser?.username ?? t.call.you}</div>
+                    {isAudioMuted && <div style={{ fontSize: 11, color: "#ed4245", fontWeight: 600 }}>{t.call.muted}</div>}
                   </div>
                 </div>
               )}
@@ -1252,11 +1257,11 @@ function CallOverlayContent() {
                   pointerEvents: "auto",
                 }}
               >
-                <ControlBtn onClick={muteAudio} active={isAudioMuted} title="Микрофон">
+                <ControlBtn onClick={muteAudio} active={isAudioMuted} title={t.call.mic}>
                   {isAudioMuted ? "🔇" : "🎤"}
                 </ControlBtn>
                 {isVideoCall && (
-                  <ControlBtn onClick={muteVideo} active={isVideoMuted} title="Камера">
+                  <ControlBtn onClick={muteVideo} active={isVideoMuted} title={t.call.camera}>
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
@@ -1265,7 +1270,7 @@ function CallOverlayContent() {
                   {subtitlesEnabled && (
                     <button
                       onClick={() => setShowSubSettings((v) => !v)}
-                      title="Настройки субтитров"
+                      title={t.call.subtitle_settings}
                       className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
                     >
                       ⚙
@@ -1281,7 +1286,7 @@ function CallOverlayContent() {
                     />
                   )}
                 </div>
-                <ControlBtn onClick={endCall} danger title="Завершить">
+                <ControlBtn onClick={endCall} danger title={t.call.end}>
                   📞
                 </ControlBtn>
               </div>

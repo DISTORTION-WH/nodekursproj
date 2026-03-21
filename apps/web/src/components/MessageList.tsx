@@ -4,10 +4,12 @@ import { deleteMessage, reportMessage, addReaction, removeReaction } from "../se
 import { Message } from "../types";
 import LinkPreview from "./LinkPreview";
 import { getImageUrl } from "../utils/imageUrl";
+import { useI18n } from "../i18n";
 
 // ─── Custom Voice Message Player ─────────────────────────────────────────────
 
 function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
+  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -314,7 +316,7 @@ function VideoNotePlayer({ src }: { src: string }) {
             color: "rgba(255,255,255,0.7)", fontSize: 13, lineHeight: 1,
             display: "flex", alignItems: "center",
           }}
-          title={muted ? "Включить звук" : "Выключить звук"}
+          title={muted ? t.messages.unmute : t.messages.mute}
         >
           {muted ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -342,6 +344,7 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
   const ext = getFileExtension(url);
   const icon = getFileIcon(ext);
   const [hovered, setHovered] = useState(false);
+  const { t } = useI18n();
 
   return (
     <a
@@ -379,7 +382,7 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
           {name}
         </div>
         <div style={{ fontSize: 11, color: "var(--color-text-muted)", textTransform: "uppercase" }}>
-          {ext} — Скачать
+          {ext} — {t.messages.download}
         </div>
       </div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -476,6 +479,7 @@ export default function MessageList() {
     pinnedMessages,
     markAsRead,
   } = useChat();
+  const { t } = useI18n();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [pickerOpenId, setPickerOpenId] = useState<number | null>(null);
@@ -546,24 +550,24 @@ export default function MessageList() {
   }, [hasMore, loadingMore, loadMoreMessages, activeChat, markAsRead]);
 
   const handleDelete = async (msgId: number) => {
-    if (!window.confirm("Удалить сообщение?")) return;
+    if (!window.confirm(t.messages.delete_confirm)) return;
     try {
       await deleteMessage(msgId);
     } catch (e) {
       console.error(e);
-      alert("Ошибка удаления");
+      alert(t.messages.delete_error);
     }
   };
 
   const handleReport = async (msgId: number) => {
-    const reason = window.prompt("Укажите причину жалобы:");
+    const reason = window.prompt(t.messages.report_prompt);
     if (!reason) return;
     try {
       await reportMessage(msgId, reason);
-      alert("Жалоба отправлена модераторам.");
+      alert(t.messages.report_sent);
     } catch (e) {
       console.error(e);
-      alert("Ошибка отправки жалобы");
+      alert(t.messages.report_error);
     }
   };
 
@@ -706,7 +710,7 @@ export default function MessageList() {
             {/* Forwarded label */}
             {msg.forwarded_from_id && (
               <div className={`flex items-center gap-1 mb-0.5 px-2 text-xs text-discord-text-muted italic ${isMine ? "self-end" : "self-start"}`}>
-                ↪ Пересланное сообщение
+                ↪ {t.messages.forwarded}
               </div>
             )}
 
@@ -765,14 +769,14 @@ export default function MessageList() {
                       onClick={() => setEditingId(null)}
                       className="text-xs text-discord-text-muted hover:text-discord-text-primary px-2 py-0.5 rounded hover:bg-discord-input transition"
                     >
-                      Отмена
+                      {t.common.cancel}
                     </button>
                     <button
                       onClick={() => saveEdit(msg.id)}
                       disabled={savingEdit}
                       className="text-xs bg-discord-accent hover:bg-discord-accent-hover text-white px-2 py-0.5 rounded transition disabled:opacity-50"
                     >
-                      {savingEdit ? "..." : "Сохранить"}
+                      {savingEdit ? "..." : t.messages.save}
                     </button>
                   </div>
                 </div>
@@ -790,7 +794,7 @@ export default function MessageList() {
                   {imageUrl ? (
                     <img
                       src={imageUrl}
-                      alt="изображение"
+                      alt={t.messages.image_alt}
                       className="max-w-[260px] max-h-[300px] rounded-lg object-contain cursor-pointer"
                       onClick={() => window.open(imageUrl, "_blank")}
                     />
@@ -809,7 +813,7 @@ export default function MessageList() {
                     <>
                       <span>{msg.text}</span>
                       {msg.edited_at && (
-                        <span className="text-xs opacity-60 ml-1">(ред.)</span>
+                        <span className="text-xs opacity-60 ml-1">{t.messages.edited}</span>
                       )}
                     </>
                   )}
@@ -825,7 +829,7 @@ export default function MessageList() {
                   <button
                     onClick={() => setReplyingTo(msg)}
                     className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
-                    title="Ответить"
+                    title={t.messages.reply}
                   >
                     ↩
                   </button>
@@ -834,7 +838,7 @@ export default function MessageList() {
                     <button
                       onClick={() => startEdit(msg)}
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
-                      title="Редактировать"
+                      title={t.messages.edit}
                     >
                       ✏️
                     </button>
@@ -843,7 +847,7 @@ export default function MessageList() {
                   <button
                     onClick={() => setForwardingMessage(msg)}
                     className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
-                    title="Переслать"
+                    title={t.messages.forward}
                   >
                     ↪
                   </button>
@@ -852,7 +856,7 @@ export default function MessageList() {
                     <button
                       onClick={() => isPinned ? handleUnpin(msg.id) : handlePin(msg.id)}
                       className={`text-xs p-1 rounded hover:bg-discord-input transition ${isPinned ? "text-discord-warn hover:text-discord-text-primary" : "text-discord-text-muted hover:text-discord-text-primary"}`}
-                      title={isPinned ? "Открепить" : "Закрепить"}
+                      title={isPinned ? t.messages.unpin : t.messages.pin}
                     >
                       📌
                     </button>
@@ -865,7 +869,7 @@ export default function MessageList() {
                         setPickerOpenId(pickerOpenId === msg.id ? null : msg.id);
                       }}
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
-                      title="Реакция"
+                      title={t.messages.react}
                     >
                       +😊
                     </button>
@@ -893,7 +897,7 @@ export default function MessageList() {
                     <button
                       onClick={() => handleReport(msg.id)}
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-warn transition"
-                      title="Пожаловаться"
+                      title={t.messages.report}
                     >
                       🚩
                     </button>
@@ -903,7 +907,7 @@ export default function MessageList() {
                     <button
                       onClick={() => handleDelete(msg.id)}
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-danger transition"
-                      title="Удалить"
+                      title={t.messages.delete}
                     >
                       🗑️
                     </button>
@@ -929,7 +933,7 @@ export default function MessageList() {
                           : "bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary"
                       }`}
                       style={iReacted ? { background: "rgba(88,101,242,0.25)", border: "1px solid rgba(88,101,242,0.5)" } : undefined}
-                      title={iReacted ? "Убрать реакцию" : "Добавить реакцию"}
+                      title={iReacted ? t.messages.remove_reaction : t.messages.add_reaction}
                     >
                       <span>{reaction.emoji}</span>
                       <span>{reaction.count}</span>

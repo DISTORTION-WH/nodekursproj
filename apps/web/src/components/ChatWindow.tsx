@@ -37,8 +37,8 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
     try {
       await uploadFile(activeChat.id, file);
     } catch (err) {
-      console.error("Ошибка загрузки файла:", err);
-      alert("Ошибка загрузки файла");
+      console.error("File upload error:", err);
+      alert(t.chat.file_upload_error);
     }
   }, [activeChat]);
 

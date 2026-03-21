@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useChat } from "../context/ChatContext";
 import { Message } from "../types";
+import { useI18n } from "../i18n";
 
 interface Props {
   message: Message;
@@ -10,6 +11,7 @@ interface Props {
 
 export default function ForwardModal({ message, onClose, onForward }: Props) {
   const { allChats } = useChat();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [forwarding, setForwarding] = useState<number | null>(null);
 
@@ -37,7 +39,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-discord-tertiary shrink-0">
-          <h3 className="text-discord-text-primary font-semibold text-base">Переслать сообщение</h3>
+          <h3 className="text-discord-text-primary font-semibold text-base">{t.chat.forward_message}</h3>
           <button
             onClick={onClose}
             className="text-discord-text-muted hover:text-discord-text-primary text-xl transition"
@@ -58,7 +60,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск чата..."
+            placeholder={t.chat.search_chat}
             className="w-full bg-discord-input text-discord-text-primary text-sm px-3 py-1.5 rounded-lg outline-none placeholder-discord-text-muted"
           />
         </div>
@@ -66,7 +68,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
         {/* Chat list */}
         <div className="overflow-y-auto flex-1 px-2 pb-2">
           {filtered.length === 0 && (
-            <p className="text-discord-text-muted text-sm text-center py-4">Нет чатов</p>
+            <p className="text-discord-text-muted text-sm text-center py-4">{t.chat.no_chats}</p>
           )}
           {filtered.map((chat) => {
             const name = chat.is_group ? chat.name : chat.username;
@@ -84,7 +86,7 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
                   <span className="text-discord-text-muted text-xs">...</span>
                 ) : (
                   <button className="text-xs bg-discord-accent/20 hover:bg-discord-accent text-discord-accent hover:text-white px-2 py-0.5 rounded transition shrink-0">
-                    Отправить
+                    {t.chat.voice_send}
                   </button>
                 )}
               </div>

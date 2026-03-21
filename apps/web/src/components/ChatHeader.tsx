@@ -88,7 +88,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     }
     const friend = activeChat.participants?.find((p) => Number(p.id) !== Number(currentUser.id));
     if (!friend?.id) {
-      alert("Ошибка: Не удалось определить ID пользователя для звонка.");
+      alert(t.common.error);
       return;
     }
     startCall(Number(friend.id), video);

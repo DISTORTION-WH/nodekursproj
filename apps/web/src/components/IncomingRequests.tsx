@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useSocket } from "../context/SocketContext";
 import { FriendRequest } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
+import { useI18n } from "../i18n";
 
 interface IncomingRequestsProps {
   onOpenProfile: (id: number) => void;
@@ -12,6 +13,7 @@ interface IncomingRequestsProps {
 export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProps) {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const { socket } = useSocket() as { socket: Socket | null };
+  const { t } = useI18n();
 
   const fetchRequests = () => {
     api
@@ -44,7 +46,7 @@ export default function IncomingRequests({ onOpenProfile }: IncomingRequestsProp
     <div className="px-2 mb-2">
       <div className="flex items-center px-2 py-2">
         <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
-          Входящие ({requests.length})
+          {t.chat.incoming_requests} ({requests.length})
         </span>
       </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { uploadFile } from "../services/api";
+import { useI18n } from "../i18n";
 
 interface Props {
   chatId: number;
@@ -20,6 +21,7 @@ const keyframes = `
 const MAX_DURATION = 60; // seconds
 
 export default function VideoNoteRecorder({ chatId, onClose }: Props) {
+  const { t } = useI18n();
   const [state, setState] = useState<"preview" | "recording" | "uploading">("preview");
   const [seconds, setSeconds] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -48,7 +50,7 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
         }
       })
       .catch(() => {
-        alert("Нет доступа к камере");
+        alert(t.chat.voice_no_mic);
         onClose();
       });
 
@@ -116,7 +118,7 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
         cleanup();
         onClose();
       } catch {
-        alert("Ошибка отправки видеосообщения");
+        alert(t.chat.voice_send_error);
         setState("preview");
       }
     };
@@ -205,7 +207,7 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
               <svg style={{ width: 18, height: 18, animation: "spin 1s linear infinite", color: "#5865f2" }} viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4 31.4" strokeLinecap="round"/>
               </svg>
-              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Отправка видеосообщения...</span>
+              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>{t.chat.video_sending}</span>
             </div>
           ) : state === "recording" ? (
             <>
@@ -239,7 +241,7 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                   </svg>
-                  Отправить
+                  {t.chat.voice_send}
                 </button>
                 <button
                   onClick={cancel}
@@ -252,16 +254,16 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(237,66,69,0.15)"; e.currentTarget.style.color = "#ed4245"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
                 >
-                  Отмена
+                  {t.chat.cancel}
                 </button>
               </div>
             </>
           ) : (
             <>
               <div>
-                <div style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>Видеосообщение</div>
+                <div style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>{t.chat.video_message}</div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
-                  До {MAX_DURATION} сек. Нажмите запись
+                  {MAX_DURATION} {t.chat.video_start_hint}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -279,7 +281,7 @@ export default function VideoNoteRecorder({ chatId, onClose }: Props) {
                   onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
                 >
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ed4245", display: "inline-block" }} />
-                  Запись
+                  {t.chat.voice_record}
                 </button>
                 <button
                   onClick={cancel}

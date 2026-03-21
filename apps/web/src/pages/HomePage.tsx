@@ -4,6 +4,7 @@ import FriendsList from "../components/FriendsList";
 import ChatWindow from "../components/ChatWindow";
 import { useChat } from "../context/ChatContext";
 import { User } from "../types";
+import { useI18n } from "../i18n";
 
 interface HomePageProps {
   currentUser: User | null;
@@ -13,6 +14,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const { activeChat, selectChat, closeChat } = useChat();
   const location = useLocation();
+  const { t } = useI18n();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -71,9 +73,9 @@ export default function HomePage({ currentUser }: HomePageProps) {
                 backgroundClip: "text",
               }}
             >
-              Выберите чат
+              {t.common.select_chat}
             </p>
-            <p className="text-discord-text-muted text-sm">Откройте диалог или комнату, чтобы начать общение</p>
+            <p className="text-discord-text-muted text-sm">{t.common.select_chat_hint}</p>
           </div>
         )}
       </div>
