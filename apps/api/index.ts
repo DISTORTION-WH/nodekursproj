@@ -721,6 +721,10 @@ async function initializeDatabase() {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(4) DEFAULT '';`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_bg TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_anim VARCHAR(30) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+
     // Password reset codes
     await client.query(
       `CREATE TABLE IF NOT EXISTS password_reset_codes (

@@ -199,6 +199,9 @@ export const updateUserAvatarFrame = (frame: string | null) => api.patch('/users
 export const updateUserBio = (bio: string) => api.patch('/users/me/bio', { bio });
 export const updateUserCountry = (country: string) => api.patch('/users/me/country', { country });
 export const updateUserUsername = (username: string) => api.patch('/users/me/username', { username });
+export const updateProfileBg = (profile_bg: string) => api.patch('/users/me/profile-bg', { profile_bg });
+export const updateUsernameStyle = (username_color: string, username_anim: string) =>
+  api.patch('/users/me/username-style', { username_color, username_anim });
 
 // Paginated messages
 export const getChatMessagesBefore = (chatId: number, beforeId: number) =>

@@ -163,6 +163,33 @@ router.patch("/me/username", authMiddleware, async (req: AuthRequest, res: Respo
   }
 });
 
+router.patch("/me/profile-bg", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { profile_bg } = req.body;
+    await userService.updateProfileBg(userId, profile_bg ?? "");
+    res.json({ profile_bg: profile_bg ?? "" });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
+router.patch("/me/username-style", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { username_color, username_anim } = req.body;
+    const allowedAnims = ["", "rainbow", "pulse", "glitch", "shimmer", "fire"];
+    if (username_anim !== undefined && !allowedAnims.includes(username_anim)) {
+      res.status(400).json({ message: "Недопустимая анимация" });
+      return;
+    }
+    await userService.updateUsernameStyle(userId, username_color ?? "", username_anim ?? "");
+    res.json({ username_color: username_color ?? "", username_anim: username_anim ?? "" });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);

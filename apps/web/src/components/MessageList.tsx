@@ -5,6 +5,7 @@ import { Message } from "../types";
 import LinkPreview from "./LinkPreview";
 import { getImageUrl } from "../utils/imageUrl";
 import { useI18n } from "../i18n";
+import { useHoverCard } from "../context/HoverCardContext";
 
 // ─── Custom Voice Message Player ─────────────────────────────────────────────
 
@@ -480,6 +481,7 @@ export default function MessageList() {
     markAsRead,
   } = useChat();
   const { t } = useI18n();
+  const { showCard, hideCard } = useHoverCard();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [pickerOpenId, setPickerOpenId] = useState<number | null>(null);
@@ -691,7 +693,9 @@ export default function MessageList() {
                   <img
                     src={getImageUrl(msg.sender_avatar ?? msg.sender?.avatar_url)}
                     alt={msg.sender_name || ""}
-                    className="w-8 h-8 rounded-full object-cover"
+                    className="w-8 h-8 rounded-full object-cover cursor-pointer"
+                    onMouseEnter={(e) => msg.sender_id && showCard(msg.sender_id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                    onMouseLeave={hideCard}
                   />
                 ) : (
                   <div className="w-8 h-8" /> /* spacer to keep alignment */

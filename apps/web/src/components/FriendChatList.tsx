@@ -7,6 +7,7 @@ import { User, UserStatus } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
 import { AvatarWithFrame } from "./profile/AvatarFrameShop";
 import { useI18n } from "../i18n";
+import { useHoverCard } from "../context/HoverCardContext";
 
 interface FriendChatListProps {
   onOpenProfile: (id: number) => void;
@@ -27,6 +28,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
   const { socket, userStatuses } = useSocket() as { socket: Socket | null; userStatuses: Record<number, UserStatus> };
   const { selectChat, unreadCounts, activeChat } = useChat();
   const { t } = useI18n();
+  const { showCard, hideCard } = useHoverCard();
 
   const fetchFriends = () => {
     setError(false);
@@ -107,7 +109,12 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
             onClick={() => openChat(f)}
           >
             {/* Avatar with status dot */}
-            <div className="relative shrink-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); onOpenProfile(f.id); }}>
+            <div
+              className="relative shrink-0 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); onOpenProfile(f.id); }}
+              onMouseEnter={(e) => showCard(f.id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+              onMouseLeave={hideCard}
+            >
               <AvatarWithFrame
                 src={getImageUrl(f.avatar_url)}
                 frame={(f as any).avatar_frame}

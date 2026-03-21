@@ -22,6 +22,9 @@ export interface User {
   created_at?: Date;
   friends?: Friend[];
   is_banned?: boolean;
+  profile_bg?: string | null;
+  username_color?: string | null;
+  username_anim?: string | null;
 }
 
 export interface RegistrationCode {
@@ -110,7 +113,7 @@ async function getAllUsers(): Promise<User[]> {
 async function getUserById(id: string | number): Promise<User | null> {
   try {
     const userResult = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country, u.profile_bg, u.username_color, u.username_anim
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,
@@ -316,6 +319,14 @@ async function updateUserTheme(userId: string | number, theme: string): Promise<
   await client.query("UPDATE users SET theme = $1 WHERE id = $2", [theme, userId]);
 }
 
+async function updateProfileBg(userId: string | number, profileBg: string): Promise<void> {
+  await client.query("UPDATE users SET profile_bg = $1 WHERE id = $2", [profileBg, userId]);
+}
+
+async function updateUsernameStyle(userId: string | number, color: string, anim: string): Promise<void> {
+  await client.query("UPDATE users SET username_color = $1, username_anim = $2 WHERE id = $3", [color, anim, userId]);
+}
+
 export default {
   findUserByUsername,
   createUser,
@@ -332,4 +343,6 @@ export default {
   searchUsers,
   updateUserStatus,
   updateUserTheme,
+  updateProfileBg,
+  updateUsernameStyle,
 };

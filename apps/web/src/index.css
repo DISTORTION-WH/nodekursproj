@@ -177,3 +177,45 @@
 .animate-slide-in-right { animation: slide-in-right 0.25s cubic-bezier(0.22,1,0.36,1) both; }
 .animate-slide-in-left  { animation: slide-in-left  0.25s cubic-bezier(0.22,1,0.36,1) both; }
 .animate-message-pop    { animation: message-pop    0.2s  cubic-bezier(0.22,1,0.36,1) both; }
+
+/* ── Username animations ── */
+@keyframes uname-rainbow {
+  0%   { color: #ff6b6b; }
+  16%  { color: #feca57; }
+  33%  { color: #48dbfb; }
+  50%  { color: #1dd1a1; }
+  66%  { color: #ff9ff3; }
+  83%  { color: #54a0ff; }
+  100% { color: #ff6b6b; }
+}
+@keyframes uname-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+@keyframes uname-glitch {
+  0%,100% { text-shadow: none; transform: translate(0); }
+  20%     { text-shadow: -2px 0 #ff0040, 2px 0 #00d4ff; transform: translate(-1px, 0); }
+  40%     { text-shadow: 2px 0 #ff0040, -2px 0 #00d4ff; transform: translate(1px, 0); }
+  60%     { text-shadow: -1px 0 #ff0040; transform: translate(0); }
+}
+@keyframes uname-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes uname-fire {
+  0%,100% { color: #ed4245; text-shadow: 0 0 6px rgba(237,66,69,0.7); }
+  33%     { color: #ff6b35; text-shadow: 0 0 10px rgba(255,107,53,0.8); }
+  66%     { color: #ffc800; text-shadow: 0 0 8px rgba(255,200,0,0.7); }
+}
+.uname-rainbow { animation: uname-rainbow 3s linear infinite; }
+.uname-pulse   { animation: uname-pulse 1.5s ease-in-out infinite; }
+.uname-glitch  { animation: uname-glitch 2s steps(4) infinite; }
+.uname-shimmer {
+  background: linear-gradient(90deg, currentColor 25%, #fff 50%, currentColor 75%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: uname-shimmer 2s linear infinite;
+}
+.uname-fire { animation: uname-fire 2s ease-in-out infinite; }

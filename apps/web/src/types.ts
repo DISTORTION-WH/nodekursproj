@@ -25,6 +25,9 @@ export interface User {
   is_invisible?: boolean;
   bio?: string;
   country?: string;
+  profile_bg?: string | null;
+  username_color?: string | null;
+  username_anim?: string | null;
 }
 
 export interface ReactionGroup {

@@ -20,6 +20,8 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CallProvider } from "./context/CallContext";
 import CallOverlay from "./components/CallOverlay";
 import { I18nProvider } from "./i18n";
+import { HoverCardProvider } from "./context/HoverCardContext";
+import ProfileHoverCard from "./components/profile/ProfileHoverCard";
 import "./index.css";
 
 function AppRoutes() {
@@ -49,6 +51,7 @@ function AppRoutes() {
   }
 
   return (
+    <HoverCardProvider>
     <SocketProvider currentUser={currentUser}>
       <CallProvider>
         <ChatProvider currentUser={currentUser}>
@@ -110,9 +113,11 @@ function AppRoutes() {
             </div>
           </div>
           <CallOverlay />
+          <ProfileHoverCard />
         </ChatProvider>
       </CallProvider>
     </SocketProvider>
+    </HoverCardProvider>
   );
 }
 

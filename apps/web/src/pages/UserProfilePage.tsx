@@ -5,6 +5,10 @@ import { User } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
+import ProfileBackground from "../components/profile/ProfileBackground";
+import { AvatarWithFrame } from "../components/profile/AvatarFrameShop";
+import UsernameDisplay from "../components/profile/UsernameDisplay";
+import { useHoverCard } from "../context/HoverCardContext";
 
 type FriendStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
@@ -17,6 +21,7 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { t, lang } = useI18n();
+  const { showCard, hideCard } = useHoverCard();
 
   useEffect(() => {
     if (!userId) return;
@@ -134,36 +139,46 @@ export default function UserProfilePage() {
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
-        <h2 className="text-white text-2xl font-bold">{user.username}</h2>
+        <h2 className="text-white text-2xl font-bold">
+          <UsernameDisplay username={user.username} color={user.username_color} anim={user.username_anim} />
+        </h2>
 
-        {/* Profile header */}
-        <div className="bg-discord-secondary rounded-xl p-6 flex items-start gap-6 flex-wrap">
-          <img
-            src={getImageUrl(user.avatar_url)}
-            alt="avatar"
-            className="w-24 h-24 rounded-full object-cover ring-4 ring-discord-accent shrink-0"
-          />
-          <div className="flex flex-col gap-1 text-sm flex-1">
-            <p className="text-white text-xl font-semibold">{user.username}</p>
-            {countryInfo && (
-              <p className="text-discord-text-secondary text-sm">
-                {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}
-              </p>
-            )}
-            <p className="text-discord-text-muted">
-              {t.profile.role}:{" "}
-              <span className="text-discord-accent font-medium">
-                {user.role || "USER"}
-              </span>
-            </p>
-            <p className="text-discord-text-muted">
-              {t.profile.registered}:{" "}
-              <span className="text-discord-text-secondary">
-                {user.created_at
-                  ? new Date(user.created_at).toLocaleDateString()
-                  : "—"}
-              </span>
-            </p>
+        {/* Profile header with banner */}
+        <div className="bg-discord-secondary rounded-xl overflow-hidden">
+          <ProfileBackground profileBg={user.profile_bg} height={100} />
+          <div className="px-6 pb-6">
+            <div className="flex items-end gap-4 -mt-10 mb-3 flex-wrap">
+              <div className="ring-4 ring-discord-secondary rounded-full shrink-0">
+                <AvatarWithFrame
+                  src={getImageUrl(user.avatar_url)}
+                  frame={user.avatar_frame}
+                  size={80}
+                />
+              </div>
+              <div className="flex flex-col gap-0.5 pb-1 min-w-0">
+                <UsernameDisplay
+                  username={user.username}
+                  color={user.username_color}
+                  anim={user.username_anim}
+                  className="text-white text-xl font-bold truncate"
+                />
+                {countryInfo && (
+                  <p className="text-discord-text-secondary text-sm">
+                    {countryInfo.flag} {lang === "ru" ? countryInfo.name_ru : countryInfo.name_en}
+                  </p>
+                )}
+                <p className="text-discord-text-muted text-sm">
+                  {t.profile.role}:{" "}
+                  <span className="text-discord-accent font-medium">{user.role || "USER"}</span>
+                </p>
+                <p className="text-discord-text-muted text-sm">
+                  {t.profile.registered}:{" "}
+                  <span className="text-discord-text-secondary">
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -192,6 +207,8 @@ export default function UserProfilePage() {
                     src={getImageUrl(friend.avatar_url)}
                     alt={friend.username}
                     className="w-12 h-12 rounded-full object-cover"
+                    onMouseEnter={(e) => showCard(friend.id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                    onMouseLeave={hideCard}
                   />
                   <span className="text-discord-text-secondary text-xs text-center truncate w-full">
                     {friend.username}

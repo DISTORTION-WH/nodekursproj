@@ -4,11 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { User } from "../../types";
 import { getImageUrl } from "../../utils/imageUrl";
 import { useI18n } from "../../i18n";
+import { useHoverCard } from "../../context/HoverCardContext";
 
 export default function ProfileFriendList() {
   const [friends, setFriends] = useState<User[]>([]);
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { showCard, hideCard } = useHoverCard();
 
   useEffect(() => {
     api
@@ -35,6 +37,8 @@ export default function ProfileFriendList() {
                 src={getImageUrl(f.avatar_url)}
                 alt={f.username}
                 className="w-12 h-12 rounded-full object-cover"
+                onMouseEnter={(e) => showCard(f.id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                onMouseLeave={hideCard}
               />
               <span className="text-discord-text-secondary text-xs text-center truncate w-full">
                 {f.username}
