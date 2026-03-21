@@ -3,10 +3,12 @@ import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import { User } from "../../types";
 import { getImageUrl } from "../../utils/imageUrl";
+import { useI18n } from "../../i18n";
 
 export default function ProfileFriendList() {
   const [friends, setFriends] = useState<User[]>([]);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   useEffect(() => {
     api
@@ -17,10 +19,10 @@ export default function ProfileFriendList() {
 
   return (
     <div className="bg-discord-secondary rounded-xl p-6">
-      <h3 className="text-white font-semibold text-base mb-3">Друзья</h3>
+      <h3 className="text-white font-semibold text-base mb-3">{t.profile.friends}</h3>
 
       {friends.length === 0 ? (
-        <p className="text-discord-text-muted text-sm">Нет друзей</p>
+        <p className="text-discord-text-muted text-sm">{t.profile.no_friends}</p>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-2">
           {friends.map((f) => (

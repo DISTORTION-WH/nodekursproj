@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { User } from "../../types";
 import { getImageUrl } from "../../utils/imageUrl";
 import { updateUserAvatarFrame } from "../../services/api";
+import { useI18n } from "../../i18n";
 
 export interface AvatarFrame {
   id: string;
@@ -168,7 +169,13 @@ interface Props {
 
 export default function AvatarFrameShop({ currentUser, setCurrentUser }: Props) {
   const [loading, setLoading] = useState(false);
+  const { t } = useI18n();
   const activeFrame = currentUser?.avatar_frame ?? "none";
+
+  const getFrameLabel = (id: string): string =>
+    (t.profile as Record<string, string>)[`frame_${id.replace("-", "_")}`] ?? id;
+  const getFrameDesc = (id: string): string =>
+    (t.profile as Record<string, string>)[`frame_${id.replace("-", "_")}_desc`] ?? "";
 
   const handleSelect = async (frameId: string) => {
     if (!currentUser || loading) return;
@@ -180,7 +187,7 @@ export default function AvatarFrameShop({ currentUser, setCurrentUser }: Props) 
       await updateUserAvatarFrame(frameVal);
     } catch {
       setCurrentUser({ ...currentUser, avatar_frame: prev });
-      alert("Не удалось сменить рамку");
+      alert(t.profile.frame_error);
     } finally {
       setLoading(false);
     }
@@ -188,7 +195,7 @@ export default function AvatarFrameShop({ currentUser, setCurrentUser }: Props) 
 
   return (
     <div className="bg-discord-secondary rounded-lg p-4 flex flex-col gap-3">
-      <h3 className="text-discord-text-primary font-semibold text-sm">Рамка аватара</h3>
+      <h3 className="text-discord-text-primary font-semibold text-sm">{t.profile.avatar_frame}</h3>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
         {AVATAR_FRAMES.map((frame) => {
@@ -198,7 +205,7 @@ export default function AvatarFrameShop({ currentUser, setCurrentUser }: Props) 
               key={frame.id}
               onClick={() => handleSelect(frame.id)}
               disabled={loading}
-              title={frame.description}
+              title={getFrameDesc(frame.id)}
               className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition ${
                 isActive
                   ? "border-discord-accent bg-discord-accent/10"
@@ -216,10 +223,10 @@ export default function AvatarFrameShop({ currentUser, setCurrentUser }: Props) 
                 />
               </div>
               <span className="text-discord-text-secondary text-xs text-center leading-tight">
-                {frame.label}
+                {getFrameLabel(frame.id)}
               </span>
               {isActive && (
-                <span className="text-discord-accent text-[10px] font-bold">✓ Активна</span>
+                <span className="text-discord-accent text-[10px] font-bold">{t.profile.frame_active}</span>
               )}
             </button>
           );
