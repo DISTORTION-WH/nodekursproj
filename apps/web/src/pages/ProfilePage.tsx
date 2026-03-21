@@ -113,7 +113,6 @@ function ImageCropper({
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return prev;
         const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
         const newW = clamp(mx - prev.x, 60, displayW - prev.x);
         const newH = newW / 3;
         return { ...prev, w: newW, h: clamp(newH, 20, DISPLAY_H - prev.y) };
