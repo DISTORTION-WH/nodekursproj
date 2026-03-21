@@ -71,7 +71,7 @@ export default function ProfileHoverCard() {
         zIndex: 9999,
         pointerEvents: "auto",
       }}
-      className="rounded-xl shadow-2xl overflow-hidden bg-discord-secondary border border-white/10 animate-message-pop"
+      className="rounded-xl shadow-2xl bg-discord-secondary border border-white/10 animate-message-pop"
     >
       {/* Banner */}
       <ProfileBackground profileBg={user?.profile_bg} height={64} />
@@ -94,6 +94,7 @@ export default function ProfileHoverCard() {
                 username={user.username}
                 color={user.username_color}
                 anim={user.username_anim}
+                badge={user.profile_badge}
                 className="font-bold text-sm text-white truncate"
               />
             )}
@@ -109,12 +110,24 @@ export default function ProfileHoverCard() {
           <p className="text-discord-text-secondary text-xs mb-2 line-clamp-2">{user.bio}</p>
         )}
 
+        {user?.social_link && (
+          <a
+            href={user.social_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-discord-accent text-xs hover:underline mb-2 block truncate"
+          >
+            {user.social_link.replace(/^https?:\/\//, "")}
+          </a>
+        )}
+
         <div className="flex gap-2 mt-1">
           <button
             onClick={() => {
               hideCard();
               navigate(`/profile/${target.userId}`);
             }}
+            style={user?.accent_color ? { background: user.accent_color } : undefined}
             className="flex-1 bg-discord-accent hover:bg-discord-accent-hover text-white text-xs font-semibold py-1.5 rounded transition"
           >
             {t.profile.my_profile}

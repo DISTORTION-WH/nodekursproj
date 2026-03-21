@@ -140,11 +140,11 @@ export default function UserProfilePage() {
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
         <h2 className="text-white text-2xl font-bold">
-          <UsernameDisplay username={user.username} color={user.username_color} anim={user.username_anim} />
+          <UsernameDisplay username={user.username} color={user.username_color} anim={user.username_anim} badge={user.profile_badge} />
         </h2>
 
         {/* Profile header with banner */}
-        <div className="bg-discord-secondary rounded-xl overflow-hidden">
+        <div className="bg-discord-secondary rounded-xl">
           <ProfileBackground profileBg={user.profile_bg} height={100} />
           <div className="px-6 pb-6">
             <div className="flex items-end gap-4 -mt-10 mb-3 flex-wrap">
@@ -160,6 +160,7 @@ export default function UserProfilePage() {
                   username={user.username}
                   color={user.username_color}
                   anim={user.username_anim}
+                  badge={user.profile_badge}
                   className="text-white text-xl font-bold truncate"
                 />
                 {countryInfo && (
@@ -182,11 +183,25 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Bio */}
-        {user.bio && (
-          <div className="bg-discord-secondary rounded-xl p-6">
-            <h3 className="text-white font-semibold text-base mb-2">{t.profile.bio}</h3>
-            <p className="text-discord-text-secondary text-sm">{user.bio}</p>
+        {/* Bio + social link */}
+        {(user.bio || user.social_link) && (
+          <div className="bg-discord-secondary rounded-xl p-6 flex flex-col gap-2">
+            {user.bio && (
+              <>
+                <h3 className="text-white font-semibold text-base mb-1">{t.profile.bio}</h3>
+                <p className="text-discord-text-secondary text-sm">{user.bio}</p>
+              </>
+            )}
+            {user.social_link && (
+              <a
+                href={user.social_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-discord-accent text-sm hover:underline truncate"
+              >
+                🔗 {user.social_link.replace(/^https?:\/\//, "")}
+              </a>
+            )}
           </div>
         )}
 
@@ -224,6 +239,7 @@ export default function UserProfilePage() {
           <div className="flex gap-3 flex-wrap">
             <button
               onClick={startChat}
+              style={user.accent_color ? { background: user.accent_color } : undefined}
               className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold px-4 py-2 rounded transition"
             >
               {t.profile.start_chat}

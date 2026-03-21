@@ -25,6 +25,10 @@ export interface User {
   profile_bg?: string | null;
   username_color?: string | null;
   username_anim?: string | null;
+  profile_badge?: string | null;
+  bubble_color?: string | null;
+  social_link?: string | null;
+  accent_color?: string | null;
 }
 
 export interface RegistrationCode {
@@ -113,7 +117,7 @@ async function getAllUsers(): Promise<User[]> {
 async function getUserById(id: string | number): Promise<User | null> {
   try {
     const userResult = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country, u.profile_bg, u.username_color, u.username_anim
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country, u.profile_bg, u.username_color, u.username_anim, u.profile_badge, u.bubble_color, u.social_link, u.accent_color
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,
@@ -327,6 +331,13 @@ async function updateUsernameStyle(userId: string | number, color: string, anim:
   await client.query("UPDATE users SET username_color = $1, username_anim = $2 WHERE id = $3", [color, anim, userId]);
 }
 
+async function updateProfileExtras(userId: string | number, badge: string, bubbleColor: string, socialLink: string, accentColor: string): Promise<void> {
+  await client.query(
+    "UPDATE users SET profile_badge = $1, bubble_color = $2, social_link = $3, accent_color = $4 WHERE id = $5",
+    [badge, bubbleColor, socialLink, accentColor, userId]
+  );
+}
+
 export default {
   findUserByUsername,
   createUser,
@@ -345,4 +356,5 @@ export default {
   updateUserTheme,
   updateProfileBg,
   updateUsernameStyle,
+  updateProfileExtras,
 };

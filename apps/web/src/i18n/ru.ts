@@ -139,6 +139,15 @@ const ru = {
     anim_shimmer: "Блеск",
     anim_fire: "Огонь",
     style_saved: "Стиль сохранён",
+    extras: "Дополнительно",
+    profile_badge: "Значок профиля",
+    profile_badge_placeholder: "Эмодзи (1–2 символа)",
+    bubble_color: "Цвет пузырьков сообщений",
+    bubble_preview: "Привет! Это мои сообщения",
+    social_link: "Ссылка (GitHub, сайт...)",
+    social_link_placeholder: "https://github.com/...",
+    accent_color: "Акцентный цвет кнопок",
+    extras_saved: "Настройки сохранены",
   },
   // ── Chat ──
   chat: {

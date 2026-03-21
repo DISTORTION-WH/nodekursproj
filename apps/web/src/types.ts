@@ -28,6 +28,10 @@ export interface User {
   profile_bg?: string | null;
   username_color?: string | null;
   username_anim?: string | null;
+  profile_badge?: string | null;
+  bubble_color?: string | null;
+  social_link?: string | null;
+  accent_color?: string | null;
 }
 
 export interface ReactionGroup {

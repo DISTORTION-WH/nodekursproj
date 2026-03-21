@@ -14,6 +14,7 @@ import {
   updateUserCountry,
   updateProfileBg,
   updateUsernameStyle,
+  updateProfileExtras,
 } from "../services/api";
 import { UserStatus, AppTheme } from "../types";
 import { useI18n } from "../i18n";
@@ -67,6 +68,14 @@ export default function ProfilePage() {
   const [uAnim, setUAnim] = useState<string>(currentUser?.username_anim ?? "");
   const [styleSaving, setStyleSaving] = useState(false);
   const [styleSaved, setStyleSaved] = useState(false);
+
+  // Extras
+  const [extBadge, setExtBadge] = useState(currentUser?.profile_badge ?? "");
+  const [extBubble, setExtBubble] = useState(currentUser?.bubble_color ?? "");
+  const [extLink, setExtLink] = useState(currentUser?.social_link ?? "");
+  const [extAccent, setExtAccent] = useState(currentUser?.accent_color ?? "");
+  const [extrasSaving, setExtrasSaving] = useState(false);
+  const [extrasSaved, setExtrasSaved] = useState(false);
 
   const STATUS_OPTIONS: { value: UserStatus; label: string; color: string }[] = [
     { value: "online", label: t.profile.online, color: "bg-discord-success" },
@@ -171,6 +180,25 @@ export default function ProfilePage() {
     }
   };
 
+  const handleExtrasSave = async () => {
+    if (!currentUser || extrasSaving) return;
+    setExtrasSaving(true);
+    try {
+      await updateProfileExtras(extBadge, extBubble, extLink, extAccent);
+      setCurrentUser({
+        ...currentUser,
+        profile_badge: extBadge,
+        bubble_color: extBubble,
+        social_link: extLink,
+        accent_color: extAccent,
+      });
+      setExtrasSaved(true);
+      setTimeout(() => setExtrasSaved(false), 2000);
+    } catch { /* */ } finally {
+      setExtrasSaving(false);
+    }
+  };
+
   const countryInfo = currentUser?.country
     ? COUNTRIES.find((c) => c.code === currentUser.country)
     : null;
@@ -208,7 +236,7 @@ export default function ProfilePage() {
         {tab === "view" && (
           <>
             {/* Profile card preview */}
-            <div className="bg-discord-secondary rounded-xl overflow-hidden">
+            <div className="bg-discord-secondary rounded-xl">
               <ProfileBackground profileBg={currentUser?.profile_bg} height={120} />
               <div className="px-6 pb-6">
                 <div className="flex items-end gap-4 -mt-10 mb-3">
@@ -224,6 +252,7 @@ export default function ProfilePage() {
                       username={currentUser?.username ?? ""}
                       color={currentUser?.username_color}
                       anim={currentUser?.username_anim}
+                      badge={currentUser?.profile_badge}
                       className="text-white text-xl font-bold truncate"
                     />
                     <span className="text-discord-text-muted text-sm">{currentUser?.role || "USER"}</span>
@@ -236,6 +265,27 @@ export default function ProfilePage() {
                 )}
                 {currentUser?.bio && (
                   <p className="text-discord-text-secondary text-sm">{currentUser.bio}</p>
+                )}
+                {currentUser?.social_link && (
+                  <a
+                    href={currentUser.social_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-discord-accent text-sm hover:underline truncate mt-1 block"
+                  >
+                    🔗 {currentUser.social_link.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
+                {/* Bubble color preview */}
+                {currentUser?.bubble_color && (
+                  <div className="mt-2 flex items-start">
+                    <span
+                      className="px-3 py-1.5 rounded-xl text-sm text-white"
+                      style={{ background: currentUser.bubble_color }}
+                    >
+                      {t.profile.bubble_preview}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -402,6 +452,108 @@ export default function ProfilePage() {
                 className="self-end bg-discord-accent hover:bg-discord-accent-hover text-white text-xs font-semibold px-3 py-1.5 rounded transition disabled:opacity-50"
               >
                 {styleSaved ? t.profile.style_saved : t.common.save}
+              </button>
+            </div>
+
+            {/* Extras: badge, bubble color, social link, accent color */}
+            <div className="bg-discord-secondary rounded-lg p-4 flex flex-col gap-4">
+              <h3 className="text-discord-text-primary font-semibold text-sm">{t.profile.extras}</h3>
+
+              {/* Badge */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-discord-text-muted text-xs">{t.profile.profile_badge}</label>
+                <div className="flex items-center gap-3">
+                  {extBadge && <span className="text-2xl leading-none">{extBadge}</span>}
+                  <input
+                    type="text"
+                    value={extBadge}
+                    onChange={(e) => setExtBadge(Array.from(e.target.value).slice(0, 2).join(""))}
+                    placeholder={t.profile.profile_badge_placeholder}
+                    className="flex-1 bg-discord-input text-discord-text-primary text-sm rounded px-2 py-1 outline-none border border-discord-tertiary focus:border-discord-accent transition"
+                  />
+                </div>
+              </div>
+
+              {/* Bubble color */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-discord-text-muted text-xs">{t.profile.bubble_color}</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={extBubble || "#5865f2"}
+                    onChange={(e) => setExtBubble(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={extBubble}
+                    onChange={(e) => setExtBubble(e.target.value)}
+                    placeholder="#5865f2 or linear-gradient(...)"
+                    className="flex-1 bg-discord-input text-discord-text-primary text-sm rounded px-2 py-1 outline-none border border-discord-tertiary focus:border-discord-accent transition"
+                  />
+                  {extBubble && (
+                    <button onClick={() => setExtBubble("")} className="text-discord-text-muted text-xs hover:text-discord-text-primary">✕</button>
+                  )}
+                </div>
+                {/* preview */}
+                {extBubble && (
+                  <span
+                    className="self-start px-3 py-1.5 rounded-xl text-sm text-white mt-1"
+                    style={{ background: extBubble }}
+                  >
+                    {t.profile.bubble_preview}
+                  </span>
+                )}
+              </div>
+
+              {/* Social link */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-discord-text-muted text-xs">{t.profile.social_link}</label>
+                <input
+                  type="url"
+                  value={extLink}
+                  onChange={(e) => setExtLink(e.target.value)}
+                  placeholder={t.profile.social_link_placeholder}
+                  className="bg-discord-input text-discord-text-primary text-sm rounded px-2 py-1 outline-none border border-discord-tertiary focus:border-discord-accent transition"
+                />
+              </div>
+
+              {/* Accent color */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-discord-text-muted text-xs">{t.profile.accent_color}</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={extAccent || "#5865f2"}
+                    onChange={(e) => setExtAccent(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={extAccent}
+                    onChange={(e) => setExtAccent(e.target.value)}
+                    placeholder="#5865f2"
+                    className="flex-1 bg-discord-input text-discord-text-primary text-sm rounded px-2 py-1 outline-none border border-discord-tertiary focus:border-discord-accent transition"
+                  />
+                  {/* preview button */}
+                  <button
+                    style={extAccent ? { background: extAccent } : undefined}
+                    className="text-white text-xs font-semibold px-3 py-1.5 rounded bg-discord-accent shrink-0"
+                  >
+                    {t.profile.tab_view}
+                  </button>
+                  {extAccent && (
+                    <button onClick={() => setExtAccent("")} className="text-discord-text-muted text-xs hover:text-discord-text-primary">✕</button>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={handleExtrasSave}
+                disabled={extrasSaving}
+                className="self-end bg-discord-accent hover:bg-discord-accent-hover text-white text-xs font-semibold px-3 py-1.5 rounded transition disabled:opacity-50"
+              >
+                {extrasSaved ? t.profile.extras_saved : t.common.save}
               </button>
             </div>
 

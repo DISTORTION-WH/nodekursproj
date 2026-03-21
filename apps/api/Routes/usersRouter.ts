@@ -190,6 +190,23 @@ router.patch("/me/username-style", authMiddleware, async (req: AuthRequest, res:
   }
 });
 
+router.patch("/me/profile-extras", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const { profile_badge, bubble_color, social_link, accent_color } = req.body;
+    await userService.updateProfileExtras(
+      userId,
+      (profile_badge ?? "").slice(0, 10),
+      bubble_color ?? "",
+      (social_link ?? "").slice(0, 200),
+      accent_color ?? ""
+    );
+    res.json({ profile_badge, bubble_color, social_link, accent_color });
+  } catch (e: any) {
+    next(e);
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);

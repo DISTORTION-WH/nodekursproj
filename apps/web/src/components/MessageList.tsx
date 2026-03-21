@@ -791,7 +791,12 @@ export default function MessageList() {
                   }`}
                   style={
                     isMine
-                      ? { background: "linear-gradient(135deg, var(--color-accent), #7b68ee)", transition: "all 0.15s ease" }
+                      ? {
+                          background: currentUser?.bubble_color
+                            ? currentUser.bubble_color
+                            : "linear-gradient(135deg, var(--color-accent), #7b68ee)",
+                          transition: "all 0.15s ease",
+                        }
                       : { background: "var(--color-secondary)", transition: "all 0.15s ease" }
                   }
                 >
