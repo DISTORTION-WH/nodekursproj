@@ -9,7 +9,6 @@ import { useI18n } from "../i18n";
 // ─── Custom Voice Message Player ─────────────────────────────────────────────
 
 function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
-  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);

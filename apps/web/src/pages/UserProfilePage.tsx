@@ -37,7 +37,7 @@ export default function UserProfilePage() {
       .get<{ status: FriendStatus }>(`/friends/status/${userId}`)
       .then((res) => setFriendStatus(res.data.status))
       .catch(() => setFriendStatus("none"));
-  }, [userId, navigate]);
+  }, [userId, navigate, t]);
 
   const startChat = async () => {
     if (!user) return;

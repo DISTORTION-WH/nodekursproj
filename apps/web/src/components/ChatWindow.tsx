@@ -40,7 +40,7 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
       console.error("File upload error:", err);
       alert(t.chat.file_upload_error);
     }
-  }, [activeChat]);
+  }, [activeChat, t]);
 
   if (!activeChat) return null;
 
