@@ -5,6 +5,7 @@ import { Socket } from "socket.io-client";
 import { Device } from "mediasoup-client";
 import type { Transport, Consumer } from "mediasoup-client/lib/types";
 import { GroupCallParticipant } from "../types";
+import { useI18n } from "../i18n";
 
 interface CallContextType {
   // 1-on-1 call
@@ -75,6 +76,7 @@ const fetchIceServers = async (): Promise<RTCConfiguration> => {
 export const CallProvider = ({ children }: { children: ReactNode }) => {
   const { socket } = useSocket() as { socket: Socket | null };
   const { currentUser } = useAuth();
+  const { t } = useI18n();
 
   // ─── 1-on-1 call state ───────────────────────────────────────────────────
   const [callState, setCallState] = useState<"idle" | "incoming" | "connected" | "calling">("idle");
@@ -277,7 +279,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
           console.error("Microphone also unavailable:", audioErr);
         }
       }
-      alert("Не удалось получить доступ к камере или микрофону.");
+      alert(t.call.media_access_error);
       resetCall();
       return null;
     }
@@ -586,7 +588,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
     socket.on("call_busy", () => {
       // The person we called is busy — notify and reset
-      alert("Пользователь сейчас занят другим звонком");
+      alert(t.call.user_busy);
       resetCallRef.current();
     });
 

@@ -232,6 +232,11 @@ const en: Translations = {
     role_moderator: "Moderator",
     role_trusted: "Trusted",
     role_member: "Member",
+    removed_from_chat: "You have been removed from this chat",
+    delete_for_all_confirm: "Delete for everyone?",
+    delete_for_me_confirm: "Delete for yourself?",
+    leave_confirm: "Leave group?",
+    kick_confirm: "Remove member?",
     create_poll: "Create poll",
     poll_question: "Question...",
     poll_option: "Option",
@@ -280,6 +285,7 @@ const en: Translations = {
     audio_quality_reduced: "Audio quality reduced",
     screen_share: "Share screen",
     stop_screen_share: "Stop sharing",
+    media_access_error: "Could not access camera or microphone",
   },
   // ── Messages ──
   messages: {

@@ -234,6 +234,11 @@ const ru = {
     role_moderator: "Модератор",
     role_trusted: "Доверенный",
     role_member: "Участник",
+    removed_from_chat: "Вас исключили из этого чата",
+    delete_for_all_confirm: "Удалить у всех?",
+    delete_for_me_confirm: "Удалить у себя?",
+    leave_confirm: "Выйти из группы?",
+    kick_confirm: "Удалить участника?",
     create_poll: "Создать опрос",
     poll_question: "Вопрос...",
     poll_option: "Вариант",
@@ -283,6 +288,7 @@ const ru = {
     audio_quality_reduced: "Качество аудио снижено",
     screen_share: "Демонстрация экрана",
     stop_screen_share: "Остановить демонстрацию",
+    media_access_error: "Не удалось получить доступ к камере или микрофону",
   },
   // ── Messages ──
   messages: {

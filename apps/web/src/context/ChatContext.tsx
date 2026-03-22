@@ -22,6 +22,7 @@ import api, {
 } from "../services/api";
 import { useSocket } from "./SocketContext";
 import { Chat, Message, User, ChatParticipant, ReactionGroup, UnreadCounts } from "../types";
+import { useI18n } from "../i18n";
 
 interface ChatContextType {
   activeChat: Chat | null;
@@ -83,6 +84,7 @@ interface ChatProviderProps {
 
 export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const { socket } = useSocket() as { socket: Socket | null };
+  const { t } = useI18n();
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -262,7 +264,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     const handleRemovedFromChat = (data: { chatId: number }) => {
       const current = activeChatRef.current;
       if (current && Number(data.chatId) === Number(current.id)) {
-        alert("Вас исключили из этого чата");
+        alert(t.chat.removed_from_chat);
         setActiveChat(null);
       }
     };
@@ -419,7 +421,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
 
   const deleteMessages = async (allForEveryone: boolean) => {
     if (!activeChat?.id) return;
-    if (!window.confirm(allForEveryone ? "Удалить у всех?" : "Удалить у себя?")) return;
+    if (!window.confirm(allForEveryone ? t.chat.delete_for_all_confirm : t.chat.delete_for_me_confirm)) return;
     try {
       await api.post(`/chats/${activeChat.id}/messages/delete`, { allForEveryone });
       // Clear locally in both cases — for "all" the server broadcasts messages_cleared
@@ -447,17 +449,17 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       if (!activeChat) return;
       await api.post(`/chats/${activeChat.id}/invite`, { friendId });
       closeModal();
-    } catch (err: any) { alert(err.response?.data?.message || "Ошибка"); }
+    } catch (err: any) { alert(err.response?.data?.message || t.common.error); }
   };
 
   const handleKick = async (userIdToKick: number) => {
     if (!activeChat || !currentUser) return;
     const isLeaving = currentUser.id === userIdToKick;
-    if (!window.confirm(isLeaving ? "Выйти из группы?" : "Удалить участника?")) return;
+    if (!window.confirm(isLeaving ? t.chat.leave_confirm : t.chat.kick_confirm)) return;
     try {
       await api.post(`/chats/${activeChat.id}/kick`, { userIdToKick });
       if (isLeaving) closeChat();
-    } catch (err: any) { alert(err.response?.data?.message || "Ошибка"); }
+    } catch (err: any) { alert(err.response?.data?.message || t.common.error); }
   };
 
   const handleGetInviteCode = async () => {

@@ -358,9 +358,9 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(87,242,135,0.85)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(87,242,135,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(87,242,135,0.3)"; }}
               >
-                {t.chat.invite}
+                  {t.chat.invite}
               </button>
-)}
+              )}
               <button
                 onClick={openMembersModal}
                 className={`${btnBase} bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-discord-text-primary`}
