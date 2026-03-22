@@ -45,5 +45,11 @@ router.get("/:id/search", chatController.searchMessages);
 router.get("/:id/pinned", chatController.getPinnedMessages);
 router.post("/:id/forward", chatController.forwardMessage);
 router.post("/:id/upload", upload.single("file"), chatController.uploadFile);
+router.get("/:id/media", chatController.getMediaGallery);
+router.get("/:id/export", chatController.exportChatHistory);
+router.post("/:id/polls", chatController.createPoll);
+router.post("/:id/scheduled", chatController.createScheduledMessage);
+router.get("/:id/scheduled", chatController.getScheduledMessages);
+router.delete("/:id/scheduled/:msgId", chatController.deleteScheduledMessage);
 
 export default router;

@@ -225,6 +225,25 @@ router.post("/me/reset-profile", authMiddleware, async (req: AuthRequest, res: R
   }
 });
 
+router.get("/me/mentions", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req.user as any).id;
+    const db = require("../databasepg").default;
+    const result = await db.query(
+      `SELECT mm.id, mm.message_id, mm.chat_id, mm.seen, mm.created_at,
+              m.text, u.username as sender_name, c.name as chat_name
+       FROM message_mentions mm
+       JOIN messages m ON m.id = mm.message_id
+       JOIN users u ON u.id = m.sender_id
+       JOIN chats c ON c.id = mm.chat_id
+       WHERE mm.mentioned_user_id = $1
+       ORDER BY mm.created_at DESC LIMIT 50`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (e: any) { next(e); }
+});
+
 router.get("/:id", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id as string, 10);

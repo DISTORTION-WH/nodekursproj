@@ -287,6 +287,7 @@ export default function SubtitlesOverlay({
     groupChatId,
     localUsername,
     localSpeakerId,
+    toleranceMode: audioAdapting,
   });
 
   // ── Display buffer with fade-out ──────────────────────────────────────────

@@ -179,6 +179,20 @@ export default function UserProfilePage() {
                   {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
                 </span>
               </p>
+              {user.status !== "online" && user.last_seen && (
+                <p className="text-discord-text-muted text-sm">
+                  {t.profile.last_seen}:{" "}
+                  <span className="text-discord-text-secondary">
+                    {(() => {
+                      const diff = Math.floor((Date.now() - new Date(user.last_seen).getTime()) / 1000);
+                      if (diff < 60) return t.profile.last_seen_just_now;
+                      if (diff < 3600) return `${Math.floor(diff / 60)} ${t.profile.last_seen_minutes}`;
+                      if (diff < 86400) return `${Math.floor(diff / 3600)} ${t.profile.last_seen_hours}`;
+                      return new Date(user.last_seen).toLocaleDateString();
+                    })()}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
         </div>

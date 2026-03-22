@@ -29,6 +29,13 @@ export interface UseLiveSubtitlesOptions {
   groupChatId?: number | null;
   localUsername?: string;
   localSpeakerId?: string;
+  /**
+   * Tolerance mode — activated by predictive quality module when network
+   * degradation is detected. Doubles the AudioWorklet buffer size (fewer,
+   * larger chunks → less socket overhead) and increases translation debounce
+   * to reduce unnecessary API calls during unstable conditions.
+   */
+  toleranceMode?: boolean;
   // legacy compat
   enabled?: boolean;
   lang?: string;
@@ -54,7 +61,10 @@ class PCMProcessor extends AudioWorkletProcessor {
     super();
     this._buf = [];
     this._size = 0;
-    this._target = 4096; // ~256ms at 16kHz
+    this._target = 4096; // ~256ms at 16kHz; overridable via port message
+    this.port.onmessage = (e) => {
+      if (e.data?.type === 'set_target') this._target = e.data.value;
+    };
   }
   process(inputs) {
     const ch = inputs[0]?.[0];
@@ -95,6 +105,12 @@ function getWorkletUrl(): string {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+// Buffer sizes for normal and tolerance modes
+const WORKLET_TARGET_NORMAL    = 4096;  // ~256ms at 16kHz
+const WORKLET_TARGET_TOLERANCE = 8192;  // ~512ms — fewer chunks, less overhead
+const DEBOUNCE_NORMAL          = 500;   // ms — interim translation debounce
+const DEBOUNCE_TOLERANCE       = 1200;  // ms — slower polling when network is stressed
+
 export function useLiveSubtitles({
   localStream,
   speechLang = "en-US",
@@ -107,6 +123,7 @@ export function useLiveSubtitles({
   groupChatId = null,
   localUsername = "Вы",
   localSpeakerId = "local",
+  toleranceMode = false,
 }: UseLiveSubtitlesOptions): UseLiveSubtitlesResult {
   const shouldShow = showSubtitles ?? enabled ?? false;
 
@@ -124,8 +141,9 @@ export function useLiveSubtitles({
     groupChatId,
     localUsername,
     localSpeakerId,
+    toleranceMode,
   });
-  refs.current = { shouldShow, speechLang, displayLang, socket, remoteUserId, groupChatId, localUsername, localSpeakerId };
+  refs.current = { shouldShow, speechLang, displayLang, socket, remoteUserId, groupChatId, localUsername, localSpeakerId, toleranceMode };
 
   // ─── Audio pipeline state ─────────────────────────────────────────────────
   // We use a ref-object so start/stop can always access the latest handles
@@ -138,6 +156,15 @@ export function useLiveSubtitles({
   }>({ audioCtx: null, worklet: null, source: null, silentGain: null, active: false });
 
   const interimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── Tolerance mode: adjust worklet buffer size on-the-fly ───────────────
+  useEffect(() => {
+    const worklet = pipeline.current.worklet;
+    if (!worklet) return;
+    const target = toleranceMode ? WORKLET_TARGET_TOLERANCE : WORKLET_TARGET_NORMAL;
+    worklet.port.postMessage({ type: "set_target", value: target });
+    console.log(`[SUBTITLES] toleranceMode=${toleranceMode} → worklet target=${target}`);
+  }, [toleranceMode]);
 
   // ─── Subtitle upsert ──────────────────────────────────────────────────────
   const upsertSubtitle = useCallback(
@@ -347,13 +374,14 @@ export function useLiveSubtitles({
         upsertSubtitle(data.speakerId, data.username, data.text, false);
 
         if (interimTimerRef.current) clearTimeout(interimTimerRef.current);
+        const debounceMs = refs.current.toleranceMode ? DEBOUNCE_TOLERANCE : DEBOUNCE_NORMAL;
         interimTimerRef.current = setTimeout(() => {
           translateText(data.text, from, to).then((translated) => {
             if (translated !== data.text) {
               upsertSubtitle(data.speakerId, data.username, translated, false);
             }
           });
-        }, 500);
+        }, debounceMs);
       }
     };
 

@@ -418,6 +418,55 @@ io.on("connection", async (socket: Socket) => {
     deepgramService.stopSession(userId);
   });
 
+  // ─── Mentions seen ────────────────────────────────────────────────────────
+  socket.on("mentions_seen", async (data: { chatId: number }) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    await client.query(
+      "UPDATE message_mentions SET seen = true WHERE mentioned_user_id = $1 AND chat_id = $2",
+      [userId, data.chatId]
+    ).catch(console.error);
+  });
+
+  // ─── Poll vote ────────────────────────────────────────────────────────────
+  socket.on("poll_vote", async (data: { pollId: number; optionIndex: number }, ack) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    try {
+      const pollRes = await client.query("SELECT * FROM polls WHERE id = $1", [data.pollId]);
+      if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); return; }
+      const poll = pollRes.rows[0];
+      if (poll.closed) { if (ack) ack({ error: "Poll is closed" }); return; }
+      const votes: Record<string, number[]> = poll.votes || {};
+      // Remove user from all options first (single-choice)
+      for (const key of Object.keys(votes)) {
+        votes[key] = (votes[key] as number[]).filter((id) => id !== userId);
+      }
+      const key = String(data.optionIndex);
+      if (!votes[key]) votes[key] = [];
+      votes[key].push(userId);
+      await client.query("UPDATE polls SET votes = $1 WHERE id = $2", [JSON.stringify(votes), data.pollId]);
+      io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId: data.pollId, votes });
+      if (ack) ack({ ok: true, votes });
+    } catch (e) {
+      console.error("poll_vote error:", e);
+      if (ack) ack({ error: "Vote failed" });
+    }
+  });
+
+  // ─── Message read receipt ─────────────────────────────────────────────────
+  socket.on("message_read", async (data: { messageId: number; chatId: number }) => {
+    const userId = (socket as any).userId;
+    if (!userId) return;
+    try {
+      await client.query(
+        "INSERT INTO message_reads (message_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        [data.messageId, userId]
+      );
+      socket.to(`chat_${data.chatId}`).emit("message_read_ack", { messageId: data.messageId, userId });
+    } catch (e) { /* silent */ }
+  });
+
   // Typing indicators
   socket.on("typing", (data: { chatId: number }) => {
     const userId = (socket as any).userId;
@@ -451,7 +500,7 @@ io.on("connection", async (socket: Socket) => {
         const isInvisible = invisRes.rows[0]?.is_invisible === true;
 
         if (!isInvisible) {
-          await client.query("UPDATE users SET status = 'offline' WHERE id = $1", [userId]);
+          await client.query("UPDATE users SET status = 'offline', last_seen = NOW() WHERE id = $1", [userId]);
         }
         const userRooms = await client.query(
           "SELECT chat_id FROM chat_users WHERE user_id = $1",
@@ -729,6 +778,63 @@ async function initializeDatabase() {
     try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_link TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
     try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
 
+    // last_seen
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ DEFAULT NOW();`); } catch(e: any) { if (e.code !== "42701") throw e; }
+
+    // Message extra features: expires_at for ephemeral, is_silent for notifications
+    try { await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT NULL;`); } catch(e: any) { if (e.code !== "42701") throw e; }
+
+    // Scheduled messages
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS scheduled_messages (
+        id SERIAL PRIMARY KEY,
+        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
+        sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        send_at TIMESTAMPTZ NOT NULL,
+        sent BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );`
+    );
+
+    // Polls
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS polls (
+        id SERIAL PRIMARY KEY,
+        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        question TEXT NOT NULL,
+        options JSONB NOT NULL,
+        votes JSONB NOT NULL DEFAULT '{}',
+        closed BOOLEAN DEFAULT false,
+        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );`
+    );
+
+    // Mentions
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS message_mentions (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+        mentioned_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
+        seen BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );`
+    );
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mentions_user ON message_mentions(mentioned_user_id);`);
+
+    // Read receipts per message
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS message_reads (
+        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        read_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (message_id, user_id)
+      );`
+    );
+
     // Password reset codes
     await client.query(
       `CREATE TABLE IF NOT EXISTS password_reset_codes (
@@ -780,6 +886,52 @@ async function start() {
   await initializeDatabase();
   await mediasoupService.createWorker();
   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+  // ─── Scheduled messages: check every 30 seconds ────────────────────────
+  setInterval(async () => {
+    try {
+      const res = await client.query(
+        `SELECT sm.*, u.username as sender_name, u.avatar_url as sender_avatar
+         FROM scheduled_messages sm
+         JOIN users u ON u.id = sm.sender_id
+         WHERE sm.send_at <= NOW() AND sm.sent = false`
+      );
+      for (const row of res.rows) {
+        const msgRes = await client.query(
+          `INSERT INTO messages (chat_id, sender_id, text) VALUES ($1, $2, $3) RETURNING id, created_at`,
+          [row.chat_id, row.sender_id, row.text]
+        );
+        const msg = msgRes.rows[0];
+        await client.query("UPDATE scheduled_messages SET sent = true WHERE id = $1", [row.id]);
+        io.to(`chat_${row.chat_id}`).emit("new_message", {
+          id: msg.id,
+          chat_id: row.chat_id,
+          sender_id: row.sender_id,
+          sender_name: row.sender_name,
+          sender_avatar: row.sender_avatar,
+          text: row.text,
+          created_at: msg.created_at,
+          reactions: [],
+        });
+      }
+    } catch (e) {
+      console.error("[SCHEDULED] Error:", e);
+    }
+  }, 30_000);
+
+  // ─── Ephemeral messages: delete expired every minute ───────────────────
+  setInterval(async () => {
+    try {
+      const res = await client.query(
+        `DELETE FROM messages WHERE expires_at IS NOT NULL AND expires_at <= NOW() RETURNING id, chat_id`
+      );
+      for (const row of res.rows) {
+        io.to(`chat_${row.chat_id}`).emit("message_deleted", { messageId: row.id, chatId: row.chat_id });
+      }
+    } catch (e) {
+      console.error("[EPHEMERAL] Cleanup error:", e);
+    }
+  }, 60_000);
 }
 
 start();

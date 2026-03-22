@@ -403,14 +403,43 @@ class ChatController {
       const authReq = req as AuthRequest;
       const chatId = req.params.id as string;
       const senderId = authReq.user?.id;
-      const { text, reply_to_id } = req.body;
+      const { text, reply_to_id, expires_in_seconds } = req.body;
 
       if (!senderId || !authReq.user) {
           res.status(401).json({ message: "Пользователь не авторизован" });
           return;
       }
 
-      const msg = await chatService.postMessage(chatId, senderId, text, reply_to_id ?? null);
+      const msg = await chatService.postMessage(chatId, senderId, text, reply_to_id ?? null, expires_in_seconds ?? null);
+
+      // ─── Process @mentions ───────────────────────────────────────────
+      const mentionRegex = /@(\w+)/g;
+      const mentionedUsernames: string[] = [];
+      let m;
+      while ((m = mentionRegex.exec(text)) !== null) {
+        mentionedUsernames.push(m[1]);
+      }
+      if (mentionedUsernames.length > 0) {
+        // Find mentioned users who are members of this chat
+        const usersRes = await client.query(
+          `SELECT u.id FROM users u
+           JOIN chat_users cu ON cu.user_id = u.id AND cu.chat_id = $1
+           WHERE u.username = ANY($2) AND u.id != $3`,
+          [chatId, mentionedUsernames, senderId]
+        );
+        for (const row of usersRes.rows) {
+          await client.query(
+            "INSERT INTO message_mentions (message_id, mentioned_user_id, chat_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+            [msg.id, row.id, chatId]
+          );
+          req.app.get("io").to(`user_${row.id}`).emit("mention_received", {
+            messageId: msg.id,
+            chatId: Number(chatId),
+            senderName: authReq.user.username,
+            text,
+          });
+        }
+      }
 
       req.app.get("io").to(`chat_${chatId}`).emit("new_message", msg);
 
@@ -616,6 +645,144 @@ class ChatController {
     } catch (e) {
       next(e);
     }
+  }
+
+  // ─── Media Gallery ────────────────────────────────────────────────────────
+  async getMediaGallery(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const userId = authReq.user?.id;
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      const memberCheck = await client.query("SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2", [chatId, userId]);
+      if (memberCheck.rows.length === 0) { res.status(403).json({ message: "Нет доступа" }); return; }
+      const result = await client.query(
+        `SELECT m.id, m.text, m.created_at, m.sender_id, u.username as sender_name
+         FROM messages m JOIN users u ON u.id = m.sender_id
+         WHERE m.chat_id = $1 AND NOT ($2 = ANY(m.deleted_for))
+           AND (m.text LIKE 'https://%' OR m.text LIKE 'http://%')
+           AND (m.text ~ '\\.(jpg|jpeg|png|gif|webp|mp4|webm|mp3|pdf|zip)($|\\?)' OR m.text LIKE '%/stickers/%' OR m.text LIKE '%/uploads/%')
+         ORDER BY m.created_at DESC LIMIT 100`,
+        [chatId, userId]
+      );
+      res.json(result.rows);
+    } catch (e) { next(e); }
+  }
+
+  // ─── Export chat history ──────────────────────────────────────────────────
+  async exportChatHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const userId = authReq.user?.id;
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      const memberCheck = await client.query("SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2", [chatId, userId]);
+      if (memberCheck.rows.length === 0) { res.status(403).json({ message: "Нет доступа" }); return; }
+      const chatInfo = await client.query("SELECT name FROM chats WHERE id = $1", [chatId]);
+      const msgs = await client.query(
+        `SELECT m.id, m.text, m.created_at, u.username as sender_name
+         FROM messages m JOIN users u ON u.id = m.sender_id
+         WHERE m.chat_id = $1 AND NOT ($2 = ANY(m.deleted_for))
+         ORDER BY m.created_at ASC`,
+        [chatId, userId]
+      );
+      const exportData = {
+        chat: { id: chatId, name: chatInfo.rows[0]?.name },
+        exported_at: new Date().toISOString(),
+        messages: msgs.rows.map((m) => ({
+          id: m.id,
+          sender: m.sender_name,
+          text: m.text,
+          time: m.created_at,
+        })),
+      };
+      res.setHeader("Content-Disposition", `attachment; filename=chat-${chatId}.json`);
+      res.json(exportData);
+    } catch (e) { next(e); }
+  }
+
+  // ─── Polls ────────────────────────────────────────────────────────────────
+  async createPoll(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const userId = authReq.user?.id;
+      const { question, options, expires_in_seconds } = req.body as { question: string; options: string[]; expires_in_seconds?: number };
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      if (!question?.trim() || !Array.isArray(options) || options.length < 2 || options.length > 10) {
+        res.status(400).json({ message: "Некорректные данные опроса" }); return;
+      }
+      const optionsJson = JSON.stringify(options.map((o) => o.slice(0, 100)));
+      // Create a proxy message for the poll
+      const expiresAt = expires_in_seconds ? new Date(Date.now() + expires_in_seconds * 1000) : null;
+      const msgRes = await client.query(
+        `INSERT INTO messages (chat_id, sender_id, text, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
+        [chatId, userId, `📊 ${question}`, expiresAt]
+      );
+      const msg = msgRes.rows[0];
+      const pollRes = await client.query(
+        `INSERT INTO polls (chat_id, creator_id, question, options, votes, message_id) VALUES ($1, $2, $3, $4, '{}', $5) RETURNING id`,
+        [chatId, userId, question.trim(), optionsJson, msg.id]
+      );
+      const io = req.app.get("io");
+      const senderRes = await client.query("SELECT username, avatar_url FROM users WHERE id = $1", [userId]);
+      const sender = senderRes.rows[0];
+      io.to(`chat_${chatId}`).emit("new_message", {
+        id: msg.id, chat_id: Number(chatId), sender_id: userId,
+        sender_name: sender?.username, sender_avatar: sender?.avatar_url,
+        text: `📊 ${question}`, created_at: msg.created_at,
+        poll: { id: pollRes.rows[0].id, question, options: options.map((o) => o.slice(0,100)), votes: {}, closed: false },
+        reactions: [],
+      });
+      res.json({ pollId: pollRes.rows[0].id, messageId: msg.id });
+    } catch (e) { next(e); }
+  }
+
+  // ─── Scheduled messages ───────────────────────────────────────────────────
+  async createScheduledMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const userId = authReq.user?.id;
+      const { text, send_at } = req.body as { text: string; send_at: string };
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      if (!text?.trim() || !send_at) { res.status(400).json({ message: "Не указан текст или время" }); return; }
+      const sendDate = new Date(send_at);
+      if (isNaN(sendDate.getTime()) || sendDate <= new Date()) {
+        res.status(400).json({ message: "Некорректное время отправки" }); return;
+      }
+      const result = await client.query(
+        "INSERT INTO scheduled_messages (chat_id, sender_id, text, send_at) VALUES ($1, $2, $3, $4) RETURNING *",
+        [chatId, userId, text.trim(), sendDate]
+      );
+      res.json(result.rows[0]);
+    } catch (e) { next(e); }
+  }
+
+  async getScheduledMessages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const userId = authReq.user?.id;
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      const result = await client.query(
+        "SELECT * FROM scheduled_messages WHERE chat_id = $1 AND sender_id = $2 AND sent = false ORDER BY send_at ASC",
+        [chatId, userId]
+      );
+      res.json(result.rows);
+    } catch (e) { next(e); }
+  }
+
+  async deleteScheduledMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthRequest;
+      const chatId = req.params.id;
+      const msgId = req.params.msgId;
+      const userId = authReq.user?.id;
+      if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
+      await client.query("DELETE FROM scheduled_messages WHERE id = $1 AND chat_id = $2 AND sender_id = $3", [msgId, chatId, userId]);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
   }
 
   async reportMessage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

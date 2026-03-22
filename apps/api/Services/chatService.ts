@@ -280,7 +280,7 @@ class ChatService {
       `SELECT
          m.id, m.text, m.created_at, m.chat_id, u.id as sender_id, u.username as sender_name,
          u.avatar_url as sender_avatar,
-         m.reply_to_id, m.edited_at, m.forwarded_from_id,
+         m.reply_to_id, m.edited_at, m.forwarded_from_id, m.expires_at,
          CASE WHEN rm.id IS NOT NULL THEN
            jsonb_build_object('id', rm.id, 'text', rm.text, 'sender_name', ru.username)
          ELSE NULL END as reply_to,
@@ -295,23 +295,26 @@ class ChatService {
              ) r
            ),
            '[]'::json
-         ) as reactions
+         ) as reactions,
+         (SELECT row_to_json(p) FROM polls p WHERE p.message_id = m.id LIMIT 1) as poll
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
        LEFT JOIN users ru ON ru.id = rm.sender_id
        WHERE m.chat_id = $1 AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
+         AND (m.expires_at IS NULL OR m.expires_at > NOW())
        ORDER BY m.created_at ASC`,
       [chatId, userId]
     );
     return result.rows;
   }
 
-  async postMessage(chatId: string | number, senderId: string | number, text: string, replyToId?: number | null): Promise<Message> {
+  async postMessage(chatId: string | number, senderId: string | number, text: string, replyToId?: number | null, expiresInSeconds?: number | null): Promise<Message> {
+    const expiresAt = expiresInSeconds ? new Date(Date.now() + expiresInSeconds * 1000) : null;
     const result = await client.query(
-      `INSERT INTO messages (chat_id, sender_id, text, reply_to_id) VALUES ($1, $2, $3, $4)
-       RETURNING id, text, created_at, sender_id, chat_id, reply_to_id`,
-      [chatId, senderId, text, replyToId ?? null]
+      `INSERT INTO messages (chat_id, sender_id, text, reply_to_id, expires_at) VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, text, created_at, sender_id, chat_id, reply_to_id, expires_at`,
+      [chatId, senderId, text, replyToId ?? null, expiresAt]
     );
     const msg = result.rows[0];
 

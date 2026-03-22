@@ -396,6 +396,7 @@ function CallOverlayContent() {
   const {
     callState, isVideoCall, localStream, remoteStream, callerData,
     answerCall, endCall, muteAudio, muteVideo, isAudioMuted, isVideoMuted,
+    isScreenSharing, startScreenShare, stopScreenShare,
     groupCallState, groupCallParticipants, groupCallIsVideo,
     leaveGroupCall, muteGroupAudio, muteGroupVideo, isGroupAudioMuted, isGroupVideoMuted,
     incomingGroupCall, dismissGroupCallBanner, joinGroupCall,
@@ -1265,6 +1266,13 @@ function CallOverlayContent() {
                     {isVideoMuted ? "🚫" : "📷"}
                   </ControlBtn>
                 )}
+                <ControlBtn
+                  onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                  active={isScreenSharing}
+                  title={isScreenSharing ? t.call.stop_screen_share : t.call.screen_share}
+                >
+                  {isScreenSharing ? "🖥️" : "📺"}
+                </ControlBtn>
                 <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
                   <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
                   {subtitlesEnabled && (

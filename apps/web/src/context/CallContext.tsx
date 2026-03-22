@@ -20,6 +20,9 @@ interface CallContextType {
   muteVideo: () => void;
   isAudioMuted: boolean;
   isVideoMuted: boolean;
+  isScreenSharing: boolean;
+  startScreenShare: () => Promise<void>;
+  stopScreenShare: () => void;
   // Group call
   groupCallState: "idle" | "active";
   groupCallChatId: number | null;
@@ -81,6 +84,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const [callerData, setCallerData] = useState<{ id: number; name: string } | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const otherUserId = useRef<number | null>(null);
@@ -797,6 +802,46 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         incomingGroupCall,
         dismissGroupCallBanner,
         p2pPeerConnection: p2pPcState,
+        isScreenSharing,
+        startScreenShare: async () => {
+          const pc = peerConnection.current;
+          if (!pc || !localStreamRef.current) return;
+          try {
+            const screenStream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true });
+            screenStreamRef.current = screenStream;
+            const videoTrack = screenStream.getVideoTracks()[0];
+            const sender = pc.getSenders().find(s => s.track?.kind === "video");
+            if (sender) await sender.replaceTrack(videoTrack);
+            // Update local stream to show screen
+            const newStream = new MediaStream([
+              ...localStreamRef.current.getAudioTracks(),
+              videoTrack,
+            ]);
+            setLocalStream(newStream);
+            setIsScreenSharing(true);
+            videoTrack.onended = () => {
+              // Auto-stop when user clicks "Stop sharing" in browser
+              const camTrack = localStreamRef.current?.getVideoTracks()[0];
+              if (sender && camTrack) sender.replaceTrack(camTrack).catch(console.error);
+              setLocalStream(localStreamRef.current);
+              setIsScreenSharing(false);
+              screenStreamRef.current = null;
+            };
+          } catch (e) {
+            console.error("[SCREEN] Share error:", e);
+          }
+        },
+        stopScreenShare: () => {
+          const pc = peerConnection.current;
+          if (!screenStreamRef.current) return;
+          screenStreamRef.current.getTracks().forEach(t => t.stop());
+          const camTrack = localStreamRef.current?.getVideoTracks()[0];
+          const sender = pc?.getSenders().find(s => s.track?.kind === "video");
+          if (sender && camTrack) sender.replaceTrack(camTrack).catch(console.error);
+          setLocalStream(localStreamRef.current);
+          setIsScreenSharing(false);
+          screenStreamRef.current = null;
+        },
       }}
     >
       {children}

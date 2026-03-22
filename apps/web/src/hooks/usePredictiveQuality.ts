@@ -61,28 +61,88 @@ const DEFAULT_PREDICTION: Prediction = {
   predictedJitter: 0,
 };
 
-// ─── Linear regression helper ─────────────────────────────────────────────────
-// Returns slope (dy/dx) and intercept for the series y = f(x).
-// x is assumed to be uniformly-spaced seconds; y is the metric values.
+// ─── Prediction model ─────────────────────────────────────────────────────────
+//
+// Holt's Double Exponential Smoothing (DES) combined with weighted least-squares
+// regression. DES tracks both the current level and the trend of the series,
+// making it well-suited for non-stationary network metrics that can spike or
+// recover rapidly.
+//
+// α (level smoothing):  how quickly the level adapts to new data [0..1]
+// β (trend smoothing):  how quickly the trend estimate adapts     [0..1]
+// Higher α/β = more reactive; lower = smoother but slower.
 
-function linearRegression(y: number[]): { slope: number; intercept: number } {
+const ALPHA = 0.4; // level smoothing
+const BETA  = 0.3; // trend smoothing
+
+interface HoltState {
+  level: number;
+  trend: number;
+}
+
+/**
+ * Run Holt's DES over `y` with exponentially increasing sample weights.
+ * Returns the smoothed (level, trend) at the last observed point.
+ */
+function holtSmooth(y: number[]): HoltState {
+  if (y.length === 0) return { level: 0, trend: 0 };
+  if (y.length === 1) return { level: y[0], trend: 0 };
+
+  // Initialise: level = first value, trend = first difference (no look-ahead)
+  let level = y[0];
+  let trend = y[1] - y[0];
+
+  for (let i = 1; i < y.length; i++) {
+    const prevLevel = level;
+    level = ALPHA * y[i] + (1 - ALPHA) * (level + trend);
+    trend = BETA  * (level - prevLevel) + (1 - BETA) * trend;
+  }
+  return { level, trend };
+}
+
+/**
+ * Weighted least-squares regression where sample weight increases
+ * exponentially with recency (decay factor λ per sample).
+ */
+function weightedRegression(y: number[]): { slope: number; intercept: number } {
   const n = y.length;
   if (n < 2) return { slope: 0, intercept: y[0] ?? 0 };
-  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+  const λ = 0.85; // decay per sample (older samples have weight λ^k)
+  let wSum = 0, wxSum = 0, wySum = 0, wxxSum = 0, wxySum = 0;
+
   for (let i = 0; i < n; i++) {
-    sumX += i; sumY += y[i]; sumXY += i * y[i]; sumXX += i * i;
+    const w = Math.pow(λ, n - 1 - i); // weight: highest for newest point
+    wSum   += w;
+    wxSum  += w * i;
+    wySum  += w * y[i];
+    wxxSum += w * i * i;
+    wxySum += w * i * y[i];
   }
-  const denom = n * sumXX - sumX * sumX;
-  if (denom === 0) return { slope: 0, intercept: sumY / n };
-  const slope = (n * sumXY - sumX * sumY) / denom;
-  const intercept = (sumY - slope * sumX) / n;
+
+  const denom = wSum * wxxSum - wxSum * wxSum;
+  if (denom === 0) return { slope: 0, intercept: wySum / wSum };
+  const slope     = (wSum * wxySum - wxSum * wySum) / denom;
+  const intercept = (wySum - slope * wxSum) / wSum;
   return { slope, intercept };
 }
 
-// Extrapolate `steps` ticks ahead (each tick = 1 sample interval within window)
+/**
+ * Extrapolate `stepsAhead` samples into the future using a blend of
+ * Holt DES (captures trend) and weighted regression (captures long-run slope).
+ * The two estimates are averaged to reduce variance.
+ */
 function extrapolate(y: number[], stepsAhead: number): number {
-  const { slope, intercept } = linearRegression(y);
-  return intercept + slope * (y.length - 1 + stepsAhead);
+  // Holt DES forecast: level + trend × steps
+  const { level, trend } = holtSmooth(y);
+  const holtForecast = level + trend * stepsAhead;
+
+  // Weighted regression forecast
+  const { slope, intercept } = weightedRegression(y);
+  const wlsForecast = intercept + slope * (y.length - 1 + stepsAhead);
+
+  // Equal-weight blend; both models see different aspects of the series
+  return (holtForecast + wlsForecast) / 2;
 }
 
 // ─── Stats extraction ─────────────────────────────────────────────────────────

@@ -210,4 +210,24 @@ export const resetProfile = () => api.post('/users/me/reset-profile', {});
 export const getChatMessagesBefore = (chatId: number, beforeId: number) =>
   api.get(`/chats/${chatId}/messages?before=${beforeId}`);
 
+// Mentions
+export const getMentions = () => api.get('/users/me/mentions');
+
+// Media gallery
+export const getMediaGallery = (chatId: number) => api.get(`/chats/${chatId}/media`);
+
+// Export chat
+export const exportChat = (chatId: number) => api.get(`/chats/${chatId}/export`);
+
+// Polls
+export const createPoll = (chatId: number, question: string, options: string[], expires_in_seconds?: number) =>
+  api.post(`/chats/${chatId}/polls`, { question, options, expires_in_seconds });
+
+// Scheduled messages
+export const createScheduledMessage = (chatId: number, text: string, send_at: string) =>
+  api.post(`/chats/${chatId}/scheduled`, { text, send_at });
+export const getScheduledMessages = (chatId: number) => api.get(`/chats/${chatId}/scheduled`);
+export const deleteScheduledMessage = (chatId: number, msgId: number) =>
+  api.delete(`/chats/${chatId}/scheduled/${msgId}`);
+
 export default api;

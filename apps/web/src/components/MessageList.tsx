@@ -1,11 +1,130 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "../context/ChatContext";
 import { deleteMessage, reportMessage, addReaction, removeReaction } from "../services/api";
-import { Message } from "../types";
+import { Message, PollData } from "../types";
 import LinkPreview from "./LinkPreview";
 import { getImageUrl } from "../utils/imageUrl";
 import { useI18n } from "../i18n";
 import { useHoverCard } from "../context/HoverCardContext";
+
+// ─── Poll Widget ──────────────────────────────────────────────────────────────
+function PollWidget({ poll, messageId, currentUserId }: { poll: PollData; messageId: number; currentUserId: number | undefined }) {
+  const { votePoll } = useChat();
+  const { t } = useI18n();
+  const totalVotes = Object.values(poll.votes).reduce((s, arr) => s + arr.length, 0);
+  const userVote = Object.entries(poll.votes).find(([, arr]) => arr.includes(currentUserId ?? -1))?.[0];
+
+  return (
+    <div className="mt-1 min-w-[220px]">
+      <div className="font-semibold text-sm mb-2 text-discord-text-primary">{poll.question}</div>
+      <div className="flex flex-col gap-1.5">
+        {poll.options.map((opt, i) => {
+          const key = String(i);
+          const count = poll.votes[key]?.length || 0;
+          const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const isSelected = userVote === key;
+          return (
+            <button
+              key={i}
+              onClick={() => !poll.closed && votePoll(poll.id, i)}
+              disabled={poll.closed}
+              className={`relative overflow-hidden text-left rounded-lg px-3 py-2 text-sm transition border ${
+                isSelected
+                  ? "border-discord-accent bg-discord-accent/10 text-discord-accent"
+                  : "border-discord-input bg-discord-input hover:bg-discord-input-hover text-discord-text-primary"
+              } ${poll.closed ? "opacity-70 cursor-default" : "cursor-pointer"}`}
+            >
+              <div
+                className="absolute inset-0 rounded-lg opacity-20 transition-all duration-500"
+                style={{ width: `${pct}%`, background: isSelected ? "var(--color-accent)" : "var(--color-text-muted)" }}
+              />
+              <span className="relative z-10 flex justify-between">
+                <span>{opt}</span>
+                <span className="text-discord-text-muted text-xs">{pct}%</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="text-discord-text-muted text-xs mt-1.5">{totalVotes} {t.chat.participants} {poll.closed ? `· ${t.chat.poll_closed}` : ""}</div>
+    </div>
+  );
+}
+
+// ─── @mention highlight ───────────────────────────────────────────────────────
+function HighlightedText({ text, myUsername }: { text: string; myUsername?: string }) {
+  if (!myUsername || !text.includes("@")) return <>{text}</>;
+  const parts = text.split(/(@\w+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.startsWith("@") ? (
+          <span
+            key={i}
+            className={`rounded px-0.5 font-semibold ${
+              part.slice(1).toLowerCase() === myUsername.toLowerCase()
+                ? "bg-discord-warn/30 text-discord-warn"
+                : "bg-discord-accent/20 text-discord-accent"
+            }`}
+          >
+            {part}
+          </span>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        )
+      )}
+    </>
+  );
+}
+
+// ─── Reaction animation overlay ───────────────────────────────────────────────
+interface FloatyEmoji { id: number; emoji: string; x: number; }
+let floatyCounter = 0;
+const floatyListeners: Array<(emoji: string) => void> = [];
+export function triggerReactionAnim(emoji: string) {
+  floatyListeners.forEach(fn => fn(emoji));
+}
+
+function ReactionAnimOverlay() {
+  const [floaties, setFloaties] = useState<FloatyEmoji[]>([]);
+  useEffect(() => {
+    const fn = (emoji: string) => {
+      const id = floatyCounter++;
+      const x = 20 + Math.random() * 60;
+      setFloaties(prev => [...prev, { id, emoji, x }]);
+      setTimeout(() => setFloaties(prev => prev.filter(f => f.id !== id)), 1400);
+    };
+    floatyListeners.push(fn);
+    return () => { const idx = floatyListeners.indexOf(fn); if (idx > -1) floatyListeners.splice(idx, 1); };
+  }, []);
+  if (floaties.length === 0) return null;
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50">
+      {floaties.map(f => (
+        <div
+          key={f.id}
+          className="absolute text-2xl animate-floaty-up select-none"
+          style={{ left: `${f.x}%`, bottom: "80px" }}
+        >
+          {f.emoji}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Ephemeral countdown ──────────────────────────────────────────────────────
+function EphemeralTimer({ expiresAt }: { expiresAt: string }) {
+  const [secsLeft, setSecsLeft] = useState(() => Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000)));
+  useEffect(() => {
+    if (secsLeft <= 0) return;
+    const id = setInterval(() => setSecsLeft(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [secsLeft]);
+  if (secsLeft <= 0) return <span className="text-discord-danger text-[10px]">⌛ 0s</span>;
+  const m = Math.floor(secsLeft / 60), s = secsLeft % 60;
+  return <span className="text-discord-warn text-[10px] ml-1">⌛ {m > 0 ? `${m}m ` : ""}{s}s</span>;
+}
 
 // ─── Custom Voice Message Player ─────────────────────────────────────────────
 
@@ -480,6 +599,7 @@ export default function MessageList() {
     pinnedMessages,
     markAsRead,
   } = useChat();
+  // Expose overlay at root level — rendered at the bottom of this component
   const { t } = useI18n();
   const { showCard, hideCard } = useHoverCard();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -586,6 +706,7 @@ export default function MessageList() {
         await removeReaction(msg.id, emoji);
       } else {
         await addReaction(msg.id, emoji);
+        triggerReactionAnim(emoji);
       }
       setPickerOpenId(null);
     } catch (e) {
@@ -640,6 +761,8 @@ export default function MessageList() {
     isModerator || Number(chatCreatorId) === Number(currentUser?.id);
 
   return (
+    <>
+    <ReactionAnimOverlay />
     <div
       ref={containerRef}
       className="flex-1 overflow-y-auto p-4 flex flex-col gap-1"
@@ -820,14 +943,20 @@ export default function MessageList() {
                     <FileCard url={msg.text.trim()} isMine={isMine} />
                   ) : (
                     <>
-                      <span>{msg.text}</span>
+                      <span>
+                        <HighlightedText text={msg.text} myUsername={currentUser?.username} />
+                      </span>
                       {msg.edited_at && (
                         <span className="text-xs opacity-60 ml-1">{t.messages.edited}</span>
+                      )}
+                      {/* Poll widget */}
+                      {msg.poll && (
+                        <PollWidget poll={msg.poll} messageId={msg.id} currentUserId={currentUser?.id} />
                       )}
                     </>
                   )}
                   {/* Link preview */}
-                  {linkUrl && <LinkPreview url={linkUrl} />}
+                  {linkUrl && !msg.poll && <LinkPreview url={linkUrl} />}
                 </div>
               )}
 
@@ -952,10 +1081,14 @@ export default function MessageList() {
               </div>
             )}
 
-            {/* Timestamp */}
+            {/* Timestamp + ephemeral timer + read receipt */}
             {timeStr && (
-              <span className={`text-discord-text-muted text-[10px] mt-0.5 px-1 select-none ${isMine ? "self-end" : "self-start"}`}>
+              <span className={`flex items-center gap-1 text-discord-text-muted text-[10px] mt-0.5 px-1 select-none ${isMine ? "self-end" : "self-start"}`}>
                 {timeStr}
+                {msg.expires_at && <EphemeralTimer expiresAt={msg.expires_at} />}
+                {isMine && msg.reads && msg.reads.length > 0 && (
+                  <span className="text-discord-success" title={t.messages.read_by}>✓✓</span>
+                )}
               </span>
             )}
             </div>{/* end inner flex-col */}
@@ -964,5 +1097,6 @@ export default function MessageList() {
       })}
       <div ref={messagesEndRef} />
     </div>
+    </>
   );
 }

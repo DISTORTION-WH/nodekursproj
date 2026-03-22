@@ -163,6 +163,10 @@ const ru = {
     reset_all: "Сбросить все настройки",
     reset_confirm: "Сбросить все настройки профиля?",
     reset_done: "Настройки сброшены",
+    last_seen: "Был(а) в сети",
+    last_seen_just_now: "только что",
+    last_seen_minutes: "мин. назад",
+    last_seen_hours: "ч. назад",
   },
   // ── Chat ──
   chat: {
@@ -230,6 +234,24 @@ const ru = {
     role_moderator: "Модератор",
     role_trusted: "Доверенный",
     role_member: "Участник",
+    create_poll: "Создать опрос",
+    poll_question: "Вопрос...",
+    poll_option: "Вариант",
+    poll_add_option: "Добавить вариант",
+    poll_closed: "Опрос закрыт",
+    schedule_message: "Отложенное сообщение",
+    schedule_at: "Отправить в",
+    scheduled_messages: "Отложенные сообщения",
+    no_scheduled: "Нет отложенных сообщений",
+    ephemeral_timer: "Самоудаляемое",
+    ephemeral_off: "Выкл",
+    ephemeral_label: "Удалится через",
+    media_gallery: "Медиагалерея",
+    no_media: "Нет медиафайлов",
+    export_history: "Экспорт истории",
+    sound_on: "Включить звук",
+    sound_off: "Выключить звук",
+    more_options: "Ещё",
   },
   // ── Call ──
   call: {
@@ -259,6 +281,8 @@ const ru = {
     listening: "Слушаю...",
     reconnecting: "Переподключение...",
     audio_quality_reduced: "Качество аудио снижено",
+    screen_share: "Демонстрация экрана",
+    stop_screen_share: "Остановить демонстрацию",
   },
   // ── Messages ──
   messages: {
@@ -284,6 +308,7 @@ const ru = {
     download: "Скачать",
     forwarded: "Пересланное сообщение",
     edited: "(ред.)",
+    read_by: "Прочитано",
   },
   // ── Common ──
   common: {

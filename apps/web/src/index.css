@@ -219,3 +219,11 @@
   animation: uname-shimmer 2s linear infinite;
 }
 .uname-fire { animation: uname-fire 2s ease-in-out infinite; }
+
+/* ── Reaction float-up animation ── */
+@keyframes floaty-up {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  80%  { transform: translateY(-120px) scale(1.3); opacity: 0.8; }
+  100% { transform: translateY(-160px) scale(0.8); opacity: 0; }
+}
+.animate-floaty-up { animation: floaty-up 1.4s ease-out forwards; }

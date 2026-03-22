@@ -117,7 +117,7 @@ async function getAllUsers(): Promise<User[]> {
 async function getUserById(id: string | number): Promise<User | null> {
   try {
     const userResult = await client.query<User>(
-      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country, u.profile_bg, u.username_color, u.username_anim, u.profile_badge, u.bubble_color, u.social_link, u.accent_color
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_frame, u.created_at, r.value as role, u.email, u.is_banned, u.status, u.theme, u.is_invisible, u.bio, u.country, u.profile_bg, u.username_color, u.username_anim, u.profile_badge, u.bubble_color, u.social_link, u.accent_color, u.last_seen
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,

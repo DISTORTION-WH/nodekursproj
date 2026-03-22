@@ -32,6 +32,7 @@ export interface User {
   bubble_color?: string | null;
   social_link?: string | null;
   accent_color?: string | null;
+  last_seen?: string | null;
 }
 
 export interface ReactionGroup {
@@ -43,6 +44,43 @@ export interface ReactionGroup {
 export interface ReplyTo {
   id: number;
   text: string;
+  sender_name: string;
+}
+
+export interface PollData {
+  id: number;
+  question: string;
+  options: string[];
+  votes: Record<string, number[]>;
+  closed: boolean;
+}
+
+export interface Mention {
+  id: number;
+  message_id: number;
+  chat_id: number;
+  seen: boolean;
+  created_at: string;
+  text: string;
+  sender_name: string;
+  chat_name: string | null;
+}
+
+export interface ScheduledMessage {
+  id: number;
+  chat_id: number;
+  sender_id: number;
+  text: string;
+  send_at: string;
+  sent: boolean;
+  created_at: string;
+}
+
+export interface MediaItem {
+  id: number;
+  text: string;
+  created_at: string;
+  sender_id: number;
   sender_name: string;
 }
 
@@ -64,6 +102,9 @@ export interface Message {
   reactions?: ReactionGroup[];
   edited_at?: string | null;
   forwarded_from_id?: number | null;
+  expires_at?: string | null;
+  poll?: PollData | null;
+  reads?: number[];
 }
 
 export interface UnreadCounts {

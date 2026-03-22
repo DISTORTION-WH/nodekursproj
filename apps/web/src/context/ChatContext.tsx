@@ -39,6 +39,9 @@ interface ChatContextType {
   pinnedMessages: Message[];
   forwardingMessage: Message | null;
   allChats: Chat[];
+  mentionCount: number;
+  soundEnabled: boolean;
+  setSoundEnabled: (v: boolean) => void;
 
   setChatMembers: Dispatch<SetStateAction<ChatParticipant[]>>;
   setReplyingTo: Dispatch<SetStateAction<Message | null>>;
@@ -46,7 +49,7 @@ interface ChatContextType {
 
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
-  sendMessage: (text: string, replyToId?: number | null) => void;
+  sendMessage: (text: string, replyToId?: number | null, expiresInSeconds?: number | null) => void;
   deleteMessages: (allForEveryone: boolean) => Promise<void>;
   openInviteModal: () => void;
   openMembersModal: () => void;
@@ -62,6 +65,7 @@ interface ChatContextType {
   sendTyping: () => void;
   sendStopTyping: () => void;
   markAsRead: (chatId: number) => void;
+  votePoll: (pollId: number, optionIndex: number) => void;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -94,6 +98,26 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [allChats, setAllChats] = useState<Chat[]>([]);
+  const [mentionCount, setMentionCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("soundEnabled") !== "false");
+
+  // Notification sound
+  const playSound = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (_) {}
+  }, [soundEnabled]);
 
   const activeChatRef = useRef<Chat | null>(null);
   activeChatRef.current = activeChat;
@@ -138,9 +162,18 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         .catch(console.error);
     };
 
+    const handleMentionReceived = () => {
+      setMentionCount((prev) => prev + 1);
+      playSound();
+    };
+
     socket.on("added_to_chat", handleAddedToChat);
-    return () => { socket.off("added_to_chat", handleAddedToChat); };
-  }, [socket, currentUser]);
+    socket.on("mention_received", handleMentionReceived);
+    return () => {
+      socket.off("added_to_chat", handleAddedToChat);
+      socket.off("mention_received", handleMentionReceived);
+    };
+  }, [socket, currentUser, playSound]);
 
   const fetchChatMembers = useCallback((chatId: number) => {
     api
@@ -180,6 +213,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         // Mark as read since we're looking at this chat
         markChatAsRead(Number(currentActiveChatId)).catch(console.error);
       } else {
+        // Play sound for messages in other chats
+        playSound();
         // Increment unread
         setUnreadCounts((prev) => ({
           ...prev,
@@ -190,6 +225,26 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
           prev.map((c) => c.id === msg.chat_id ? { ...c } : c)
         );
       }
+    };
+
+    const handlePollUpdated = (data: { pollId: number; votes: Record<string, number[]> }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.poll && m.poll.id === data.pollId
+            ? { ...m, poll: { ...m.poll, votes: data.votes } }
+            : m
+        )
+      );
+    };
+
+    const handleMessageReadAck = (data: { messageId: number; userId: number }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? { ...m, reads: Array.from(new Set([...(m.reads || []), data.userId])) }
+            : m
+        )
+      );
     };
 
     const handleMessagesCleared = (data: { chatId: number }) => {
@@ -302,6 +357,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     socket.on("message_pinned", handleMessagePinned);
     socket.on("message_unpinned", handleMessageUnpinned);
     socket.on("user_renamed", handleUserRenamed);
+    socket.on("poll_updated", handlePollUpdated);
+    socket.on("message_read_ack", handleMessageReadAck);
 
     return () => {
       socket.emit("leave_chat", activeChat.id);
@@ -317,6 +374,8 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       socket.off("message_pinned", handleMessagePinned);
       socket.off("message_unpinned", handleMessageUnpinned);
       socket.off("user_renamed", handleUserRenamed);
+      socket.off("poll_updated", handlePollUpdated);
+      socket.off("message_read_ack", handleMessageReadAck);
       // Clear all pending typing timeouts
       Object.values(typingTimeouts.current).forEach(clearTimeout);
       typingTimeouts.current = {};
@@ -325,7 +384,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         typingDebounce.current = null;
       }
     };
-  }, [socket, activeChat, fetchChatMembers, fetchPinnedMessages, currentUser]);
+  }, [socket, activeChat, fetchChatMembers, fetchPinnedMessages, currentUser, playSound]);
 
   const selectChat = (chat: Chat) => {
     setMessages([]);
@@ -346,11 +405,16 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     setReplyingTo(null);
   };
 
-  const sendMessage = (text: string, replyToId?: number | null) => {
+  const sendMessage = (text: string, replyToId?: number | null, expiresInSeconds?: number | null) => {
     if (!text.trim() || !activeChat?.id) return;
     api
-      .post(`/chats/${activeChat.id}/messages`, { text, reply_to_id: replyToId ?? null })
+      .post(`/chats/${activeChat.id}/messages`, { text, reply_to_id: replyToId ?? null, expires_in_seconds: expiresInSeconds ?? null })
       .catch(console.error);
+  };
+
+  const votePoll = (pollId: number, optionIndex: number) => {
+    if (!socket) return;
+    socket.emit("poll_vote", { pollId, optionIndex });
   };
 
   const deleteMessages = async (allForEveryone: boolean) => {
@@ -508,6 +572,13 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     sendTyping,
     sendStopTyping,
     markAsRead,
+    mentionCount,
+    soundEnabled,
+    setSoundEnabled: (v: boolean) => {
+      setSoundEnabled(v);
+      localStorage.setItem("soundEnabled", String(v));
+    },
+    votePoll,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

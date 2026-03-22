@@ -3,7 +3,7 @@ import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { useChat } from "../context/ChatContext";
 import VoiceRecorder from "./VoiceRecorder";
 import VideoNoteRecorder from "./VideoNoteRecorder";
-import { uploadFile } from "../services/api";
+import { uploadFile, createPoll, createScheduledMessage } from "../services/api";
 import { useI18n } from "../i18n";
 
 const STICKER_COUNT = 27;
@@ -17,6 +17,15 @@ export default function MessageInput() {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showVideoNote, setShowVideoNote] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Ephemeral / scheduled / poll panels
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [showScheduled, setShowScheduled] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [ephemeralSecs, setEphemeralSecs] = useState<number | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
   const { t } = useI18n();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,17 +50,55 @@ export default function MessageInput() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showMediaPicker]);
 
-  const handleSend = (e?: React.FormEvent) => {
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMoreMenu]);
+
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !activeChat?.id) return;
     sendStopTyping();
-    sendMessage(newMessage, replyingTo?.id ?? null);
+
+    if (showScheduled && scheduledTime) {
+      // Send as scheduled message
+      try {
+        await createScheduledMessage(activeChat.id, newMessage, scheduledTime);
+        setScheduledTime("");
+        setShowScheduled(false);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      sendMessage(newMessage, replyingTo?.id ?? null, ephemeralSecs);
+    }
+
     setNewMessage("");
     setShowMediaPicker(false);
     setReplyingTo(null);
     if (typingTimeout.current) {
       clearTimeout(typingTimeout.current);
       typingTimeout.current = null;
+    }
+  };
+
+  const handleCreatePoll = async () => {
+    if (!activeChat?.id || !pollQuestion.trim()) return;
+    const opts = pollOptions.filter(o => o.trim());
+    if (opts.length < 2) return;
+    try {
+      await createPoll(activeChat.id, pollQuestion.trim(), opts);
+      setPollQuestion("");
+      setPollOptions(["", ""]);
+      setShowPollCreator(false);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -212,6 +259,69 @@ export default function MessageInput() {
         onChange={handleFileChange}
       />
 
+      {/* Poll creator panel */}
+      {showPollCreator && (
+        <div className="mb-2 p-3 rounded-xl border" style={{ background: "var(--color-secondary)", borderColor: "var(--color-tertiary)" }}>
+          <div className="text-xs font-semibold text-discord-text-muted uppercase tracking-wide mb-2">📊 {t.chat.create_poll}</div>
+          <input
+            value={pollQuestion}
+            onChange={e => setPollQuestion(e.target.value)}
+            placeholder={t.chat.poll_question}
+            className="w-full bg-discord-input text-discord-text-primary text-sm rounded-lg px-3 py-1.5 outline-none mb-2 placeholder-discord-text-muted"
+          />
+          {pollOptions.map((opt, i) => (
+            <div key={i} className="flex gap-1 mb-1">
+              <input
+                value={opt}
+                onChange={e => { const o = [...pollOptions]; o[i] = e.target.value; setPollOptions(o); }}
+                placeholder={`${t.chat.poll_option} ${i + 1}`}
+                className="flex-1 bg-discord-input text-discord-text-primary text-sm rounded-lg px-3 py-1.5 outline-none placeholder-discord-text-muted"
+              />
+              {pollOptions.length > 2 && (
+                <button onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))} className="text-discord-danger text-sm px-1">✕</button>
+              )}
+            </div>
+          ))}
+          {pollOptions.length < 10 && (
+            <button
+              onClick={() => setPollOptions([...pollOptions, ""])}
+              className="text-discord-accent text-xs mb-2 hover:underline"
+            >+ {t.chat.poll_add_option}</button>
+          )}
+          <div className="flex gap-2 justify-end mt-1">
+            <button onClick={() => setShowPollCreator(false)} className="text-xs text-discord-text-muted hover:text-discord-text-primary px-2 py-1 rounded hover:bg-discord-input transition">{t.common.cancel}</button>
+            <button
+              onClick={handleCreatePoll}
+              disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
+              className="text-xs bg-discord-accent text-white px-3 py-1 rounded transition hover:bg-discord-accent-hover disabled:opacity-40"
+            >{t.common.save}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Scheduled message time picker */}
+      {showScheduled && (
+        <div className="mb-2 px-3 py-2 rounded-xl border flex items-center gap-2" style={{ background: "rgba(88,101,242,0.08)", borderColor: "rgba(88,101,242,0.3)" }}>
+          <span className="text-discord-accent text-xs">🕐 {t.chat.schedule_at}:</span>
+          <input
+            type="datetime-local"
+            value={scheduledTime}
+            onChange={e => setScheduledTime(e.target.value)}
+            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+            className="bg-discord-input text-discord-text-primary text-xs rounded px-2 py-1 outline-none border-none"
+          />
+          <button onClick={() => { setShowScheduled(false); setScheduledTime(""); }} className="text-discord-text-muted text-xs ml-auto hover:text-discord-text-primary">✕</button>
+        </div>
+      )}
+
+      {/* Ephemeral timer indicator */}
+      {ephemeralSecs && (
+        <div className="mb-1 px-3 flex items-center gap-2">
+          <span className="text-discord-warn text-xs">⌛ {t.chat.ephemeral_label}: {ephemeralSecs >= 3600 ? `${ephemeralSecs/3600}h` : ephemeralSecs >= 60 ? `${ephemeralSecs/60}m` : `${ephemeralSecs}s`}</span>
+          <button onClick={() => setEphemeralSecs(null)} className="text-discord-text-muted text-xs hover:text-discord-text-primary">✕</button>
+        </div>
+      )}
+
       <form
         onSubmit={handleSend}
         className={`flex items-center gap-2 px-3 py-2 ${
@@ -290,6 +400,53 @@ export default function MessageInput() {
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
           </svg>
         </button>
+
+        {/* More options menu (poll / schedule / ephemeral) */}
+        <div className="relative shrink-0" ref={moreMenuRef}>
+          <button
+            type="button"
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 ${showMoreMenu ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            title={t.chat.more_options}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+            </svg>
+          </button>
+          {showMoreMenu && (
+            <div className="absolute bottom-full left-0 mb-1 w-52 rounded-xl shadow-xl py-1 z-30" style={{ background: "var(--color-secondary)", border: "1px solid var(--color-tertiary)" }}>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm text-discord-text-secondary hover:text-discord-text-primary hover:bg-discord-input transition flex items-center gap-2"
+                onClick={() => { setShowPollCreator(!showPollCreator); setShowMoreMenu(false); }}
+              >
+                📊 {t.chat.create_poll}
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm text-discord-text-secondary hover:text-discord-text-primary hover:bg-discord-input transition flex items-center gap-2"
+                onClick={() => { setShowScheduled(!showScheduled); setShowMoreMenu(false); }}
+              >
+                🕐 {t.chat.schedule_message}
+              </button>
+              <div className="px-4 py-2 border-t" style={{ borderColor: "var(--color-tertiary)" }}>
+                <div className="text-xs text-discord-text-muted mb-1">⌛ {t.chat.ephemeral_timer}</div>
+                <div className="flex gap-1 flex-wrap">
+                  {[null, 30, 300, 3600, 86400].map(s => (
+                    <button
+                      key={String(s)}
+                      type="button"
+                      onClick={() => { setEphemeralSecs(s); setShowMoreMenu(false); }}
+                      className={`text-xs px-2 py-0.5 rounded transition ${ephemeralSecs === s ? "bg-discord-accent text-white" : "bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary"}`}
+                    >
+                      {s === null ? t.chat.ephemeral_off : s < 60 ? `${s}s` : s < 3600 ? `${s/60}m` : `${s/3600}h`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <input
           value={newMessage}
