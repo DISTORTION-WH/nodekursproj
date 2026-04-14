@@ -1,0 +1,496 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2339" pageHeight="1654" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ===== SYSTEM BOUNDARY ===== -->
+    <mxCell id="sys" value="Lume Chat — Система обмена сообщениями" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.flowchart.start_2;fontStyle=1;fontSize=12;fillColor=none;strokeColor=#000000;verticalAlign=top;align=center;" vertex="1" parent="1">
+      <mxGeometry x="320" y="40" width="1580" height="1560" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- ACTORS -->
+    <!-- ================================================================ -->
+
+    <!-- Гость -->
+    <mxCell id="a_guest" value="Гость" style="shape=mxgraph.bpmn.shape;perimeter=mxPerimeter.ellipsePerimeter;symbol=terminate;strokeColor=#000000;fillColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="30" y="160" width="50" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="a_guest_lbl" value="Гость" style="text;html=1;align=center;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="15" y="215" width="80" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- Пользователь -->
+    <mxCell id="a_user" value="Пользователь" style="shape=mxgraph.bpmn.shape;perimeter=mxPerimeter.ellipsePerimeter;symbol=terminate;strokeColor=#000000;fillColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="30" y="640" width="50" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="a_user_lbl" value="Пользователь" style="text;html=1;align=center;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="5" y="695" width="100" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- Модератор -->
+    <mxCell id="a_mod" value="Модератор" style="shape=mxgraph.bpmn.shape;perimeter=mxPerimeter.ellipsePerimeter;symbol=terminate;strokeColor=#000000;fillColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="2110" y="420" width="50" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="a_mod_lbl" value="Модератор" style="text;html=1;align=center;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="2095" y="475" width="80" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- Администратор -->
+    <mxCell id="a_admin" value="Администратор" style="shape=mxgraph.bpmn.shape;perimeter=mxPerimeter.ellipsePerimeter;symbol=terminate;strokeColor=#000000;fillColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="2110" y="900" width="50" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_lbl" value="Администратор" style="text;html=1;align=center;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="2090" y="955" width="110" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- Generalization: Администратор наследует Модератор -->
+    <mxCell id="gen_admin_mod" style="endArrow=block;endFill=0;endSize=10;strokeColor=#000000;" edge="1" source="a_admin" target="a_mod" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Generalization: Пользователь наследует Гость (для авторизации) -->
+    <mxCell id="gen_user_guest" style="endArrow=block;endFill=0;endSize=10;strokeColor=#000000;" edge="1" source="a_user" target="a_guest" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ГОСТЬ (Authentication block) -->
+    <!-- ================================================================ -->
+
+    <mxCell id="uc_prereg" value="Зарегистрироваться" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="380" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_confirm_reg" value="Подтвердить&#xa;регистрацию" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="600" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_login" value="Авторизоваться" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="820" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_refresh" value="Обновить токен&#xa;доступа" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1040" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_forgot" value="Запросить сброс&#xa;пароля" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1260" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_reset" value="Сбросить пароль&#xa;по коду" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1480" y="80" width="180" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Гость → UC -->
+    <mxCell id="e_g1" style="endArrow=none;" edge="1" source="a_guest" target="uc_prereg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e_g2" style="endArrow=none;" edge="1" source="a_guest" target="uc_confirm_reg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e_g3" style="endArrow=none;" edge="1" source="a_guest" target="uc_login" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e_g4" style="endArrow=none;" edge="1" source="a_guest" target="uc_refresh" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e_g5" style="endArrow=none;" edge="1" source="a_guest" target="uc_forgot" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e_g6" style="endArrow=none;" edge="1" source="a_guest" target="uc_reset" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- include: Зарегистрироваться → Подтвердить регистрацию -->
+    <mxCell id="inc_reg" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_prereg" target="uc_confirm_reg" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <!-- include: Запросить сброс → Сбросить -->
+    <mxCell id="inc_pwd" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_forgot" target="uc_reset" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ПОЛЬЗОВАТЕЛЬ: Профиль -->
+    <!-- ================================================================ -->
+
+    <!-- Section label -->
+    <mxCell id="lbl_profile" value="Управление профилем" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="340" y="175" width="200" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_getme" value="Просмотреть&#xa;свой профиль" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_avatar" value="Загрузить аватар" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="520" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_chgpwd" value="Изменить пароль" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="700" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_status" value="Изменить статус&#xa;присутствия" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="880" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_theme" value="Изменить тему&#xa;приложения" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1060" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_frame" value="Установить&#xa;аватар-фрейм" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1240" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_bio" value="Добавить биографию&#xa;и страну" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1420" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_username" value="Изменить имя&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1600" y="200" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_bgprofile" value="Установить фон&#xa;профиля" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="270" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_userstyle" value="Стилизовать имя&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="520" y="270" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_extras" value="Добавить профильные&#xa;элементы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="700" y="270" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_resetprofile" value="Сбросить настройки&#xa;профиля" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="880" y="270" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_mentions" value="Просмотреть&#xa;упоминания" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1060" y="270" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_viewuser" value="Просмотреть публичный&#xa;профиль пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1240" y="270" width="180" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Пользователь → профиль UC -->
+    <mxCell id="eu1" style="endArrow=none;" edge="1" source="a_user" target="uc_getme" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu2" style="endArrow=none;" edge="1" source="a_user" target="uc_avatar" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu3" style="endArrow=none;" edge="1" source="a_user" target="uc_chgpwd" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu4" style="endArrow=none;" edge="1" source="a_user" target="uc_status" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu5" style="endArrow=none;" edge="1" source="a_user" target="uc_theme" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu6" style="endArrow=none;" edge="1" source="a_user" target="uc_frame" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu7" style="endArrow=none;" edge="1" source="a_user" target="uc_bio" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu8" style="endArrow=none;" edge="1" source="a_user" target="uc_username" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu9" style="endArrow=none;" edge="1" source="a_user" target="uc_bgprofile" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu10" style="endArrow=none;" edge="1" source="a_user" target="uc_userstyle" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu11" style="endArrow=none;" edge="1" source="a_user" target="uc_extras" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu12" style="endArrow=none;" edge="1" source="a_user" target="uc_resetprofile" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu13" style="endArrow=none;" edge="1" source="a_user" target="uc_mentions" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eu14" style="endArrow=none;" edge="1" source="a_user" target="uc_viewuser" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ПОЛЬЗОВАТЕЛЬ: Друзья -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_friends" value="Список друзей" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="340" y="345" width="160" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_getfriends" value="Получить список&#xa;друзей" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="370" width="155" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_sendreq" value="Отправить запрос&#xa;дружбы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="510" y="370" width="155" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_acceptreq" value="Принять запрос&#xa;дружбы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="680" y="370" width="155" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_removefriend" value="Удалить друга" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="850" y="370" width="155" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_incoming" value="Просмотреть входящие&#xa;запросы дружбы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1020" y="370" width="175" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_friendstatus" value="Проверить статус&#xa;дружбы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1210" y="370" width="155" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="ef1" style="endArrow=none;" edge="1" source="a_user" target="uc_getfriends" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ef2" style="endArrow=none;" edge="1" source="a_user" target="uc_sendreq" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ef3" style="endArrow=none;" edge="1" source="a_user" target="uc_acceptreq" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ef4" style="endArrow=none;" edge="1" source="a_user" target="uc_removefriend" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ef5" style="endArrow=none;" edge="1" source="a_user" target="uc_incoming" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ef6" style="endArrow=none;" edge="1" source="a_user" target="uc_friendstatus" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ПОЛЬЗОВАТЕЛЬ: Чаты и сообщения -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_chat" value="Чаты и сообщения" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="340" y="445" width="200" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_getchats" value="Получить список&#xa;чатов" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_unread" value="Просмотреть&#xa;непрочитанные" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="505" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_getmsgs" value="Получить сообщения&#xa;чата" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="670" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_sendmsg" value="Отправить&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="835" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_editmsg" value="Редактировать&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_delmsg" value="Удалить&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1165" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_delmsgs" value="Удалить несколько&#xa;сообщений" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1330" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_react" value="Поставить&#xa;реакцию" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1495" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_unreact" value="Убрать&#xa;реакцию" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1660" y="470" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pin" value="Закрепить&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_unpin" value="Открепить&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="505" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_getpinned" value="Просмотреть&#xa;закреплённые" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="670" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_search" value="Поиск в&#xa;сообщениях чата" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="835" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_forward" value="Переслать&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_markread" value="Отметить чат&#xa;прочитанным" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1165" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_report" value="Пожаловаться на&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1330" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_upload" value="Загрузить файл&#xa;в чат" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1495" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_media" value="Просмотреть&#xa;медиагалерею" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1660" y="540" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_linkprev" value="Предпросмотр&#xa;ссылки" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_poll" value="Создать опрос" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="505" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_sched" value="Запланировать&#xa;сообщение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="670" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_getsched" value="Просмотреть&#xa;запланированные" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="835" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_delsched" value="Удалить&#xa;запланированное" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_export" value="Экспортировать&#xa;историю чата" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1165" y="610" width="150" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Пользователь → чаты UC -->
+    <mxCell id="ec1" style="endArrow=none;" edge="1" source="a_user" target="uc_getchats" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec2" style="endArrow=none;" edge="1" source="a_user" target="uc_unread" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec3" style="endArrow=none;" edge="1" source="a_user" target="uc_getmsgs" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec4" style="endArrow=none;" edge="1" source="a_user" target="uc_sendmsg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec5" style="endArrow=none;" edge="1" source="a_user" target="uc_editmsg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec6" style="endArrow=none;" edge="1" source="a_user" target="uc_delmsg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec7" style="endArrow=none;" edge="1" source="a_user" target="uc_delmsgs" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec8" style="endArrow=none;" edge="1" source="a_user" target="uc_react" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec9" style="endArrow=none;" edge="1" source="a_user" target="uc_unreact" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec10" style="endArrow=none;" edge="1" source="a_user" target="uc_pin" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec11" style="endArrow=none;" edge="1" source="a_user" target="uc_unpin" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec12" style="endArrow=none;" edge="1" source="a_user" target="uc_getpinned" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec13" style="endArrow=none;" edge="1" source="a_user" target="uc_search" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec14" style="endArrow=none;" edge="1" source="a_user" target="uc_forward" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec15" style="endArrow=none;" edge="1" source="a_user" target="uc_markread" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec16" style="endArrow=none;" edge="1" source="a_user" target="uc_report" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec17" style="endArrow=none;" edge="1" source="a_user" target="uc_upload" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec18" style="endArrow=none;" edge="1" source="a_user" target="uc_media" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec19" style="endArrow=none;" edge="1" source="a_user" target="uc_linkprev" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec20" style="endArrow=none;" edge="1" source="a_user" target="uc_poll" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec21" style="endArrow=none;" edge="1" source="a_user" target="uc_sched" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec22" style="endArrow=none;" edge="1" source="a_user" target="uc_getsched" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec23" style="endArrow=none;" edge="1" source="a_user" target="uc_delsched" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ec24" style="endArrow=none;" edge="1" source="a_user" target="uc_export" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- include: sendmsg extend: upload / reply -->
+    <mxCell id="inc_upload_msg" value="«extend»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_upload" target="uc_sendmsg" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ПОЛЬЗОВАТЕЛЬ: Групповые чаты -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_group" value="Групповые чаты" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="340" y="685" width="180" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_createprivate" value="Создать личный&#xa;чат" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_creategroup" value="Создать групповой&#xa;чат" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="505" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_getchatusers" value="Получить участников&#xa;группы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="670" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_invitecode" value="Создать код&#xa;приглашения" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="835" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_join" value="Вступить по коду&#xa;приглашения" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_invite" value="Пригласить друга&#xa;в группу" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1165" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_kick" value="Исключить из&#xa;группы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1330" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_setrole" value="Назначить роль&#xa;участнику чата" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1495" y="710" width="150" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="eg1" style="endArrow=none;" edge="1" source="a_user" target="uc_createprivate" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg2" style="endArrow=none;" edge="1" source="a_user" target="uc_creategroup" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg3" style="endArrow=none;" edge="1" source="a_user" target="uc_getchatusers" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg4" style="endArrow=none;" edge="1" source="a_user" target="uc_invitecode" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg5" style="endArrow=none;" edge="1" source="a_user" target="uc_join" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg6" style="endArrow=none;" edge="1" source="a_user" target="uc_invite" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg7" style="endArrow=none;" edge="1" source="a_user" target="uc_kick" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="eg8" style="endArrow=none;" edge="1" source="a_user" target="uc_setrole" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- include: join ← invitecode -->
+    <mxCell id="inc_join" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_join" target="uc_invitecode" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — ПОЛЬЗОВАТЕЛЬ: Звонки -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_calls" value="Звонки" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="340" y="785" width="120" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_call1v1" value="Совершить звонок&#xa;один на один" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="340" y="810" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_groupcall" value="Присоединиться к&#xa;групповому звонку" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="515" y="810" width="160" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_endcall" value="Завершить звонок" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="690" y="810" width="160" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="ecl1" style="endArrow=none;" edge="1" source="a_user" target="uc_call1v1" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ecl2" style="endArrow=none;" edge="1" source="a_user" target="uc_groupcall" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ecl3" style="endArrow=none;" edge="1" source="a_user" target="uc_endcall" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — МОДЕРАТОР -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_mod" value="Модерация" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="1580" y="360" width="160" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_viewusers_mod" value="Просмотреть список&#xa;пользователей" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="390" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_searchusers_mod" value="Найти пользователя&#xa;по имени/email" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="390" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_warn" value="Выдать&#xa;предупреждение" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="460" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_ban" value="Заблокировать&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="460" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_unban" value="Разблокировать&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="530" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_getreports" value="Просмотреть&#xa;жалобы" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="530" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_dismiss" value="Отклонить жалобу" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="600" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_moddelete" value="Удалить сообщение&#xa;(по жалобе)" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="600" width="165" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Модератор → UC -->
+    <mxCell id="em1" style="endArrow=none;" edge="1" source="a_mod" target="uc_viewusers_mod" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em2" style="endArrow=none;" edge="1" source="a_mod" target="uc_searchusers_mod" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em3" style="endArrow=none;" edge="1" source="a_mod" target="uc_warn" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em4" style="endArrow=none;" edge="1" source="a_mod" target="uc_ban" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em5" style="endArrow=none;" edge="1" source="a_mod" target="uc_unban" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em6" style="endArrow=none;" edge="1" source="a_mod" target="uc_getreports" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em7" style="endArrow=none;" edge="1" source="a_mod" target="uc_dismiss" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="em8" style="endArrow=none;" edge="1" source="a_mod" target="uc_moddelete" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- include: dismiss / delete ← getreports -->
+    <mxCell id="inc_rpt1" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_dismiss" target="uc_getreports" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_rpt2" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_moddelete" target="uc_getreports" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ================================================================ -->
+    <!-- USE CASES — АДМИНИСТРАТОР -->
+    <!-- ================================================================ -->
+
+    <mxCell id="lbl_admin" value="Администрирование" style="text;html=1;align=left;fontStyle=3;fontSize=11;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="840" width="200" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="uc_viewusers_adm" value="Просмотреть всех&#xa;пользователей" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="865" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_searchusers_adm" value="Найти пользователя&#xa;по имени/email" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="865" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_edituser" value="Изменить данные&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="930" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_deleteuser" value="Удалить&#xa;пользователя" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="930" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_viewchats_adm" value="Просмотреть все&#xa;чаты" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="1000" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_deletechat_adm" value="Удалить чат" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="1000" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_broadcast" value="Отправить&#xa;рассылку" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1550" y="1070" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_stats" value="Просмотреть&#xa;статистику" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1730" y="1070" width="165" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_logs" value="Просмотреть&#xa;системные логи" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1640" y="1140" width="165" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Администратор → UC -->
+    <mxCell id="ea1" style="endArrow=none;" edge="1" source="a_admin" target="uc_viewusers_adm" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea2" style="endArrow=none;" edge="1" source="a_admin" target="uc_searchusers_adm" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea3" style="endArrow=none;" edge="1" source="a_admin" target="uc_edituser" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea4" style="endArrow=none;" edge="1" source="a_admin" target="uc_deleteuser" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea5" style="endArrow=none;" edge="1" source="a_admin" target="uc_viewchats_adm" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea6" style="endArrow=none;" edge="1" source="a_admin" target="uc_deletechat_adm" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea7" style="endArrow=none;" edge="1" source="a_admin" target="uc_broadcast" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea8" style="endArrow=none;" edge="1" source="a_admin" target="uc_stats" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ea9" style="endArrow=none;" edge="1" source="a_admin" target="uc_logs" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- include: deletechat ← viewchats -->
+    <mxCell id="inc_dc" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_deletechat_adm" target="uc_viewchats_adm" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <!-- include: edituser / deleteuser ← viewusers -->
+    <mxCell id="inc_eu" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_edituser" target="uc_viewusers_adm" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_du" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_deleteuser" target="uc_viewusers_adm" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <!-- include: logs ← stats -->
+    <mxCell id="inc_ls" value="«include»" style="endArrow=open;endSize=10;dashed=1;strokeColor=#000000;fontSize=10;" edge="1" source="uc_logs" target="uc_stats" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
