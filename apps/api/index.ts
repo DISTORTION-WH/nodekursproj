@@ -423,7 +423,9 @@ io.on("connection", async (socket: Socket) => {
     const userId = (socket as any).userId;
     if (!userId) return;
     await client.query(
-      "UPDATE message_mentions SET seen = true WHERE mentioned_user_id = $1 AND chat_id = $2",
+      `UPDATE message_mentions mm SET seen = true
+       FROM messages m WHERE mm.message_id = m.id
+         AND mm.mentioned_user_id = $1 AND m.chat_id = $2`,
       [userId, data.chatId]
     ).catch(console.error);
   });
@@ -432,25 +434,54 @@ io.on("connection", async (socket: Socket) => {
   socket.on("poll_vote", async (data: { pollId: number; optionIndex: number }, ack) => {
     const userId = (socket as any).userId;
     if (!userId) return;
+    const pgClient = await (client as any).pool?.connect?.() ?? client;
+    const inPool = pgClient !== client;
     try {
-      const pollRes = await client.query("SELECT * FROM polls WHERE id = $1", [data.pollId]);
-      if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); return; }
+      if (inPool) await pgClient.query("BEGIN");
+
+      const pollRes = await pgClient.query(
+        "SELECT id, chat_id, closed FROM polls WHERE id = $1 FOR UPDATE",
+        [data.pollId]
+      );
+      if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
       const poll = pollRes.rows[0];
-      if (poll.closed) { if (ack) ack({ error: "Poll is closed" }); return; }
-      const votes: Record<string, number[]> = poll.votes || {};
-      // Remove user from all options first (single-choice)
-      for (const key of Object.keys(votes)) {
-        votes[key] = (votes[key] as number[]).filter((id) => id !== userId);
+      if (poll.closed) { if (ack) ack({ error: "Poll is closed" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
+
+      // Validate option index exists
+      const optRes = await pgClient.query(
+        "SELECT 1 FROM poll_options WHERE poll_id = $1 AND option_index = $2",
+        [data.pollId, data.optionIndex]
+      );
+      if (optRes.rows.length === 0) { if (ack) ack({ error: "Invalid option" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
+
+      // Upsert vote — single choice per user (PRIMARY KEY handles uniqueness)
+      await pgClient.query(
+        `INSERT INTO poll_votes (poll_id, user_id, option_index, voted_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (poll_id, user_id) DO UPDATE SET option_index = EXCLUDED.option_index, voted_at = NOW()`,
+        [data.pollId, userId, data.optionIndex]
+      );
+
+      if (inPool) await pgClient.query("COMMIT");
+
+      // Build aggregated vote counts to broadcast
+      const voteCountRes = await client.query(
+        "SELECT option_index, array_agg(user_id) AS user_ids FROM poll_votes WHERE poll_id = $1 GROUP BY option_index",
+        [data.pollId]
+      );
+      const votes: Record<string, number[]> = {};
+      for (const row of voteCountRes.rows) {
+        votes[String(row.option_index)] = row.user_ids;
       }
-      const key = String(data.optionIndex);
-      if (!votes[key]) votes[key] = [];
-      votes[key].push(userId);
-      await client.query("UPDATE polls SET votes = $1 WHERE id = $2", [JSON.stringify(votes), data.pollId]);
+
       io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId: data.pollId, votes });
       if (ack) ack({ ok: true, votes });
     } catch (e) {
+      if (inPool) await pgClient.query("ROLLBACK").catch(() => {});
       console.error("poll_vote error:", e);
       if (ack) ack({ error: "Vote failed" });
+    } finally {
+      if (inPool) pgClient.release();
     }
   });
 
@@ -644,10 +675,6 @@ async function initializeDatabase() {
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    try {
-      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_frame VARCHAR(50) DEFAULT NULL;`);
-    } catch (e: any) { if (e.code !== "42701") throw e; }
-
     await client.query(
       `CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, name VARCHAR(50), is_group BOOLEAN DEFAULT false, creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL, invite_code VARCHAR(16) UNIQUE);`
     );
@@ -661,9 +688,25 @@ async function initializeDatabase() {
     try {
       await client.query(`ALTER TABLE chat_users ADD COLUMN IF NOT EXISTS chat_role VARCHAR(20) NOT NULL DEFAULT 'member';`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
+    // Enforce valid chat role values — prevents arbitrary strings
+    await client.query(
+      `DO $$ BEGIN
+         ALTER TABLE chat_users ADD CONSTRAINT chat_users_chat_role_check
+           CHECK (chat_role IN ('member', 'moderator', 'trusted'));
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$;`
+    );
 
     await client.query(
-      `CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE, sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE, text TEXT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, deleted_for INTEGER[] DEFAULT '{}'::integer[]);`
+      `CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE, sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE, text TEXT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);`
+    );
+    // Per-user soft-delete: 1NF-compliant replacement for deleted_for INTEGER[]
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS message_deleted_for (
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
+        PRIMARY KEY (message_id, user_id)
+      );`
     );
     await client.query(
       `CREATE TABLE IF NOT EXISTS friends (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, friend_id INTEGER REFERENCES users(id) ON DELETE CASCADE, status VARCHAR(20) DEFAULT 'pending', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), UNIQUE(user_id, friend_id));`
@@ -684,23 +727,27 @@ async function initializeDatabase() {
 
     await client.query(
       `CREATE TABLE IF NOT EXISTS reports (
-        id SERIAL PRIMARY KEY,
-        reporter_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
-        reason TEXT NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending', 
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        id               SERIAL  PRIMARY KEY,
+        reporter_id      INTEGER REFERENCES users(id)    ON DELETE CASCADE,
+        reported_user_id INTEGER REFERENCES users(id)    ON DELETE CASCADE,
+        message_id       INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+        reason           TEXT    NOT NULL,
+        status           VARCHAR(20) NOT NULL DEFAULT 'pending'
+                           CHECK (status IN ('pending', 'resolved', 'dismissed')),
+        created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );`
     );
     await client.query(
       `CREATE TABLE IF NOT EXISTS app_logs (
-        id SERIAL PRIMARY KEY,
-        level VARCHAR(20) NOT NULL,
-        message TEXT NOT NULL,
-        meta TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        id         SERIAL  PRIMARY KEY,
+        level      VARCHAR(20) NOT NULL,
+        message    TEXT NOT NULL,
+        meta       JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );`
     );
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_app_logs_level      ON app_logs(level);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON app_logs(created_at DESC);`);
 
     try {
       await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;`);
@@ -762,21 +809,26 @@ async function initializeDatabase() {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invisible BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    try {
-      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';`);
-    } catch (e: any) { if (e.code !== "42701") throw e; }
-
-    try {
-      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(4) DEFAULT '';`);
-    } catch (e: any) { if (e.code !== "42701") throw e; }
-
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_bg TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_anim VARCHAR(30) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_badge VARCHAR(10) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bubble_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_link TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
-    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    // ─── user_profiles: cosmetic/personalization fields extracted from users (3NF) ──
+    // These columns were previously scattered across users via ALTER TABLE.
+    // They are purely presentational and have no bearing on identity or auth,
+    // so they belong in a dedicated 1:1 satellite table.
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id        INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        bio            TEXT         NOT NULL DEFAULT '',
+        country        VARCHAR(4)   NOT NULL DEFAULT '',
+        profile_bg     TEXT         NOT NULL DEFAULT '',
+        username_color VARCHAR(20)  NOT NULL DEFAULT '',
+        username_anim  VARCHAR(30)  NOT NULL DEFAULT '',
+        profile_badge  VARCHAR(10)  NOT NULL DEFAULT '',
+        bubble_color   VARCHAR(20)  NOT NULL DEFAULT '',
+        accent_color   VARCHAR(20)  NOT NULL DEFAULT '',
+        social_link    TEXT         NOT NULL DEFAULT '',
+        avatar_frame   VARCHAR(50),
+        updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );`
+    );
 
     // last_seen
     try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ DEFAULT NOW();`); } catch(e: any) { if (e.code !== "42701") throw e; }
@@ -797,30 +849,51 @@ async function initializeDatabase() {
       );`
     );
 
-    // Polls
+    // Polls — normalized: options and votes are separate tables (1NF)
     await client.query(
       `CREATE TABLE IF NOT EXISTS polls (
-        id SERIAL PRIMARY KEY,
-        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
-        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        question TEXT NOT NULL,
-        options JSONB NOT NULL,
-        votes JSONB NOT NULL DEFAULT '{}',
-        closed BOOLEAN DEFAULT false,
+        id         SERIAL PRIMARY KEY,
+        chat_id    INTEGER REFERENCES chats(id)    ON DELETE CASCADE,
+        creator_id INTEGER REFERENCES users(id)    ON DELETE CASCADE,
         message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        question   TEXT    NOT NULL,
+        closed     BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );`
     );
+    // Each poll option row (atomic — replaces options JSONB array)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS poll_options (
+        id           SERIAL  PRIMARY KEY,
+        poll_id      INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+        option_index SMALLINT NOT NULL,
+        option_text  TEXT    NOT NULL,
+        UNIQUE (poll_id, option_index)
+      );`
+    );
+    // Each vote row — one row per user per poll (replaces votes JSONB, prevents race conditions)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS poll_votes (
+        poll_id      INTEGER NOT NULL REFERENCES polls(id)        ON DELETE CASCADE,
+        user_id      INTEGER NOT NULL REFERENCES users(id)        ON DELETE CASCADE,
+        option_index SMALLINT NOT NULL,
+        voted_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (poll_id, user_id)
+      );`
+    );
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_options_poll ON poll_options(poll_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_votes_poll   ON poll_votes(poll_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_polls_chat        ON polls(chat_id);`);
 
-    // Mentions
+    // Mentions — chat_id removed (3NF: derivable via message_id → messages.chat_id)
     await client.query(
       `CREATE TABLE IF NOT EXISTS message_mentions (
-        id SERIAL PRIMARY KEY,
-        message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
-        mentioned_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
-        seen BOOLEAN DEFAULT false,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        id                SERIAL  PRIMARY KEY,
+        message_id        INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        mentioned_user_id INTEGER NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
+        seen              BOOLEAN NOT NULL DEFAULT false,
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (message_id, mentioned_user_id)
       );`
     );
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mentions_user ON message_mentions(mentioned_user_id);`);
@@ -843,6 +916,20 @@ async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );`
     );
+
+    // ─── Performance indexes ──────────────────────────────────────────────────
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_id         ON messages(chat_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender_id       ON messages(sender_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_created_at      ON messages(chat_id, created_at DESC);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_chat_users_user_id       ON chat_users(user_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_chat_users_chat_id       ON chat_users(chat_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_friends_user_id          ON friends(user_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_friends_friend_id        ON friends(friend_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_reactions_msg    ON message_reactions(message_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_reads_msg        ON message_reads(message_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_deleted_for_user ON message_deleted_for(user_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_status           ON reports(status);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_reported_user    ON reports(reported_user_id);`);
 
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
@@ -932,6 +1019,16 @@ async function start() {
       console.error("[EPHEMERAL] Cleanup error:", e);
     }
   }, 60_000);
+
+  // ─── TTL cleanup: purge expired auth codes every 10 minutes ────────────
+  setInterval(async () => {
+    try {
+      await client.query(`DELETE FROM registration_codes  WHERE created_at < NOW() - INTERVAL '1 hour'`);
+      await client.query(`DELETE FROM password_reset_codes WHERE created_at < NOW() - INTERVAL '15 minutes'`);
+    } catch (e) {
+      console.error("[TTL] Auth code cleanup error:", e);
+    }
+  }, 10 * 60_000);
 }
 
 start();

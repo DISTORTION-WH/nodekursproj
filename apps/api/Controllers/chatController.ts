@@ -429,8 +429,8 @@ class ChatController {
         );
         for (const row of usersRes.rows) {
           await client.query(
-            "INSERT INTO message_mentions (message_id, mentioned_user_id, chat_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-            [msg.id, row.id, chatId]
+            "INSERT INTO message_mentions (message_id, mentioned_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            [msg.id, row.id]
           );
           req.app.get("io").to(`user_${row.id}`).emit("mention_received", {
             messageId: msg.id,
@@ -659,7 +659,8 @@ class ChatController {
       const result = await client.query(
         `SELECT m.id, m.text, m.created_at, m.sender_id, u.username as sender_name
          FROM messages m JOIN users u ON u.id = m.sender_id
-         WHERE m.chat_id = $1 AND NOT ($2 = ANY(m.deleted_for))
+         WHERE m.chat_id = $1
+           AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $2)
            AND (m.text LIKE 'https://%' OR m.text LIKE 'http://%')
            AND (m.text ~ '\\.(jpg|jpeg|png|gif|webp|mp4|webm|mp3|pdf|zip)($|\\?)' OR m.text LIKE '%/stickers/%' OR m.text LIKE '%/uploads/%')
          ORDER BY m.created_at DESC LIMIT 100`,
@@ -682,7 +683,8 @@ class ChatController {
       const msgs = await client.query(
         `SELECT m.id, m.text, m.created_at, u.username as sender_name
          FROM messages m JOIN users u ON u.id = m.sender_id
-         WHERE m.chat_id = $1 AND NOT ($2 = ANY(m.deleted_for))
+         WHERE m.chat_id = $1
+           AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $2)
          ORDER BY m.created_at ASC`,
         [chatId, userId]
       );

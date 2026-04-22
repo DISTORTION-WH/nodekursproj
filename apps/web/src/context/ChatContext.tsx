@@ -386,6 +386,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         typingDebounce.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, activeChat, fetchChatMembers, fetchPinnedMessages, currentUser, playSound]);
 
   const selectChat = (chat: Chat) => {

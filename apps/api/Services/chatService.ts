@@ -301,7 +301,8 @@ class ChatService {
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
        LEFT JOIN users ru ON ru.id = rm.sender_id
-       WHERE m.chat_id = $1 AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
+       WHERE m.chat_id = $1
+         AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $2)
          AND (m.expires_at IS NULL OR m.expires_at > NOW())
        ORDER BY m.created_at ASC`,
       [chatId, userId]
@@ -389,8 +390,9 @@ class ChatService {
       await client.query("DELETE FROM messages WHERE chat_id = $1", [chatId]);
     } else {
       await client.query(
-        `UPDATE messages SET deleted_for = array_append(deleted_for, $1)
-         WHERE chat_id = $2 AND NOT deleted_for @> ARRAY[$1]::int[]`,
+        `INSERT INTO message_deleted_for (message_id, user_id)
+         SELECT id, $1 FROM messages WHERE chat_id = $2
+         ON CONFLICT DO NOTHING`,
         [userId, chatId]
       );
     }
@@ -428,7 +430,8 @@ class ChatService {
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id
        LEFT JOIN users ru ON ru.id = rm.sender_id
-       WHERE m.chat_id = $1 AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
+       WHERE m.chat_id = $1
+         AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $2)
        ${beforeClause}
        ORDER BY m.created_at DESC
        LIMIT $${params.length}`,
@@ -452,7 +455,7 @@ class ChatService {
       `SELECT cu.chat_id, COUNT(m.id)::int as unread
        FROM chat_users cu
        LEFT JOIN messages m ON m.chat_id = cu.chat_id
-         AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$1]::int[])
+         AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $1)
          AND m.id > COALESCE(
            (SELECT last_read_message_id FROM chat_read_status WHERE user_id = $1 AND chat_id = cu.chat_id),
            0
@@ -513,7 +516,7 @@ class ChatService {
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.chat_id = $1
-         AND (m.deleted_for IS NULL OR NOT m.deleted_for @> ARRAY[$2]::int[])
+         AND NOT EXISTS (SELECT 1 FROM message_deleted_for mdf WHERE mdf.message_id = m.id AND mdf.user_id = $2)
          AND m.text ILIKE $3
        ORDER BY m.created_at DESC
        LIMIT 50`,
