@@ -6,6 +6,7 @@ import LinkPreview from "./LinkPreview";
 import { getImageUrl } from "../utils/imageUrl";
 import { useI18n } from "../i18n";
 import { useHoverCard } from "../context/HoverCardContext";
+import UiIcon from "./UiIcon";
 
 // ─── Poll Widget ──────────────────────────────────────────────────────────────
 function PollWidget({ poll, messageId, currentUserId }: { poll: PollData; messageId: number; currentUserId: number | undefined }) {
@@ -564,16 +565,16 @@ const getFileExtension = (url: string): string => {
   return ext;
 };
 
-const getFileIcon = (ext: string): string => {
-  const icons: Record<string, string> = {
-    pdf: "📄", doc: "📝", docx: "📝", txt: "📝",
-    xls: "📊", xlsx: "📊", csv: "📊",
-    ppt: "📽️", pptx: "📽️",
-    zip: "📦", rar: "📦", "7z": "📦", tar: "📦", gz: "📦",
-    json: "🔧", xml: "🔧",
-    apk: "📱", exe: "💿", dmg: "💿", iso: "💿",
+const getFileIcon = (ext: string): React.ReactNode => {
+  const icons: Record<string, React.ReactNode> = {
+    pdf: <UiIcon name="file" size={18} />, doc: <UiIcon name="fileText" size={18} />, docx: <UiIcon name="fileText" size={18} />, txt: <UiIcon name="fileText" size={18} />,
+    xls: <UiIcon name="fileSpreadsheet" size={18} />, xlsx: <UiIcon name="fileSpreadsheet" size={18} />, csv: <UiIcon name="fileSpreadsheet" size={18} />,
+    ppt: <UiIcon name="video" size={18} />, pptx: <UiIcon name="video" size={18} />,
+    zip: <UiIcon name="fileArchive" size={18} />, rar: <UiIcon name="fileArchive" size={18} />, "7z": <UiIcon name="fileArchive" size={18} />, tar: <UiIcon name="fileArchive" size={18} />, gz: <UiIcon name="fileArchive" size={18} />,
+    json: <UiIcon name="fileCode" size={18} />, xml: <UiIcon name="fileCode" size={18} />,
+    apk: <UiIcon name="file" size={18} />, exe: <UiIcon name="fileDisk" size={18} />, dmg: <UiIcon name="fileDisk" size={18} />, iso: <UiIcon name="fileDisk" size={18} />,
   };
-  return icons[ext] || "📎";
+  return icons[ext] || <UiIcon name="file" size={18} />;
 };
 
 const extractUrl = (text: string | undefined | null): string | null => {
@@ -978,7 +979,7 @@ export default function MessageList() {
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
                       title={t.messages.edit}
                     >
-                      ✏️
+                      <UiIcon name="edit" size={14} />
                     </button>
                   )}
                   {/* Forward */}
@@ -996,7 +997,7 @@ export default function MessageList() {
                       className={`text-xs p-1 rounded hover:bg-discord-input transition ${isPinned ? "text-discord-warn hover:text-discord-text-primary" : "text-discord-text-muted hover:text-discord-text-primary"}`}
                       title={isPinned ? t.messages.unpin : t.messages.pin}
                     >
-                      📌
+                      <UiIcon name="pin" size={14} />
                     </button>
                   )}
                   {/* Reaction picker */}
@@ -1009,7 +1010,7 @@ export default function MessageList() {
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-text-primary transition"
                       title={t.messages.react}
                     >
-                      +😊
+                      <UiIcon name="smilePlus" size={15} />
                     </button>
                     {pickerOpenId === msg.id && (
                       <div
@@ -1037,7 +1038,7 @@ export default function MessageList() {
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-warn transition"
                       title={t.messages.report}
                     >
-                      🚩
+                      <UiIcon name="flag" size={14} />
                     </button>
                   )}
                   {/* Delete */}
@@ -1047,7 +1048,7 @@ export default function MessageList() {
                       className="text-xs p-1 rounded hover:bg-discord-input text-discord-text-muted hover:text-discord-danger transition"
                       title={t.messages.delete}
                     >
-                      🗑️
+                      <UiIcon name="trash" size={14} />
                     </button>
                   )}
                 </div>

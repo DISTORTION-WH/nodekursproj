@@ -20,6 +20,11 @@ interface ActiveSession {
   pendingChunks: Buffer[];
   /** Track if we've successfully opened */
   opened: boolean;
+  /** Reconnect callback so we can restart on unexpected close */
+  onTranscript: (text: string, isFinal: boolean) => void;
+  /** Reconnect attempt count (exponential backoff, max 3) */
+  reconnectAttempts: number;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
 // userId → active Deepgram session
@@ -68,6 +73,9 @@ export function startSession(
     keepAliveTimer: null,
     pendingChunks: [],
     opened: false,
+    onTranscript,
+    reconnectAttempts: 0,
+    reconnectTimer: null,
   };
 
   ws.on("open", () => {
@@ -117,8 +125,29 @@ export function startSession(
   ws.on("close", (code: number, _reason: Buffer) => {
     console.log(`[DEEPGRAM] Session closed for user ${userId} (code: ${code})`);
     const s = sessions.get(userId);
-    if (s && s.ws === ws) {
-      if (s.keepAliveTimer) clearInterval(s.keepAliveTimer);
+    if (!s || s.ws !== ws) return;
+
+    if (s.keepAliveTimer) clearInterval(s.keepAliveTimer);
+
+    // Reconnect on unexpected close (not 1000=normal, not 1008=policy violation)
+    const normalClose = code === 1000 || code === 1008 || code === 4000;
+    if (!normalClose && s.reconnectAttempts < 3) {
+      const delay = Math.pow(2, s.reconnectAttempts) * 1000; // 1s, 2s, 4s
+      console.log(`[DEEPGRAM] Reconnecting for user ${userId} in ${delay}ms (attempt ${s.reconnectAttempts + 1}/3)`);
+      s.reconnectAttempts++;
+      s.reconnectTimer = setTimeout(() => {
+        // Only reconnect if session wasn't manually stopped
+        if (sessions.has(userId)) {
+          sessions.delete(userId);
+          startSession(userId, lang, s.onTranscript);
+          // Restore attempt count so we don't reset backoff
+          const newS = sessions.get(userId);
+          if (newS) newS.reconnectAttempts = s.reconnectAttempts;
+        }
+      }, delay);
+      // Keep session entry alive during reconnect window
+      s.ws = ws; // already the old ws, but prevents double-reconnect
+    } else {
       sessions.delete(userId);
     }
   });
@@ -159,13 +188,12 @@ export function stopSession(userId: number): void {
   const session = sessions.get(userId);
   if (!session) return;
 
-  if (session.keepAliveTimer) {
-    clearInterval(session.keepAliveTimer);
-  }
+  if (session.keepAliveTimer) clearInterval(session.keepAliveTimer);
+  if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
 
   if (session.ws.readyState === WebSocket.OPEN || session.ws.readyState === WebSocket.CONNECTING) {
     try {
-      session.ws.close();
+      session.ws.close(1000, "stopped");
     } catch {
       // Already closed
     }

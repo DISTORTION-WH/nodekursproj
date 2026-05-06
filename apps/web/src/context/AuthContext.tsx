@@ -78,12 +78,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       api
         .get<User>("/users/me")
         .then((res) => {
-          setCurrentUser(res.data);
-          applyTheme(res.data.theme);
+          if (res.data) {
+            setCurrentUser(res.data);
+            applyTheme(res.data.theme);
+          } else {
+            logout();
+          }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error("Ошибка получения текущего пользователя:", err);
-          logout();
+          try {
+            logout();
+          } catch (logoutErr: unknown) {
+            console.error("Ошибка при logout:", logoutErr);
+          }
         })
         .finally(() => setLoading(false));
     } catch (err) {
@@ -121,9 +129,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       applyTheme(resUser.data.theme);
 
       navigate("/");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const message = err.response?.data?.message || "Ошибка входа";
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const message = axiosErr.response?.data?.message ?? "Ошибка входа";
       throw new Error(message);
     }
   };

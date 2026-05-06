@@ -1,10 +1,30 @@
-import { Router } from "express";
-import multer from "multer";
+import { Router, Request } from "express";
+import multer, { FileFilterCallback } from "multer";
 import authMiddleware from "../middleware/authMiddleware";
 import chatController from "../Controllers/chatController";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+const ALLOWED_CHAT_MIME_TYPES = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  "video/mp4", "video/webm",
+  "audio/mpeg", "audio/ogg", "audio/webm",
+  "application/pdf",
+  "application/zip", "application/x-zip-compressed",
+  "text/plain",
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (ALLOWED_CHAT_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Недопустимый тип файла: ${file.mimetype}`));
+    }
+  },
+});
 
 router.use(authMiddleware);
 

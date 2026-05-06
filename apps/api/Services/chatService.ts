@@ -2,6 +2,10 @@ import client from "../databasepg";
 import crypto from "crypto";
 import { QueryResult } from "pg";
 
+interface StatusError extends Error {
+  status: number;
+}
+
 
 export interface ChatParticipant {
   id: number;
@@ -70,8 +74,8 @@ class ChatService {
         ORDER BY c.id
       `);
       return chatsRes.rows;
-    } catch (err: any) {
-      console.error(`[ChatService] Ошибка getAllChats:`, err.message, err.stack);
+    } catch (err: unknown) {
+      console.error(`[ChatService] Ошибка getAllChats:`, err instanceof Error ? err.message : err, err instanceof Error ? err.stack : undefined);
       throw err;
     }
   }
@@ -81,27 +85,19 @@ class ChatService {
       return await client.query(`DELETE FROM messages WHERE chat_id = $1`, [
         chatId,
       ]);
-    } catch (err: any) {
-      console.error(
-        `[ChatService] Ошибка deleteMessagesByChat (${chatId}):`,
-        err.message,
-        err.stack
-      );
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error(`[ChatService] Ошибка deleteMessagesByChat (${chatId}):`, e.message, e.stack);
       throw err;
     }
   }
 
   async deleteChatUsers(chatId: string | number): Promise<QueryResult> {
     try {
-      return await client.query(`DELETE FROM chat_users WHERE chat_id = $1`, [
-        chatId,
-      ]);
-    } catch (err: any) {
-      console.error(
-        `[ChatService] Ошибка deleteChatUsers (${chatId}):`,
-        err.message,
-        err.stack
-      );
+      return await client.query(`DELETE FROM chat_users WHERE chat_id = $1`, [chatId]);
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error(`[ChatService] Ошибка deleteChatUsers (${chatId}):`, e.message, e.stack);
       throw err;
     }
   }
@@ -109,12 +105,9 @@ class ChatService {
   async deleteChat(chatId: string | number): Promise<QueryResult> {
     try {
       return await client.query(`DELETE FROM chats WHERE id = $1`, [chatId]);
-    } catch (err: any) {
-      console.error(
-        `[ChatService] Ошибка deleteChat (${chatId}):`,
-        err.message,
-        err.stack
-      );
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error(`[ChatService] Ошибка deleteChat (${chatId}):`, e.message, e.stack);
       throw err;
     }
   }
@@ -145,7 +138,7 @@ class ChatService {
     );
     
     if (check.rows.length === 0) {
-      const err: any = new Error("Нет доступа к этому чату");
+      const err = new Error("Нет доступа к этому чату") as StatusError;
       err.status = 403;
       throw err;
     }
@@ -169,7 +162,7 @@ class ChatService {
   async setChatMemberRole(chatId: string | number, targetUserId: string | number, newRole: string): Promise<void> {
     const validRoles = ['moderator', 'trusted', 'member'];
     if (!validRoles.includes(newRole)) {
-      const err: any = new Error("Недопустимая роль. Допустимые: moderator, trusted, member");
+      const err = new Error("Недопустимая роль. Допустимые: moderator, trusted, member") as StatusError;
       err.status = 400;
       throw err;
     }
@@ -178,7 +171,7 @@ class ChatService {
       [newRole, chatId, targetUserId]
     );
     if (result.rowCount === 0) {
-      const err: any = new Error("Пользователь не найден в этом чате");
+      const err = new Error("Пользователь не найден в этом чате") as StatusError;
       err.status = 404;
       throw err;
     }
@@ -189,12 +182,12 @@ class ChatService {
     const chat = chatRes.rows[0];
     
     if (!chat) {
-      const err: any = new Error("Чат не найден");
+      const err = new Error("Чат не найден") as StatusError;
       err.status = 404;
       throw err;
     }
     if (!chat.is_group) {
-      const err: any = new Error("Приглашать можно только в группы");
+      const err = new Error("Приглашать можно только в группы") as StatusError;
       err.status = 400;
       throw err;
     }
@@ -215,7 +208,7 @@ class ChatService {
       [inviteCode]
     );
     if (chatRes.rows.length === 0) {
-      const err: any = new Error("Неверный код приглашения");
+      const err = new Error("Неверный код приглашения") as StatusError;
       err.status = 404;
       throw err;
     }
@@ -226,7 +219,7 @@ class ChatService {
       [chat.id, userId]
     );
     if (check.rows.length > 0) {
-      const err: any = new Error("Вы уже состоите в этом чате");
+      const err = new Error("Вы уже состоите в этом чате") as StatusError;
       err.status = 400;
       throw err;
     }
@@ -296,7 +289,26 @@ class ChatService {
            ),
            '[]'::json
          ) as reactions,
-         (SELECT row_to_json(p) FROM polls p WHERE p.message_id = m.id LIMIT 1) as poll
+         (SELECT jsonb_build_object(
+           'id', p.id,
+           'question', p.question,
+           'closed', p.closed,
+           'options', (
+             SELECT array_agg(po.option_text ORDER BY po.option_index)
+             FROM poll_options po WHERE po.poll_id = p.id
+           ),
+           'votes', (
+             SELECT COALESCE(
+               jsonb_object_agg(v.option_index::text, v.user_ids),
+               '{}'::jsonb
+             )
+             FROM (
+               SELECT pv.option_index, array_agg(pv.user_id) AS user_ids
+               FROM poll_votes pv WHERE pv.poll_id = p.id
+               GROUP BY pv.option_index
+             ) v
+           )
+         ) FROM polls p WHERE p.message_id = m.id LIMIT 1) as poll
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        LEFT JOIN messages rm ON rm.id = m.reply_to_id

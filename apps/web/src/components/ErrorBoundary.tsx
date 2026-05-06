@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from "react";
+import UiIcon from "./UiIcon";
 
 interface Props {
   children: ReactNode;
@@ -25,7 +26,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-discord-bg flex items-center justify-center">
           <div className="bg-discord-secondary rounded-2xl p-10 text-center max-w-md w-full shadow-xl">
-            <div className="text-5xl mb-4">⚠️</div>
+            <div className="text-discord-warn mb-4 flex justify-center"><UiIcon name="warning" size={48} /></div>
             <h2 className="text-white text-xl font-bold mb-2">Что-то пошло не так</h2>
             <p className="text-discord-text-muted text-sm mb-6">
               {this.state.error?.message || "Неизвестная ошибка"}

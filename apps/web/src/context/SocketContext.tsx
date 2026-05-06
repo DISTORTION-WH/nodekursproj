@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
 import api from "../services/api";
-import { UserStatus } from "../types";
+import { User, UserStatus } from "../types";
 import { useI18n } from "../i18n";
+import UiIcon from "../components/UiIcon";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -20,7 +21,7 @@ export const useSocket = () => {
 
 const SOCKET_URL = api.defaults.baseURL || "http://localhost:5000";
 
-export const SocketProvider = ({ children, currentUser }: { children: ReactNode; currentUser: any }) => {
+export const SocketProvider = ({ children, currentUser }: { children: ReactNode; currentUser: User | null }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [connected, setConnected] = useState(false);
@@ -32,6 +33,8 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     if (!currentUser) {
       setSocket(null);
       setConnected(false);
+      setOnlineUsers([]);
+      setUserStatuses({});
       return;
     }
 
@@ -59,7 +62,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
-      console.log("🔌 Connected to socket:", newSocket.id);
+      console.log("Connected to socket:", newSocket.id);
       setConnected(true);
       newSocket.emit("join_user_room", currentUser.id);
     });
@@ -74,7 +77,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     });
 
     newSocket.on("reconnect", () => {
-      console.log("🔄 Socket reconnected");
+      console.log("Socket reconnected");
       setConnected(true);
       newSocket.emit("join_user_room", currentUser.id);
     });
@@ -84,11 +87,11 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     });
 
     // Global new_message handler for browser notifications
-    newSocket.on("new_message", (msg: any) => {
+    newSocket.on("new_message", (msg: { sender_id: number; sender_name?: string; text?: string }) => {
       if (!document.hasFocus() && notifPermission.current && msg.sender_id !== currentUser.id) {
         try {
           const notif = new Notification(msg.sender_name || "Новое сообщение", {
-            body: msg.text?.length > 100 ? msg.text.slice(0, 100) + "..." : msg.text,
+            body: (msg.text?.length ?? 0) > 100 ? msg.text!.slice(0, 100) + "..." : (msg.text ?? ""),
             icon: "/favicon.ico",
           });
           notif.onclick = () => window.focus();
@@ -103,14 +106,18 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
     });
 
     return () => {
-      newSocket.off("connect");
-      newSocket.off("disconnect");
-      newSocket.off("connect_error");
-      newSocket.off("reconnect");
-      newSocket.off("get_online_users");
-      newSocket.off("new_message");
-      newSocket.off("user_status_changed");
-      newSocket.disconnect();
+      try {
+        newSocket.off("connect");
+        newSocket.off("disconnect");
+        newSocket.off("connect_error");
+        newSocket.off("reconnect");
+        newSocket.off("get_online_users");
+        newSocket.off("new_message");
+        newSocket.off("user_status_changed");
+        newSocket.disconnect();
+      } catch (e: unknown) {
+        console.error("Socket cleanup error:", (e as Error).message);
+      }
     };
   }, [currentUser]);
 
@@ -119,7 +126,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
       {/* Connection lost banner */}
       {currentUser && !connected && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-discord-danger text-white text-sm px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
-          <span>⚡</span>
+          <UiIcon name="warning" size={15} />
           <span>{t.common.no_connection}</span>
         </div>
       )}

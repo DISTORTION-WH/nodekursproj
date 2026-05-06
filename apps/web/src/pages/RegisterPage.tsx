@@ -29,21 +29,45 @@ export default function RegisterPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Проверка размера файла (5 МБ)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Файл больше 5 МБ не может быть загружен");
+        e.target.value = ""; // Очищаем input
+        return;
+      }
+
       if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
       const url = URL.createObjectURL(file);
       prevBlobUrl.current = url;
       setAvatar(file);
       setAvatarPreview(url);
+      
+      // Очищаем ошибку, если она была
+      if (error === "Файл больше 5 МБ не может быть загружен") setError("");
     }
   };
 
   const handlePreRegister = async (e: FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !email.trim() || !password.trim()) return;
+    
+    // 1. Собираем массив пустых полей
+    const missing: string[] = [];
+    if (!username.trim()) missing.push(t.auth.username || "Имя пользователя");
+    if (!email.trim()) missing.push("Email");
+    if (!password.trim()) missing.push(t.auth.password || "Пароль");
+    if (!confirmPassword.trim()) missing.push(t.auth.confirm_password || "Подтверждение пароля");
+
+    // Если есть пустые поля, устанавливаем ошибку с их перечислением
+    if (missing.length > 0) {
+      setError(`Обязательные поля не заполнены: ${missing.join(", ")}`);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError(t.auth.passwords_mismatch);
       return;
     }
+    
     setLoading(true);
     setError("");
     try {
@@ -96,6 +120,9 @@ export default function RegisterPage() {
     e.currentTarget.style.background = "rgba(255,255,255,0.06)";
     e.currentTarget.style.boxShadow = "none";
   };
+
+  // 2. Условие для блокировки кнопки "Далее" (Шаг 1)
+  const isNextDisabled = loading || error.startsWith("Обязательные поля не заполнены");
 
   return (
     <div className="min-h-screen relative flex items-center justify-center overflow-hidden px-4">
@@ -169,17 +196,23 @@ export default function RegisterPage() {
               </div>
 
               {[
-                { label: t.auth.username, value: username, setter: setUsername, type: "text", placeholder: "username", autocomplete: "username" },
+                { label: t.auth.username || "Имя пользователя", value: username, setter: setUsername, type: "text", placeholder: "username", autocomplete: "username" },
                 { label: "Email", value: email, setter: setEmail, type: "email", placeholder: "you@example.com", autocomplete: "email" },
-                { label: t.auth.password, value: password, setter: setPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
-                { label: t.auth.confirm_password, value: confirmPassword, setter: setConfirmPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
+                { label: t.auth.password || "Пароль", value: password, setter: setPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
+                { label: t.auth.confirm_password || "Подтверждение пароля", value: confirmPassword, setter: setConfirmPassword, type: "password", placeholder: "••••••••", autocomplete: "new-password" },
               ].map(({ label, value, setter, type, placeholder, autocomplete }) => (
                 <div key={label} className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</label>
                   <input
                     type={type}
                     value={value}
-                    onChange={e => setter(e.target.value)}
+                    onChange={e => {
+                      setter(e.target.value);
+                      // 3. Очищаем ошибку о пустых полях, если пользователь начал что-то вводить
+                      if (error.startsWith("Обязательные поля не заполнены")) {
+                        setError("");
+                      }
+                    }}
                     placeholder={placeholder}
                     autoComplete={autocomplete}
                     className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
@@ -192,11 +225,24 @@ export default function RegisterPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isNextDisabled}
                 className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 mt-1"
-                style={{ background: loading ? "rgba(88,101,242,0.5)" : "linear-gradient(135deg, #5865f2, #7b68ee 50%, #eb459e)", backgroundSize: "200% auto", boxShadow: loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)", cursor: loading ? "not-allowed" : "pointer" }}
-                onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(88,101,242,0.5)"; } }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)"; }}
+                style={{ 
+                  background: isNextDisabled ? "rgba(88,101,242,0.5)" : "linear-gradient(135deg, #5865f2, #7b68ee 50%, #eb459e)", 
+                  backgroundSize: "200% auto", 
+                  boxShadow: isNextDisabled ? "none" : "0 4px 20px rgba(88,101,242,0.4)", 
+                  cursor: isNextDisabled ? "not-allowed" : "pointer" 
+                }}
+                onMouseEnter={e => { 
+                  if (!isNextDisabled) { 
+                    e.currentTarget.style.transform = "translateY(-1px)"; 
+                    e.currentTarget.style.boxShadow = "0 8px 30px rgba(88,101,242,0.5)"; 
+                  } 
+                }}
+                onMouseLeave={e => { 
+                  e.currentTarget.style.transform = "translateY(0)"; 
+                  e.currentTarget.style.boxShadow = isNextDisabled ? "none" : "0 4px 20px rgba(88,101,242,0.4)"; 
+                }}
               >
                 {loading ? t.auth.sending_code : t.auth.next}
               </button>

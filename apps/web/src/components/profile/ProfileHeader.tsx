@@ -5,6 +5,7 @@ import { AvatarWithFrame } from "./AvatarFrameShop";
 import { useI18n } from "../../i18n";
 import { updateUserUsername } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import UiIcon from "../UiIcon";
 
 interface ProfileHeaderProps {
   currentUser: User | null;
@@ -107,7 +108,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
                   className="text-discord-text-muted hover:text-discord-accent text-xs transition shrink-0"
                   title={t.profile.username_edit}
                 >
-                  ✏️
+                  <UiIcon name="edit" size={14} />
                 </button>
               </div>
             )}

@@ -1,8 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-if (!process.env.JWT_SECRET) {
-  console.warn("⚠️  JWT_SECRET не задан в .env — используется небезопасный ключ по умолчанию. Установите JWT_SECRET перед деплоем!");
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error(
+    "FATAL: JWT_SECRET не задан в переменных окружения. Приложение не может быть запущено без явного секрета."
+  );
 }
 
-export const secret: string = process.env.JWT_SECRET || "SECRET_KEY_RANDOM";
+export const secret: string = jwtSecret;

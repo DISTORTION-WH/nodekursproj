@@ -51,7 +51,14 @@ const ModeratorPage: React.FC = () => {
 
   const handleBan = async (user: User) => {
     if (!window.confirm("Забанить " + user.username + "?")) return;
-    try { await banUser(user.id); refresh(); } catch { alert("Ошибка блокировки"); }
+    try { 
+      await banUser(user.id); 
+      refresh(); 
+    } catch (err: any) { 
+      // Достаем текст ошибки с сервера, а если его вдруг нет - пишем стандартный
+      const errorMessage = err.response?.data?.message || "Ошибка блокировки";
+      alert(errorMessage); 
+    }
   };
 
   const handleUnban = async (user: User) => {

@@ -8,6 +8,7 @@ import SubtitlesOverlay, { CCButton, SubtitleSettingsPopup } from "./SubtitlesOv
 import NetworkQualityIndicator from "./NetworkQualityIndicator";
 import { CallFeaturesProvider, useCallFeatures } from "../context/CallFeaturesContext";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
 // ─── Control button (standalone component to allow useState hook) ─────────────
 
@@ -208,7 +209,7 @@ function ParticipantTile({
         }}
       >
         {isLocal ? t.call.you : participant.username}
-        {participant.audioMuted && <span>🔇</span>}
+        {participant.audioMuted && <UiIcon name="micOff" size={13} />}
       </div>
     </div>
   );
@@ -289,7 +290,7 @@ function TrayPill({
       >
         {isGroupCall ? (
           <>
-            <span style={{ fontSize: 14 }}>👥</span>
+            <UiIcon name="users" size={14} />
             <span
               style={{
                 fontSize: 13,
@@ -330,7 +331,7 @@ function TrayPill({
         </span>
 
         {/* Phone icon */}
-        <span style={{ fontSize: 14 }}>📞</span>
+        <UiIcon name="phone" size={14} />
       </div>
 
       {/* Expand button */}
@@ -451,6 +452,9 @@ function CallOverlayContent() {
   }, [localStream, callState]);
 
   useEffect(() => {
+    const retryHandlers: Array<() => void> = [];
+    let cancelled = false;
+
     if (remoteStream) {
       const tracks = remoteStream.getTracks();
       console.log("[CALL-UI] Remote stream received:", tracks.length, "tracks:", tracks.map(t => `${t.kind}(${t.readyState})`).join(", "));
@@ -458,20 +462,29 @@ function CallOverlayContent() {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
         remoteVideoRef.current.play().catch((err) => {
+          if (cancelled) return;
           console.warn("[CALL-UI] Video play blocked:", err.message);
-          const retry = () => { remoteVideoRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
-          document.addEventListener("click", retry);
+          const retry = () => { remoteVideoRef.current?.play().catch(console.error); };
+          retryHandlers.push(retry);
+          document.addEventListener("click", retry, { once: true });
         });
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
         remoteAudioRef.current.play().catch((err) => {
+          if (cancelled) return;
           console.warn("[CALL-UI] Audio play blocked:", err.message);
-          const retry = () => { remoteAudioRef.current?.play().catch(console.error); document.removeEventListener("click", retry); };
-          document.addEventListener("click", retry);
+          const retry = () => { remoteAudioRef.current?.play().catch(console.error); };
+          retryHandlers.push(retry);
+          document.addEventListener("click", retry, { once: true });
         });
       }
     }
+
+    return () => {
+      cancelled = true;
+      retryHandlers.forEach((retry) => document.removeEventListener("click", retry));
+    };
   }, [remoteStream, isVideoCall, callState]);
 
   const callerInitial = callerData?.name ? callerData.name[0].toUpperCase() : "?";
@@ -621,7 +634,7 @@ function CallOverlayContent() {
                 boxShadow: "0 4px 20px rgba(87,242,135,0.35)",
               }}
             >
-              🔔
+              <UiIcon name="bell" size={24} />
             </div>
           </div>
 
@@ -662,7 +675,7 @@ function CallOverlayContent() {
                 boxShadow: "0 4px 16px rgba(87,242,135,0.3)",
               }}
             >
-              📞 {t.chat.join}
+              <UiIcon name="phone" size={15} /> {t.chat.join}
             </button>
             <button
               onClick={dismissGroupCallBanner}
@@ -814,11 +827,11 @@ function CallOverlayContent() {
           {/* Control bar — sticky to bottom */}
           <div style={glassControlBar}>
             <ControlBtn onClick={muteGroupAudio} active={isGroupAudioMuted} title={t.call.mic}>
-              {isGroupAudioMuted ? "🔇" : "🎤"}
+              <UiIcon name={isGroupAudioMuted ? "micOff" : "mic"} size={22} />
             </ControlBtn>
             {groupCallIsVideo && (
               <ControlBtn onClick={muteGroupVideo} active={isGroupVideoMuted} title={t.call.camera}>
-                {isGroupVideoMuted ? "🚫" : "📷"}
+                <UiIcon name={isGroupVideoMuted ? "videoOff" : "camera"} size={22} />
               </ControlBtn>
             )}
             {/* Subtitles */}
@@ -830,7 +843,7 @@ function CallOverlayContent() {
                   title={t.call.subtitle_settings}
                   className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
                 >
-                  ⚙
+                  <UiIcon name="settings" size={16} />
                 </button>
               )}
               {showSubSettings && (
@@ -844,7 +857,7 @@ function CallOverlayContent() {
               )}
             </div>
             <ControlBtn onClick={leaveGroupCall} danger title={t.call.leave}>
-              📞
+              <UiIcon name="phone" size={22} />
             </ControlBtn>
           </div>
 
@@ -946,7 +959,7 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(237,66,69,0.4)",
                   }}
                 >
-                  📵 {t.call.decline}
+                  <UiIcon name="phoneOff" size={16} /> {t.call.decline}
                 </button>
                 <button
                   onClick={answerCall}
@@ -966,7 +979,7 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(87,242,135,0.4)",
                   }}
                 >
-                  📞 {t.call.accept}
+                  <UiIcon name="phone" size={16} /> {t.call.accept}
                 </button>
               </div>
             </div>
@@ -1062,7 +1075,7 @@ function CallOverlayContent() {
                     boxShadow: "0 4px 16px rgba(237,66,69,0.4)",
                   }}
                 >
-                  📵 {t.call.cancel}
+                  <UiIcon name="phoneOff" size={16} /> {t.call.cancel}
                 </button>
               </div>
             </div>
@@ -1237,7 +1250,7 @@ function CallOverlayContent() {
                           borderRadius: "50%", background: "#ed4245",
                           border: "2px solid rgba(18,19,32,0.98)",
                           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11,
-                        }}>🔇</span>
+                        }}><UiIcon name="micOff" size={11} /></span>
                       )}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{currentUser?.username ?? t.call.you}</div>
@@ -1259,11 +1272,11 @@ function CallOverlayContent() {
                 }}
               >
                 <ControlBtn onClick={muteAudio} active={isAudioMuted} title={t.call.mic}>
-                  {isAudioMuted ? "🔇" : "🎤"}
+                  <UiIcon name={isAudioMuted ? "micOff" : "mic"} size={22} />
                 </ControlBtn>
                 {isVideoCall && (
                   <ControlBtn onClick={muteVideo} active={isVideoMuted} title={t.call.camera}>
-                    {isVideoMuted ? "🚫" : "📷"}
+                    <UiIcon name={isVideoMuted ? "videoOff" : "camera"} size={22} />
                   </ControlBtn>
                 )}
                 <ControlBtn
@@ -1271,7 +1284,7 @@ function CallOverlayContent() {
                   active={isScreenSharing}
                   title={isScreenSharing ? t.call.stop_screen_share : t.call.screen_share}
                 >
-                  {isScreenSharing ? "🖥️" : "📺"}
+                  <UiIcon name="monitor" size={22} />
                 </ControlBtn>
                 <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
                   <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
@@ -1281,7 +1294,7 @@ function CallOverlayContent() {
                       title={t.call.subtitle_settings}
                       className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
                     >
-                      ⚙
+                      <UiIcon name="settings" size={16} />
                     </button>
                   )}
                   {showSubSettings && (
@@ -1295,7 +1308,7 @@ function CallOverlayContent() {
                   )}
                 </div>
                 <ControlBtn onClick={endCall} danger title={t.call.end}>
-                  📞
+                  <UiIcon name="phone" size={22} />
                 </ControlBtn>
               </div>
 

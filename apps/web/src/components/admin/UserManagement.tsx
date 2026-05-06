@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { User } from "../../types";
+import UiIcon from "../UiIcon";
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -93,13 +94,13 @@ export default function UserManagement() {
                       onClick={() => setEditingUser({ ...user })}
                       className="bg-discord-accent/20 hover:bg-discord-accent text-discord-accent hover:text-white text-xs px-2 py-1 rounded transition"
                     >
-                      ✏️
+                      <UiIcon name="edit" size={14} />
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user.id)}
                       className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded transition"
                     >
-                      ❌
+                      <UiIcon name="trash" size={14} />
                     </button>
                   </div>
                 </td>
@@ -138,7 +139,7 @@ export default function UserManagement() {
               onClick={handleSaveUser}
               className="bg-discord-success hover:bg-discord-success-hover text-white text-sm px-3 py-1.5 rounded transition"
             >
-              💾 Сохранить
+              <span className="inline-flex items-center gap-1.5"><UiIcon name="save" size={14} /> Сохранить</span>
             </button>
             <button
               onClick={() => setEditingUser(null)}

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../utils/imageUrl";
 import { AvatarWithFrame } from "./profile/AvatarFrameShop";
 import { useI18n, LANGUAGES } from "../i18n";
+import UiIcon from "./UiIcon";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export default function Navbar() {
             onMouseEnter={() => setHoveredLink("lang")}
             onMouseLeave={() => { if (!langOpen) setHoveredLink(null); }}
           >
-            {LANGUAGES.find((l) => l.code === lang)?.flag ?? "🌐"}
+            {LANGUAGES.find((l) => l.code === lang)?.flag ?? <UiIcon name="globe" size={14} />}
           </button>
           {langOpen && (
             <>

@@ -9,6 +9,7 @@ import ProfileBackground from "../components/profile/ProfileBackground";
 import { AvatarWithFrame } from "../components/profile/AvatarFrameShop";
 import UsernameDisplay from "../components/profile/UsernameDisplay";
 import { useHoverCard } from "../context/HoverCardContext";
+import UiIcon from "../components/UiIcon";
 
 type FriendStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
@@ -213,7 +214,7 @@ export default function UserProfilePage() {
                 rel="noopener noreferrer"
                 className="text-discord-accent text-sm hover:underline truncate"
               >
-                🔗 {user.social_link.replace(/^https?:\/\//, "")}
+                <span className="inline-flex items-center gap-1.5"><UiIcon name="link" size={14} /> {user.social_link.replace(/^https?:\/\//, "")}</span>
               </a>
             )}
           </div>

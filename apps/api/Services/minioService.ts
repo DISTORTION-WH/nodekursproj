@@ -1,4 +1,5 @@
 import * as Minio from "minio";
+import path from "path";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -45,7 +46,9 @@ class MinioService {
 
   async uploadFile(file: Express.Multer.File): Promise<string> {
     const timestamp = Date.now();
-    const uniqueName = `${timestamp}-${Math.round(Math.random() * 1e9)}-${file.originalname.replace(/\s+/g, "-")}`;
+    // path.basename strips any directory traversal attempts; replace spaces and non-safe chars
+    const safeName = path.basename(file.originalname).replace(/[^\w.\-]/g, "_");
+    const uniqueName = `${timestamp}-${Math.round(Math.random() * 1e9)}-${safeName}`;
 
     await minioClient.putObject(
       BUCKET_NAME,

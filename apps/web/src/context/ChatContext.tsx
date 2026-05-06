@@ -103,11 +103,18 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const [mentionCount, setMentionCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("soundEnabled") !== "false");
 
-  // Notification sound
+  // Reuse single AudioContext — browsers limit concurrent contexts
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
   const playSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
-      const ctx = new AudioContext();
+      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+        audioCtxRef.current = new AudioContext();
+      }
+      const ctx = audioCtxRef.current;
+      // Resume if suspended (browser autoplay policy)
+      if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -127,6 +134,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const typingTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const typingDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const messagesRequestId = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -191,20 +199,29 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   }, []);
 
   useEffect(() => {
-    if (!socket || !activeChat?.id) return;
+    if (!activeChat?.id) return;
 
+    const requestId = ++messagesRequestId.current;
+    const chatId = activeChat.id;
     setLoadingMessages(true);
     api
-      .get<Message[]>(`/chats/${activeChat.id}/messages`)
+      .get<Message[]>(`/chats/${chatId}/messages`)
       .then((res) => {
+        if (!mountedRef.current || messagesRequestId.current !== requestId || activeChatRef.current?.id !== chatId) return;
         setMessages(res.data);
         setHasMore(res.data.length >= 50);
       })
       .catch(console.error)
-      .finally(() => setLoadingMessages(false));
+      .finally(() => {
+        if (mountedRef.current && messagesRequestId.current === requestId && activeChatRef.current?.id === chatId) {
+          setLoadingMessages(false);
+        }
+      });
 
     if (activeChat.is_group) fetchChatMembers(activeChat.id);
     fetchPinnedMessages(activeChat.id);
+
+    if (!socket) return;
 
     socket.emit("join_chat", activeChat.id);
 

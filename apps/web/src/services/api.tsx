@@ -16,9 +16,9 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 let isRefreshing = false;
-let failedQueue: { resolve: (token: string) => void; reject: (err: any) => void }[] = [];
+let failedQueue: { resolve: (token: string) => void; reject: (err: unknown) => void }[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (token) prom.resolve(token);
     else prom.reject(error);
@@ -29,9 +29,9 @@ const processQueue = (error: any, token: string | null = null) => {
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       // Don't try to refresh if the failing request IS the refresh call
       if (originalRequest.url === "/auth/refresh") {
         localStorage.removeItem("token");
@@ -59,10 +59,17 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (!refreshToken) {
+          throw new Error("Missing refresh token");
+        }
         const res = await api.post("/auth/refresh", {
-          refreshToken: localStorage.getItem("refreshToken"),
+          refreshToken,
         });
-        const newToken = res.data.accessToken;
+        const newToken = res.data?.accessToken;
+        if (!newToken) {
+          throw new Error("Refresh response did not include access token");
+        }
         localStorage.setItem("token", newToken);
         if (res.data.refreshToken) {
           localStorage.setItem("refreshToken", res.data.refreshToken);
@@ -88,8 +95,27 @@ api.interceptors.response.use(
 );
 
 
-export const login = (data: any) => api.post('/auth/login', data);
-export const register = (data: any) => api.post('/auth/register', data);
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  code?: string;
+}
+
+export interface UpdateUserRequest {
+  username?: string;
+  email?: string;
+  roleId?: number;
+  is_banned?: boolean;
+}
+
+export const login = (data: LoginRequest) => api.post('/auth/login', data);
+export const register = (data: RegisterRequest) => api.post('/auth/register', data);
 export const getProfile = () => api.get('/auth/me'); 
 
 export const getUserChats = () => api.get('/chats');
@@ -143,12 +169,12 @@ export const dismissReport = (reportId: number) =>
 export const deleteMessageByMod = (messageId: number, reportId?: number) => 
     api.post('/moderator/delete-message', { messageId, reportId });
 
-export const searchUsers = (query: string) => 
-    api.get(`/admin/users/search?q=${query}`);
+export const searchUsers = (query: string) =>
+    api.get(`/admin/users/search?q=${encodeURIComponent(query)}`);
 
 export const getAllUsers = () => api.get('/admin/users');
 
-export const updateUser = (id: number, data: any) => api.put(`/admin/users/${id}`, data);
+export const updateUser = (id: number, data: UpdateUserRequest) => api.put(`/admin/users/${id}`, data);
 export const deleteUser = (id: number) => api.delete(`/admin/users/${id}`);
 export const getAllChats = () => api.get('/admin/chats');
 export const deleteChat = (id: number) => api.delete(`/admin/chats/${id}`);

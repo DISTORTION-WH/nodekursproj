@@ -158,7 +158,7 @@ export interface LogEntry {
   id: number;
   level: string;
   message: string;
-  meta: any;
+  meta: Record<string, unknown> | null;
   created_at: string;
 }
 

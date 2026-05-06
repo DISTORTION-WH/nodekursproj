@@ -7,6 +7,7 @@ import ForwardModal from "./ForwardModal";
 import { useChat } from "../context/ChatContext";
 import { uploadFile } from "../services/api";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
 interface ChatWindowProps {
   isMobile: boolean;
@@ -61,7 +62,7 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
       {isDragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ background: "rgba(14,15,25,0.85)", backdropFilter: "blur(4px)" }}>
           <div className="px-8 py-6 text-center" style={{ border: "2px dashed rgba(88,101,242,0.6)", background: "rgba(88,101,242,0.08)", borderRadius: "16px" }}>
-            <div className="text-4xl mb-2">📁</div>
+            <div className="text-discord-accent mb-2 flex justify-center"><UiIcon name="file" size={40} /></div>
             <div className="text-discord-text-primary font-semibold text-lg">{t.chat.drop_file}</div>
             <div className="text-discord-text-muted text-sm mt-1">{t.chat.drop_file_hint}</div>
           </div>

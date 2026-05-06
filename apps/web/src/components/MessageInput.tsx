@@ -5,6 +5,7 @@ import VoiceRecorder from "./VoiceRecorder";
 import VideoNoteRecorder from "./VideoNoteRecorder";
 import { uploadFile, createPoll, createScheduledMessage } from "../services/api";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
 const STICKER_COUNT = 27;
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
@@ -130,6 +131,14 @@ export default function MessageInput() {
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeChat?.id) return;
+
+    // Проверка размера файла (5 МБ)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Файл больше 5 МБ не может быть загружен");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
       await uploadFile(activeChat.id, file);
@@ -262,7 +271,7 @@ export default function MessageInput() {
       {/* Poll creator panel */}
       {showPollCreator && (
         <div className="mb-2 p-3 rounded-xl border" style={{ background: "var(--color-secondary)", borderColor: "var(--color-tertiary)" }}>
-          <div className="text-xs font-semibold text-discord-text-muted uppercase tracking-wide mb-2">📊 {t.chat.create_poll}</div>
+          <div className="text-xs font-semibold text-discord-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5"><UiIcon name="poll" size={14} /> {t.chat.create_poll}</div>
           <input
             value={pollQuestion}
             onChange={e => setPollQuestion(e.target.value)}
@@ -302,7 +311,7 @@ export default function MessageInput() {
       {/* Scheduled message time picker */}
       {showScheduled && (
         <div className="mb-2 px-3 py-2 rounded-xl border flex items-center gap-2" style={{ background: "rgba(88,101,242,0.08)", borderColor: "rgba(88,101,242,0.3)" }}>
-          <span className="text-discord-accent text-xs">🕐 {t.chat.schedule_at}:</span>
+          <span className="text-discord-accent text-xs flex items-center gap-1.5"><UiIcon name="clock" size={14} /> {t.chat.schedule_at}:</span>
           <input
             type="datetime-local"
             value={scheduledTime}
@@ -420,14 +429,14 @@ export default function MessageInput() {
                 className="w-full text-left px-4 py-2 text-sm text-discord-text-secondary hover:text-discord-text-primary hover:bg-discord-input transition flex items-center gap-2"
                 onClick={() => { setShowPollCreator(!showPollCreator); setShowMoreMenu(false); }}
               >
-                📊 {t.chat.create_poll}
+                <UiIcon name="poll" size={14} /> {t.chat.create_poll}
               </button>
               <button
                 type="button"
                 className="w-full text-left px-4 py-2 text-sm text-discord-text-secondary hover:text-discord-text-primary hover:bg-discord-input transition flex items-center gap-2"
                 onClick={() => { setShowScheduled(!showScheduled); setShowMoreMenu(false); }}
               >
-                🕐 {t.chat.schedule_message}
+                <UiIcon name="clock" size={14} /> {t.chat.schedule_message}
               </button>
               <div className="px-4 py-2 border-t" style={{ borderColor: "var(--color-tertiary)" }}>
                 <div className="text-xs text-discord-text-muted mb-1">⌛ {t.chat.ephemeral_timer}</div>

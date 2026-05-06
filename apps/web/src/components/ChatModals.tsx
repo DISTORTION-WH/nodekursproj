@@ -3,11 +3,12 @@ import { useChat } from "../context/ChatContext";
 import { kickUserFromGroup, setChatMemberRole } from "../services/api";
 import { ChatRole, ChatParticipant } from "../types";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
-function getRoleBadge(member: ChatParticipant, creatorId: number | undefined): { label: string; className: string } | null {
-  if (member.id === creatorId) return { label: "👑", className: "text-yellow-400" };
-  if (member.chat_role === "moderator") return { label: "🛡️", className: "text-discord-accent" };
-  if (member.chat_role === "trusted") return { label: "✅", className: "text-discord-success" };
+function getRoleBadge(member: ChatParticipant, creatorId: number | undefined): { label: React.ReactNode; className: string } | null {
+  if (member.id === creatorId) return { label: <UiIcon name="crown" size={13} />, className: "text-yellow-400" };
+  if (member.chat_role === "moderator") return { label: <UiIcon name="shield" size={13} />, className: "text-discord-accent" };
+  if (member.chat_role === "trusted") return { label: <UiIcon name="check" size={13} />, className: "text-discord-success" };
   return null;
 }
 
@@ -132,8 +133,8 @@ export default function ChatModals() {
                         onChange={(e) => onRoleChange(item.id, e.target.value)}
                         className="text-xs bg-discord-input text-discord-text-secondary rounded px-1 py-0.5 border border-discord-tertiary focus:outline-none cursor-pointer disabled:opacity-50"
                       >
-                        <option value="moderator">🛡️ {t.chat.role_moderator}</option>
-                        <option value="trusted">✅ {t.chat.role_trusted}</option>
+                        <option value="moderator">{t.chat.role_moderator}</option>
+                        <option value="trusted">{t.chat.role_trusted}</option>
                         <option value="member">{t.chat.role_member}</option>
                       </select>
                     )}

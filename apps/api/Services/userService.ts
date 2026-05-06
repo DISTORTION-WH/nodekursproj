@@ -1,6 +1,5 @@
 import client from "../databasepg";
 import bcrypt from "bcryptjs";
-import { QueryResult } from "pg";
 
 
 export interface Friend {
@@ -54,11 +53,12 @@ async function findUserByUsername(username: string): Promise<User | undefined> {
       [username]
     );
     return result.rows[0];
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка findUserByUsername (${username}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -66,21 +66,20 @@ async function findUserByUsername(username: string): Promise<User | undefined> {
 
 async function createUser(
   username: string,
-  password: any, 
+  password: string,
   roleId: number,
   avatarUrl: string | null = null,
   email: string | null = null
 ): Promise<User> {
   try {
-    let hashed = password;
-    if (!hashed || typeof hashed !== "string") {
-      throw new Error("Password must be a string");
+    if (!password || typeof password !== "string") {
+      throw new Error("Password must be a non-empty string");
     }
 
-    if (!/^\$2[abxy]\$/.test(hashed)) {
-      const saltRounds = 10;
-      hashed = await bcrypt.hash(hashed, saltRounds);
-    }
+    // Принимаем уже хэшированный пароль (bcrypt hash) или хэшируем сырой
+    const hashed = /^\$2[abxy]\$/.test(password)
+      ? password
+      : await bcrypt.hash(password, 10);
 
     const result = await client.query<User>(
       `INSERT INTO users (username, password, role_id, avatar_url, email)
@@ -90,12 +89,9 @@ async function createUser(
     );
 
     return result.rows[0];
-  } catch (err: any) {
-    console.error(
-      `[UserService] Ошибка createUser (${username}):`,
-      err.message,
-      err.stack
-    );
+  } catch (err: unknown) {
+    const e = err as Error;
+    console.error(`[UserService] Ошибка createUser (${username}):`, e.message, e.stack);
     throw err;
   }
 }
@@ -108,8 +104,9 @@ async function getAllUsers(): Promise<User[]> {
       LEFT JOIN roles r ON u.role_id = r.id
     `);
     return result.rows;
-  } catch (err: any) {
-    console.error(`[UserService] Ошибка getAllUsers:`, err.message, err.stack);
+  } catch (err: unknown) {
+    const e = err as Error;
+    console.error(`[UserService] Ошибка getAllUsers:`, e.message, e.stack);
     throw err;
   }
 }
@@ -141,11 +138,12 @@ async function getUserById(id: string | number): Promise<User | null> {
 
     user.friends = friendsResult.rows || [];
     return user;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка getUserById (${id}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -167,10 +165,11 @@ async function changeUserPassword(userId: string | number, oldPassword: string, 
       hashedNew,
       userId,
     ]);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка changeUserPassword (${userId}):`,
-      err.message
+      e.message
     );
     throw err;
   }
@@ -189,11 +188,12 @@ async function updateUserAvatar(userId: string | number, avatarUrl: string): Pro
       [userId]
     );
     return res.rows[0];
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка updateUserAvatar (${userId}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -214,11 +214,12 @@ async function saveRegistrationCode(
          SET username = $2, password = $3, avatar_url = $4, code = $5, created_at = NOW()`,
       [email, username, password, avatarUrl, code]
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка saveRegistrationCode (${email}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -231,11 +232,12 @@ async function getRegistrationCode(email: string): Promise<RegistrationCode | un
       [email]
     );
     return res.rows[0];
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка getRegistrationCode (${email}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -246,11 +248,12 @@ async function deleteRegistrationCode(email: string): Promise<void> {
     await client.query("DELETE FROM registration_codes WHERE email = $1", [
       email,
     ]);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка deleteRegistrationCode (${email}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -268,11 +271,12 @@ async function updateUser(userId: string | number, { username, roleId, email }: 
       [username, roleId, email, userId]
     );
     return res.rows[0];
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка updateUser (${userId}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -281,11 +285,12 @@ async function updateUser(userId: string | number, { username, roleId, email }: 
 async function deleteUser(userId: string | number): Promise<void> {
   try {
     await client.query("DELETE FROM users WHERE id = $1", [userId]);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка deleteUser (${userId}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }
@@ -301,11 +306,12 @@ async function searchUsers(query: string): Promise<User[]> {
       [`%${query}%`]
     );
     return res.rows;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     console.error(
       `[UserService] Ошибка searchUsers (${query}):`,
-      err.message,
-      err.stack
+      e.message,
+      e.stack
     );
     throw err;
   }

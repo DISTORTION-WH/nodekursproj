@@ -59,10 +59,11 @@ export default function (roles: string | string[]) {
       }
 
       next();
-    } catch (e: any) {
-      console.error("❗️ Ошибка в roleMiddleware:", e.message);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error("❗️ Ошибка в roleMiddleware:", err.message);
 
-      if (e.name === "TokenExpiredError") {
+      if (err.name === "TokenExpiredError") {
         return res.status(401).json({ message: "Токен истёк" });
       }
 

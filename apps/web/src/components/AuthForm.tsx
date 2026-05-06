@@ -19,7 +19,13 @@ export default function AuthForm({ type }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) return;
+    
+    // Проверка на пустые поля при нажатии на кнопку
+    if (!username.trim() || !password.trim()) {
+      setError("пароль или имя пользователя отсутствуют");
+      return;
+    }
+    
     setLoading(true);
     setError("");
     try {
@@ -29,6 +35,17 @@ export default function AuthForm({ type }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Обработчики ввода, которые убирают ошибку, когда пользователь начинает печатать
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUsername(e.target.value);
+    if (error === "пароль или имя пользователя отсутствуют") setError("");
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (error === "пароль или имя пользователя отсутствуют") setError("");
   };
 
   const inputStyle: React.CSSProperties = {
@@ -48,6 +65,9 @@ export default function AuthForm({ type }: Props) {
     e.currentTarget.style.background = "rgba(255,255,255,0.06)";
     e.currentTarget.style.boxShadow = "none";
   };
+
+  // Определяем, должна ли кнопка быть неактивной
+  const isButtonDisabled = loading || error === "пароль или имя пользователя отсутствуют";
 
   return (
     <div className="min-h-screen relative flex items-center justify-center overflow-hidden px-4">
@@ -153,7 +173,7 @@ export default function AuthForm({ type }: Props) {
               <input
                 type="text"
                 value={username}
-                onChange={e => setUsername(e.target.value)}
+                onChange={handleUsernameChange}
                 placeholder="username"
                 autoComplete="username"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
@@ -170,7 +190,7 @@ export default function AuthForm({ type }: Props) {
               <input
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 placeholder="••••••••"
                 autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
@@ -194,25 +214,25 @@ export default function AuthForm({ type }: Props) {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 animate-shimmer mt-1"
+              disabled={isButtonDisabled}
+              className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 mt-1"
               style={{
-                background: loading
+                background: isButtonDisabled
                   ? "rgba(88,101,242,0.5)"
                   : "linear-gradient(135deg, #5865f2 0%, #7b68ee 50%, #eb459e 100%)",
                 backgroundSize: "200% auto",
-                boxShadow: loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)",
-                cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: isButtonDisabled ? "none" : "0 4px 20px rgba(88,101,242,0.4)",
+                cursor: isButtonDisabled ? "not-allowed" : "pointer",
               }}
               onMouseEnter={e => {
-                if (!loading) {
+                if (!isButtonDisabled) {
                   e.currentTarget.style.transform = "translateY(-1px)";
                   e.currentTarget.style.boxShadow = "0 8px 30px rgba(88,101,242,0.5)";
                 }
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = loading ? "none" : "0 4px 20px rgba(88,101,242,0.4)";
+                e.currentTarget.style.boxShadow = isButtonDisabled ? "none" : "0 4px 20px rgba(88,101,242,0.4)";
               }}
             >
               {loading ? (

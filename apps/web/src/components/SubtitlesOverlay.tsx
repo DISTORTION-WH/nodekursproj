@@ -5,6 +5,7 @@ import { useCallFeatures } from "../context/CallFeaturesContext";
 import { useSocket } from "../context/SocketContext";
 import type { Socket } from "socket.io-client";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
 export type { StreamDescriptor };
 
@@ -407,7 +408,7 @@ export default function SubtitlesOverlay({
       ))}
       {audioAdapting && (
         <div style={{ background: "rgba(0,0,0,0.72)", color: "#faa81a", fontSize: "0.7rem", borderRadius: 4, padding: "2px 8px" }}>
-          ⚠️ {t.call.audio_quality_reduced}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><UiIcon name="warning" size={12} /> {t.call.audio_quality_reduced}</span>
         </div>
       )}
       {error && (

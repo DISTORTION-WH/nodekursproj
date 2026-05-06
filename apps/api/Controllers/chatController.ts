@@ -3,14 +3,7 @@ import chatService from "../Services/chatService";
 import client from "../databasepg";
 import minioService from "../Services/minioService";
 import linkPreviewService from "../Services/linkPreviewService";
-
-interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    username: string;
-    role?: string;
-  };
-}
+import { AuthRequest } from "../middleware/authMiddleware";
 
 class ChatController {
   async getChatUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -97,24 +90,71 @@ class ChatController {
       const authReq = req as AuthRequest;
       const chatId = req.params.id as string;
       const inviterId = authReq.user?.id;
-      const { friendId } = req.body;
+      const friendId = Number(req.body.friendId);
 
       if (!inviterId) {
-          res.status(401).json({ message: "Пользователь не авторизован" });
-          return;
+        res.status(401).json({ message: "Пользователь не авторизован" });
+        return;
       }
 
-      // Check permission: global admin/mod, room owner, room moderator or trusted
-      const userRoleRes = await client.query(
-        `SELECT r.value as role FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`, [inviterId]
+      if (!friendId || isNaN(friendId)) {
+        res.status(400).json({ message: "Некорректный ID пользователя" });
+        return;
+      }
+
+      // Проверяем что приглашаемый пользователь существует
+      const friendExists = await client.query<{ id: number }>(
+        "SELECT id FROM users WHERE id = $1 AND is_banned = false",
+        [friendId]
       );
-      const globalRole = userRoleRes.rows[0]?.role || 'USER';
-      const chatRes = await client.query('SELECT creator_id FROM chats WHERE id = $1', [chatId]);
-      const creatorId = chatRes.rows[0]?.creator_id;
+      if (friendExists.rows.length === 0) {
+        res.status(404).json({ message: "Пользователь не найден" });
+        return;
+      }
+
+      // Проверяем что inviter сам состоит в чате
+      const inviterMember = await client.query<{ user_id: number }>(
+        "SELECT user_id FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [chatId, inviterId]
+      );
+      if (inviterMember.rows.length === 0) {
+        res.status(403).json({ message: "Вы не являетесь участником этого чата" });
+        return;
+      }
+
+      // Проверяем что friendId ещё не в чате
+      const alreadyMember = await client.query<{ user_id: number }>(
+        "SELECT user_id FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [chatId, friendId]
+      );
+      if (alreadyMember.rows.length > 0) {
+        res.status(409).json({ message: "Пользователь уже является участником чата" });
+        return;
+      }
+
+      // Проверяем права: глобальный admin/mod, владелец чата, модератор или trusted в комнате
+      const userRoleRes = await client.query<{ role: string }>(
+        `SELECT r.value as role FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
+        [inviterId]
+      );
+      const globalRole = userRoleRes.rows[0]?.role ?? "USER";
+      const chatRes = await client.query<{ creator_id: number }>(
+        "SELECT creator_id FROM chats WHERE id = $1",
+        [chatId]
+      );
+      if (chatRes.rows.length === 0) {
+        res.status(404).json({ message: "Чат не найден" });
+        return;
+      }
+      const creatorId = chatRes.rows[0].creator_id;
       const isOwner = Number(creatorId) === Number(inviterId);
       const roomRole = await chatService.getChatMemberRole(chatId, inviterId);
-      const canInvite = globalRole === 'ADMIN' || globalRole === 'MODERATOR' || isOwner
-        || roomRole === 'moderator' || roomRole === 'trusted';
+      const canInvite =
+        globalRole === "ADMIN" ||
+        globalRole === "MODERATOR" ||
+        isOwner ||
+        roomRole === "moderator" ||
+        roomRole === "trusted";
 
       if (!canInvite) {
         res.status(403).json({ message: "Нет прав для приглашения" });
@@ -123,14 +163,8 @@ class ChatController {
 
       await chatService.inviteToGroup(chatId, friendId, inviterId);
 
-      req.app
-        .get("io")
-        .to(`user_${friendId}`)
-        .emit("added_to_chat", { chatId });
-      req.app
-        .get("io")
-        .to(`chat_${chatId}`)
-        .emit("chat_member_updated", { chatId });
+      req.app.get("io").to(`user_${friendId}`).emit("added_to_chat", { chatId });
+      req.app.get("io").to(`chat_${chatId}`).emit("chat_member_updated", { chatId });
 
       res.json({ message: "Приглашен" });
     } catch (e) {
@@ -175,17 +209,17 @@ class ChatController {
       const isRoomModerator = roomRole === 'moderator';
 
       if (isPrivileged || isCreator || isRoomModerator) {
-        await client.query("DELETE FROM chat_users WHERE chat_id = $1 AND user_id = $2", [chatId, userIdToKick]);
+        const kickRes = await client.query(
+          "DELETE FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+          [chatId, userIdToKick]
+        );
+        if (!kickRes.rowCount || kickRes.rowCount === 0) {
+          res.status(404).json({ message: "Пользователь не является участником чата" });
+          return;
+        }
 
-        // Уведомление через сокеты
-        req.app
-          .get("io")
-          .to(`user_${userIdToKick}`)
-          .emit("removed_from_chat", { chatId });
-        req.app
-          .get("io")
-          .to(`chat_${chatId}`)
-          .emit("chat_member_updated", { chatId });
+        req.app.get("io").to(`user_${userIdToKick}`).emit("removed_from_chat", { chatId });
+        req.app.get("io").to(`chat_${chatId}`).emit("chat_member_updated", { chatId });
 
         res.json({ message: "Удален из комнаты" });
       } else {
@@ -368,6 +402,18 @@ class ChatController {
       const targetChatId = Number(req.params.id);
       const { text, forwardedFromId } = req.body;
       if (!userId || !authReq.user) { res.status(401).json({ message: "Не авторизован" }); return; }
+      if (isNaN(targetChatId)) { res.status(400).json({ message: "Некорректный ID чата" }); return; }
+
+      // Verify user is a member of the target chat before forwarding
+      const memberCheck = await client.query(
+        "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [targetChatId, userId]
+      );
+      if (memberCheck.rows.length === 0) {
+        res.status(403).json({ message: "Нет доступа к целевому чату" });
+        return;
+      }
+
       const msg = await chatService.forwardMessage(targetChatId, userId, text, forwardedFromId);
       req.app.get("io").to(`chat_${targetChatId}`).emit("new_message", msg);
       res.json(msg);
@@ -408,6 +454,15 @@ class ChatController {
       if (!senderId || !authReq.user) {
           res.status(401).json({ message: "Пользователь не авторизован" });
           return;
+      }
+
+      if (!text || typeof text !== "string" || !text.trim()) {
+        res.status(400).json({ message: "Текст сообщения не может быть пустым" });
+        return;
+      }
+      if (text.length > 10_000) {
+        res.status(400).json({ message: "Сообщение слишком длинное (максимум 10 000 символов)" });
+        return;
       }
 
       const msg = await chatService.postMessage(chatId, senderId, text, reply_to_id ?? null, expires_in_seconds ?? null);
@@ -540,17 +595,23 @@ class ChatController {
 
       const isPrivileged = userRole === 'ADMIN' || userRole === 'MODERATOR';
 
-      if (isPrivileged) {
-          await chatService.deleteMessages(chatId, userId, true);
-      } else {
-          await chatService.deleteMessages(chatId, userId, allForEveryone);
+      // Check room owner/moderator status for "delete for everyone"
+      const chatRes = await client.query<{ creator_id: number }>("SELECT creator_id FROM chats WHERE id = $1", [chatId]);
+      const isRoomOwner = chatRes.rows.length > 0 && chatRes.rows[0].creator_id === userId;
+      const roomRole = await chatService.getChatMemberRole(chatId, userId);
+      const isRoomMod = roomRole === 'moderator';
+
+      const canDeleteForAll = isPrivileged || isRoomOwner || isRoomMod;
+
+      if (allForEveryone && !canDeleteForAll) {
+        res.status(403).json({ message: "Нет прав для удаления сообщений для всех" });
+        return;
       }
 
-      if (allForEveryone || isPrivileged) {
-        req.app
-          .get("io")
-          .to(`chat_${chatId}`)
-          .emit("messages_cleared", { chatId });
+      await chatService.deleteMessages(chatId, userId, allForEveryone && canDeleteForAll);
+
+      if (allForEveryone && canDeleteForAll) {
+        req.app.get("io").to(`chat_${chatId}`).emit("messages_cleared", { chatId });
       }
 
       res.json({ message: "Сообщения удалены" });
@@ -714,8 +775,7 @@ class ChatController {
       if (!question?.trim() || !Array.isArray(options) || options.length < 2 || options.length > 10) {
         res.status(400).json({ message: "Некорректные данные опроса" }); return;
       }
-      const optionsJson = JSON.stringify(options.map((o) => o.slice(0, 100)));
-      // Create a proxy message for the poll
+      const trimmedOptions = options.map((o) => String(o).slice(0, 100));
       const expiresAt = expires_in_seconds ? new Date(Date.now() + expires_in_seconds * 1000) : null;
       const msgRes = await client.query(
         `INSERT INTO messages (chat_id, sender_id, text, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
@@ -723,9 +783,16 @@ class ChatController {
       );
       const msg = msgRes.rows[0];
       const pollRes = await client.query(
-        `INSERT INTO polls (chat_id, creator_id, question, options, votes, message_id) VALUES ($1, $2, $3, $4, '{}', $5) RETURNING id`,
-        [chatId, userId, question.trim(), optionsJson, msg.id]
+        `INSERT INTO polls (chat_id, creator_id, question, message_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [chatId, userId, question.trim(), msg.id]
       );
+      const pollId = pollRes.rows[0].id;
+      for (let i = 0; i < trimmedOptions.length; i++) {
+        await client.query(
+          `INSERT INTO poll_options (poll_id, option_index, option_text) VALUES ($1, $2, $3)`,
+          [pollId, i, trimmedOptions[i]]
+        );
+      }
       const io = req.app.get("io");
       const senderRes = await client.query("SELECT username, avatar_url FROM users WHERE id = $1", [userId]);
       const sender = senderRes.rows[0];
@@ -733,10 +800,10 @@ class ChatController {
         id: msg.id, chat_id: Number(chatId), sender_id: userId,
         sender_name: sender?.username, sender_avatar: sender?.avatar_url,
         text: `📊 ${question}`, created_at: msg.created_at,
-        poll: { id: pollRes.rows[0].id, question, options: options.map((o) => o.slice(0,100)), votes: {}, closed: false },
+        poll: { id: pollId, question, options: trimmedOptions, votes: {}, closed: false },
         reactions: [],
       });
-      res.json({ pollId: pollRes.rows[0].id, messageId: msg.id });
+      res.json({ pollId, messageId: msg.id });
     } catch (e) { next(e); }
   }
 
@@ -796,18 +863,55 @@ class ChatController {
         res.status(401).json({ message: "Не авторизован" });
         return;
       }
-      if (!messageId || !reason) {
+      if (!messageId || !reason || typeof reason !== "string" || !reason.trim()) {
         res.status(400).json({ message: "Не указано сообщение или причина" });
+        return;
+      }
+
+      // Verify message exists and get its chat
+      const msgRes = await client.query<{ chat_id: number; sender_id: number }>(
+        "SELECT chat_id, sender_id FROM messages WHERE id = $1",
+        [messageId]
+      );
+      if (msgRes.rows.length === 0) {
+        res.status(404).json({ message: "Сообщение не найдено" });
+        return;
+      }
+      const { chat_id, sender_id } = msgRes.rows[0];
+
+      // Reporter must not report their own message
+      if (sender_id === reporterId) {
+        res.status(400).json({ message: "Нельзя пожаловаться на своё сообщение" });
+        return;
+      }
+
+      // Reporter must be a member of that chat
+      const memberRes = await client.query(
+        "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [chat_id, reporterId]
+      );
+      if (memberRes.rows.length === 0) {
+        res.status(403).json({ message: "Нет доступа к этому чату" });
+        return;
+      }
+
+      // Prevent duplicate reports from same user
+      const dupRes = await client.query(
+        "SELECT 1 FROM reports WHERE reporter_id = $1 AND message_id = $2",
+        [reporterId, messageId]
+      );
+      if (dupRes.rows.length > 0) {
+        res.status(409).json({ message: "Вы уже отправляли жалобу на это сообщение" });
         return;
       }
 
       await client.query(
         "INSERT INTO reports (reporter_id, message_id, reason) VALUES ($1, $2, $3)",
-        [reporterId, messageId, reason]
+        [reporterId, messageId, reason.trim()]
       );
 
       res.json({ message: "Жалоба отправлена" });
-    } catch (e: any) {
+    } catch (e: unknown) {
       next(e);
     }
   }

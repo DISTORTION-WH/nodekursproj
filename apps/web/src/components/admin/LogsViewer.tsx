@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { LogEntry } from "../../types";
+import UiIcon from "../UiIcon";
 
 export default function LogsViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -31,7 +32,7 @@ export default function LogsViewer() {
           onClick={fetchLogs}
           className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white text-xs px-3 py-1.5 rounded transition"
         >
-          🔄 Обновить
+          <span className="inline-flex items-center gap-1.5"><UiIcon name="refresh" size={13} /> Обновить</span>
         </button>
       </div>
 

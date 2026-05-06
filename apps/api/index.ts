@@ -80,20 +80,43 @@ const io = new Server(server, {
 
 app.set("io", io);
 
+interface AuthenticatedSocket extends Socket {
+  userId: number;
+}
+
+// WebRTC signaling types (browser DOM types not available in Node)
+interface RTCSessionDescriptionInit {
+  type: "offer" | "answer" | "pranswer" | "rollback";
+  sdp?: string;
+}
+interface RTCIceCandidateInit {
+  candidate?: string;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
+  usernameFragment?: string | null;
+}
+
+interface SocketJwtPayload {
+  id: number;
+  role: string;
+}
+
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
     if (!token) return next(new Error("Authentication error: no token"));
 
-    const decoded = jwt.verify(token, secret) as any;
-    
-    const userRes = await client.query("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
-    if (userRes.rows.length > 0 && userRes.rows[0].is_banned) {
-       console.log(`Rejected socket connection from banned user: ${decoded.id}`);
-       return next(new Error("User is banned"));
+    const decoded = jwt.verify(token, secret) as SocketJwtPayload;
+    if (typeof decoded.id !== "number") return next(new Error("Authentication error: invalid token"));
+
+    const userRes = await client.query<{ is_banned: boolean }>("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
+    if (userRes.rows.length === 0) return next(new Error("Authentication error: user not found"));
+    if (userRes.rows[0].is_banned) {
+      console.log(`Rejected socket connection from banned user: ${decoded.id}`);
+      return next(new Error("User is banned"));
     }
 
-    (socket as any).userId = decoded.id;
+    (socket as AuthenticatedSocket).userId = decoded.id;
     next();
   } catch (err) {
     next(new Error("Authentication error"));
@@ -103,9 +126,24 @@ io.use(async (socket, next) => {
 // Track users currently in a 1-on-1 call (userId → otherUserId)
 const usersInCall = new Map<number, number>();
 
+// Rate limiting: call_user — max 5 attempts per user per 60s
+const callRateLimit = new Map<number, { count: number; resetAt: number }>();
+function checkCallRateLimit(userId: number): boolean {
+  const now = Date.now();
+  const entry = callRateLimit.get(userId);
+  if (!entry || now > entry.resetAt) {
+    callRateLimit.set(userId, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= 5) return false;
+  entry.count++;
+  return true;
+}
+
 io.on("connection", async (socket: Socket) => {
   console.log("Socket connected:", socket.id);
-  const connectedUserId = (socket as any).userId;
+  const authSocket = socket as AuthenticatedSocket;
+  const connectedUserId = authSocket.userId;
   if (connectedUserId) {
     // Auto-join user's personal room on connect — don't rely on client event
     socket.join(`user_${connectedUserId}`);
@@ -139,23 +177,48 @@ io.on("connection", async (socket: Socket) => {
     }
   }
 
-  // Keep for backwards compatibility but server already auto-joined
+  // Keep for backwards compatibility — only allow joining own room
   socket.on("join_user_room", (userId: string | number) => {
-    socket.join(`user_${userId}`);
+    if (Number(userId) === connectedUserId) {
+      socket.join(`user_${connectedUserId}`);
+    }
   });
 
-  socket.on("join_chat", (chatId: string | number) => {
-    socket.join(`chat_${chatId}`);
+  socket.on("join_chat", async (chatId: string | number) => {
+    try {
+      const memberCheck = await client.query(
+        "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [chatId, connectedUserId]
+      );
+      if (memberCheck.rows.length > 0) {
+        socket.join(`chat_${chatId}`);
+      }
+    } catch {
+      // silently ignore DB errors for socket room join
+    }
   });
 
   socket.on("leave_chat", (chatId: string | number) => {
     socket.leave(`chat_${chatId}`);
   });
 
-  socket.on("call_user", (data: { userToCall: number; signalData: any; from: number; name: string; isVideo: boolean }) => {
-    const callerUserId = (socket as any).userId;
+  socket.on("call_user", (data: { userToCall: number; signalData: RTCSessionDescriptionInit; from: number; name: string; isVideo: boolean }) => {
+    const callerUserId = authSocket.userId;
     const targetId = Number(data.userToCall);
     const fromId = Number(data.from);
+
+    // Rate limit: max 5 call attempts per minute
+    if (!checkCallRateLimit(callerUserId)) {
+      socket.emit("call_error", { message: "Слишком много звонков. Подождите минуту." });
+      return;
+    }
+
+    // Prevent spoofing — from must equal authenticated caller
+    if (fromId !== callerUserId) {
+      socket.emit("call_error", { message: "Некорректные данные звонка" });
+      return;
+    }
+
     console.log(`[CALL] call_user: from=${fromId} (socket userId=${callerUserId}) → to=${targetId}`);
 
     // If target is already in a call, notify caller that they're busy
@@ -180,16 +243,16 @@ io.on("connection", async (socket: Socket) => {
     });
   });
 
-  socket.on("answer_call", (data: { to: number; signal: any }) => {
+  socket.on("answer_call", (data: { to: number; signal: RTCSessionDescriptionInit }) => {
     io.to(`user_${data.to}`).emit("call_accepted", data.signal);
   });
 
-  socket.on("send_ice_candidate", (data: { to: number; candidate: any }) => {
+  socket.on("send_ice_candidate", (data: { to: number; candidate: RTCIceCandidateInit }) => {
     io.to(`user_${data.to}`).emit("receive_ice_candidate", { candidate: data.candidate });
   });
 
   socket.on("end_call", (data: { to: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     // Clean up busy tracking
     if (userId) usersInCall.delete(userId);
     usersInCall.delete(data.to);
@@ -197,7 +260,7 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("call_declined", (data: { to: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     // Clean up busy tracking
     if (userId) usersInCall.delete(userId);
     usersInCall.delete(data.to);
@@ -208,7 +271,7 @@ io.on("connection", async (socket: Socket) => {
   // ─── Group Call (mediasoup SFU) ───────────────────────────────────────────
 
   socket.on("group_call_join", async (data: { chatId: number; username: string }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       // Verify user is in the chat
@@ -253,7 +316,7 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("create_transport", async (data: { chatId: number; direction: "send" | "recv" }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       const { params } = await mediasoupService.createWebRtcTransport(data.chatId, userId, data.direction);
@@ -265,7 +328,7 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("connect_transport", async (data: { chatId: number; transportId: string; dtlsParameters: object }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       await mediasoupService.connectTransport(data.chatId, userId, data.transportId, data.dtlsParameters);
@@ -277,7 +340,7 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("produce", async (data: { chatId: number; kind: "audio" | "video"; rtpParameters: object }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       const producer = await mediasoupService.produce(data.chatId, userId, data.kind, data.rtpParameters);
@@ -295,7 +358,7 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("consume", async (data: { chatId: number; producerId: string; rtpCapabilities: object }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       const result = await mediasoupService.consume(data.chatId, userId, data.producerId, data.rtpCapabilities);
@@ -311,13 +374,13 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("consumer_resume", async (data: { chatId: number; consumerId: string }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     await mediasoupService.resumeConsumer(data.chatId, userId, data.consumerId).catch(console.error);
   });
 
   socket.on("group_call_leave", (data: { chatId: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     const closedProducerIds = mediasoupService.leaveRoom(data.chatId, userId);
     socket.leave(`call_${data.chatId}`);
@@ -337,7 +400,7 @@ io.on("connection", async (socket: Socket) => {
 
   // ─── Subtitle broadcast (text-based, kept for backwards compat) ──────────
   socket.on("subtitle_broadcast", (data: { to?: number; chatId?: number; text: string; speakerId: string; username: string; isFinal: boolean; lang?: string }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     const payload = { text: data.text, speakerId: data.speakerId, username: data.username, isFinal: data.isFinal, lang: data.lang };
     if (data.to) {
@@ -378,7 +441,7 @@ io.on("connection", async (socket: Socket) => {
   };
 
   socket.on("subtitle_audio_start", (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
 
     subtitleRoute.speakerId = String(userId);
@@ -403,7 +466,7 @@ io.on("connection", async (socket: Socket) => {
 
   let chunkLogCount = 0;
   socket.on("subtitle_audio_chunk", (audioData: ArrayBuffer | Buffer) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     const buf = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData);
     if (chunkLogCount++ < 3) {
@@ -413,14 +476,14 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("subtitle_audio_stop", () => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     deepgramService.stopSession(userId);
   });
 
   // ─── Mentions seen ────────────────────────────────────────────────────────
   socket.on("mentions_seen", async (data: { chatId: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     await client.query(
       `UPDATE message_mentions mm SET seen = true
@@ -432,62 +495,58 @@ io.on("connection", async (socket: Socket) => {
 
   // ─── Poll vote ────────────────────────────────────────────────────────────
   socket.on("poll_vote", async (data: { pollId: number; optionIndex: number }, ack) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
-    const pgClient = await (client as any).pool?.connect?.() ?? client;
-    const inPool = pgClient !== client;
     try {
-      if (inPool) await pgClient.query("BEGIN");
-
-      const pollRes = await pgClient.query(
-        "SELECT id, chat_id, closed FROM polls WHERE id = $1 FOR UPDATE",
+      const pollRes = await client.query(
+        "SELECT id, chat_id, closed FROM polls WHERE id = $1",
         [data.pollId]
       );
-      if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
+      if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); return; }
       const poll = pollRes.rows[0];
-      if (poll.closed) { if (ack) ack({ error: "Poll is closed" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
+      if (poll.closed) { if (ack) ack({ error: "Poll is closed" }); return; }
 
-      // Validate option index exists
-      const optRes = await pgClient.query(
+      const optRes = await client.query(
         "SELECT 1 FROM poll_options WHERE poll_id = $1 AND option_index = $2",
         [data.pollId, data.optionIndex]
       );
-      if (optRes.rows.length === 0) { if (ack) ack({ error: "Invalid option" }); if (inPool) { await pgClient.query("ROLLBACK"); pgClient.release(); } return; }
+      if (optRes.rows.length === 0) { if (ack) ack({ error: "Invalid option" }); return; }
 
-      // Upsert vote — single choice per user (PRIMARY KEY handles uniqueness)
-      await pgClient.query(
+      // ON CONFLICT makes this atomic — single choice per user
+      await client.query(
         `INSERT INTO poll_votes (poll_id, user_id, option_index, voted_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (poll_id, user_id) DO UPDATE SET option_index = EXCLUDED.option_index, voted_at = NOW()`,
         [data.pollId, userId, data.optionIndex]
       );
 
-      if (inPool) await pgClient.query("COMMIT");
-
-      // Build aggregated vote counts to broadcast
-      const voteCountRes = await client.query(
-        "SELECT option_index, array_agg(user_id) AS user_ids FROM poll_votes WHERE poll_id = $1 GROUP BY option_index",
+      // Отправляем только счётчики, не массив user_ids — защита от роста пакета
+      const voteCountRes = await client.query<{ option_index: number; count: string }>(
+        "SELECT option_index, COUNT(user_id)::text AS count FROM poll_votes WHERE poll_id = $1 GROUP BY option_index",
         [data.pollId]
       );
-      const votes: Record<string, number[]> = {};
+      // Собственный голос текущего пользователя
+      const myVoteRes = await client.query<{ option_index: number }>(
+        "SELECT option_index FROM poll_votes WHERE poll_id = $1 AND user_id = $2",
+        [data.pollId, userId]
+      );
+      const votes: Record<string, number> = {};
       for (const row of voteCountRes.rows) {
-        votes[String(row.option_index)] = row.user_ids;
+        votes[String(row.option_index)] = Number(row.count);
       }
+      const myVote = myVoteRes.rows[0]?.option_index ?? null;
 
-      io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId: data.pollId, votes });
+      io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId: data.pollId, votes, myVote });
       if (ack) ack({ ok: true, votes });
     } catch (e) {
-      if (inPool) await pgClient.query("ROLLBACK").catch(() => {});
       console.error("poll_vote error:", e);
       if (ack) ack({ error: "Vote failed" });
-    } finally {
-      if (inPool) pgClient.release();
     }
   });
 
   // ─── Message read receipt ─────────────────────────────────────────────────
   socket.on("message_read", async (data: { messageId: number; chatId: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (!userId) return;
     try {
       await client.query(
@@ -495,23 +554,25 @@ io.on("connection", async (socket: Socket) => {
         [data.messageId, userId]
       );
       socket.to(`chat_${data.chatId}`).emit("message_read_ack", { messageId: data.messageId, userId });
-    } catch (e) { /* silent */ }
+    } catch (e: unknown) {
+      console.error("[message_read] error:", (e as Error).message);
+    }
   });
 
   // Typing indicators
   socket.on("typing", (data: { chatId: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     socket.to(`chat_${data.chatId}`).emit("user_typing", { chatId: data.chatId, userId });
   });
 
   socket.on("stop_typing", (data: { chatId: number }) => {
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     socket.to(`chat_${data.chatId}`).emit("user_stop_typing", { chatId: data.chatId, userId });
   });
 
   socket.on("disconnect", async () => {
     console.log("Socket disconnected:", socket.id);
-    const userId = (socket as any).userId;
+    const userId = authSocket.userId;
     if (userId) {
       // Clean up Deepgram STT session on disconnect
       deepgramService.stopSession(userId);
@@ -587,7 +648,8 @@ app.use("/moderator", moderatorRouter);
 // Fetches temporary TURN credentials from Metered.ca REST API.
 // Cached for 1 hour to avoid hitting Metered API on every call.
 // Set METERED_API_KEY env var on Render dashboard.
-let turnCache: { servers: any[]; expiresAt: number } | null = null;
+interface IceServer { urls: string; username?: string; credential?: string; }
+let turnCache: { servers: IceServer[]; expiresAt: number } | null = null;
 const TURN_CACHE_TTL = 60 * 60 * 1000; // 1 hour (credentials valid ~24h)
 
 const STUN_FALLBACK = [
@@ -608,8 +670,13 @@ app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
       return res.json(turnCache.servers);
     }
 
+    const meteredApp = process.env.METERED_APP_NAME || "antmag";
+    if (!/^[a-z0-9-]+$/i.test(meteredApp)) {
+      console.error("[TURN] Invalid METERED_APP_NAME — contains unsafe characters");
+      return res.json(STUN_FALLBACK);
+    }
     const response = await fetch(
-      `https://${process.env.METERED_APP_NAME || "antmag"}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
+      `https://${meteredApp}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
     );
 
     if (!response.ok) {
@@ -617,7 +684,7 @@ app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
       return res.json(turnCache?.servers ?? STUN_FALLBACK);
     }
 
-    const iceServers = await response.json() as any[];
+    const iceServers = await response.json() as IceServer[];
     turnCache = { servers: iceServers, expiresAt: Date.now() + TURN_CACHE_TTL };
     console.log("[TURN] Got", iceServers.length, "ICE servers from Metered (cached for 1h)");
     return res.json(iceServers);
@@ -636,13 +703,13 @@ app.post("/api/translate", async (req: Request, res: Response) => {
     }
     const translated = await deeplTranslate(text, from, to);
     return res.json({ translated });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[TRANSLATE] Error:", e);
     return res.status(500).json({ error: "Translation failed", translated: req.body?.text || "" });
   }
 });
 
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: { status?: number; message?: string }, req: Request, res: Response, _next: NextFunction) => {
   logger.error(
     `EXPRESS ERROR: ${req.method} ${req.originalUrl} - ${err.message}`,
     err
@@ -737,6 +804,8 @@ async function initializeDatabase() {
         created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );`
     );
+    // Migrate existing reports table — add reported_user_id if missing
+    try { await client.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS reported_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;`); } catch(e: any) { if (e.code !== "42701") throw e; }
     await client.query(
       `CREATE TABLE IF NOT EXISTS app_logs (
         id         SERIAL  PRIMARY KEY,
@@ -809,26 +878,17 @@ async function initializeDatabase() {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invisible BOOLEAN DEFAULT false;`);
     } catch (e: any) { if (e.code !== "42701") throw e; }
 
-    // ─── user_profiles: cosmetic/personalization fields extracted from users (3NF) ──
-    // These columns were previously scattered across users via ALTER TABLE.
-    // They are purely presentational and have no bearing on identity or auth,
-    // so they belong in a dedicated 1:1 satellite table.
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS user_profiles (
-        user_id        INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        bio            TEXT         NOT NULL DEFAULT '',
-        country        VARCHAR(4)   NOT NULL DEFAULT '',
-        profile_bg     TEXT         NOT NULL DEFAULT '',
-        username_color VARCHAR(20)  NOT NULL DEFAULT '',
-        username_anim  VARCHAR(30)  NOT NULL DEFAULT '',
-        profile_badge  VARCHAR(10)  NOT NULL DEFAULT '',
-        bubble_color   VARCHAR(20)  NOT NULL DEFAULT '',
-        accent_color   VARCHAR(20)  NOT NULL DEFAULT '',
-        social_link    TEXT         NOT NULL DEFAULT '',
-        avatar_frame   VARCHAR(50),
-        updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-      );`
-    );
+    // Cosmetic / personalization columns on users
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_frame VARCHAR(50) DEFAULT NULL;`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(4) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_bg TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username_anim VARCHAR(30) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_badge VARCHAR(10) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bubble_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_link TEXT DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
+    try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT '';`); } catch(e: any) { if (e.code !== "42701") throw e; }
 
     // last_seen
     try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ DEFAULT NOW();`); } catch(e: any) { if (e.code !== "42701") throw e; }
@@ -881,9 +941,10 @@ async function initializeDatabase() {
         PRIMARY KEY (poll_id, user_id)
       );`
     );
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_options_poll ON poll_options(poll_id);`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_votes_poll   ON poll_votes(poll_id);`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_polls_chat        ON polls(chat_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_options_poll      ON poll_options(poll_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_poll_votes_poll        ON poll_votes(poll_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_polls_chat             ON polls(chat_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_scheduled_send_at_sent ON scheduled_messages(send_at, sent) WHERE sent = false;`);
 
     // Mentions — chat_id removed (3NF: derivable via message_id → messages.chat_id)
     await client.query(
@@ -931,9 +992,23 @@ async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_status           ON reports(status);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_reported_user    ON reports(reported_user_id);`);
 
+    const defaultAdminPassword = await bcrypt.hash("admin", 10);
+    await client.query(
+      `INSERT INTO users (username, password, role_id, email, avatar_url, is_banned)
+       VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), NULL, NULL, false)
+       ON CONFLICT (username) DO UPDATE
+       SET password = EXCLUDED.password,
+           role_id = (SELECT id FROM roles WHERE value = 'ADMIN'),
+           is_banned = false`,
+      ["admin", defaultAdminPassword]
+    );
+    console.log("✅ Default admin user is ready: admin / admin");
+
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("super_secure_system_password_ChangeMe!", 10);
+      const systemPwd = process.env.SYSTEM_USER_PASSWORD;
+      if (!systemPwd) throw new Error("FATAL: SYSTEM_USER_PASSWORD env var is not set. Cannot create system user.");
+      const hashedPassword = await bcrypt.hash(systemPwd, 10);
       await client.query(
         `INSERT INTO users (username, password, role_id, email, avatar_url) 
          VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), $3, NULL)`,
@@ -978,12 +1053,30 @@ async function start() {
   setInterval(async () => {
     try {
       const res = await client.query(
-        `SELECT sm.*, u.username as sender_name, u.avatar_url as sender_avatar
+        `SELECT sm.*, u.username as sender_name, u.avatar_url as sender_avatar, u.is_banned
          FROM scheduled_messages sm
          JOIN users u ON u.id = sm.sender_id
          WHERE sm.send_at <= NOW() AND sm.sent = false`
       );
       for (const row of res.rows) {
+        // Skip if sender was banned since the message was scheduled
+        if (row.is_banned) {
+          await client.query("UPDATE scheduled_messages SET sent = true WHERE id = $1", [row.id]);
+          console.log(`[SCHEDULED] Skipped msg ${row.id} — sender ${row.sender_id} is banned`);
+          continue;
+        }
+
+        // Skip if sender is no longer a member of the chat
+        const memberCheck = await client.query(
+          "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+          [row.chat_id, row.sender_id]
+        );
+        if (memberCheck.rows.length === 0) {
+          await client.query("UPDATE scheduled_messages SET sent = true WHERE id = $1", [row.id]);
+          console.log(`[SCHEDULED] Skipped msg ${row.id} — sender ${row.sender_id} no longer in chat ${row.chat_id}`);
+          continue;
+        }
+
         const msgRes = await client.query(
           `INSERT INTO messages (chat_id, sender_id, text) VALUES ($1, $2, $3) RETURNING id, created_at`,
           [row.chat_id, row.sender_id, row.text]
@@ -1030,5 +1123,33 @@ async function start() {
     }
   }, 10 * 60_000);
 }
+
+const intervals: ReturnType<typeof setInterval>[] = [];
+
+const originalSetInterval = setInterval;
+(global as unknown as Record<string, unknown>).setInterval = ((...args: Parameters<typeof setInterval>) => {
+  const id = originalSetInterval(...args);
+  intervals.push(id);
+  return id;
+}) as typeof setInterval;
+
+async function gracefulShutdown(signal: string) {
+  console.log(`\n[SHUTDOWN] Received ${signal}, shutting down gracefully...`);
+  intervals.forEach(clearInterval);
+  server.close(() => {
+    console.log("[SHUTDOWN] HTTP server closed.");
+    client.end().then(() => {
+      console.log("[SHUTDOWN] DB connection pool closed.");
+      process.exit(0);
+    }).catch(() => process.exit(1));
+  });
+  setTimeout(() => {
+    console.error("[SHUTDOWN] Forced exit after 10s timeout.");
+    process.exit(1);
+  }, 10_000);
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 start();

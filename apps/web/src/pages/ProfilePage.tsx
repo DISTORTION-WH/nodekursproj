@@ -20,6 +20,7 @@ import {
 import { UserStatus, AppTheme } from "../types";
 import { useI18n } from "../i18n";
 import { getImageUrl } from "../utils/imageUrl";
+import UiIcon from "../components/UiIcon";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -471,6 +472,14 @@ export default function ProfilePage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Проверка размера файла (5 МБ)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Файл больше 5 МБ не может быть загружен");
+      e.target.value = ""; // Очищаем input
+      return;
+    }
+
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
@@ -614,7 +623,7 @@ export default function ProfilePage() {
                   {currentUser?.social_link && (
                     <a href={currentUser.social_link} target="_blank" rel="noopener noreferrer"
                       className="text-discord-accent text-sm hover:underline truncate mt-1 block">
-                      🔗 {currentUser.social_link.replace(/^https?:\/\//, "")}
+                      <span className="inline-flex items-center gap-1.5"><UiIcon name="link" size={14} /> {currentUser.social_link.replace(/^https?:\/\//, "")}</span>
                     </a>
                   )}
                   {currentUser?.bubble_color && (
@@ -644,7 +653,7 @@ export default function ProfilePage() {
                 {!bioEditing && (
                   <button onClick={() => { setBioText(currentUser?.bio ?? ""); setBioEditing(true); }}
                     className="text-discord-accent text-xs hover:underline">
-                    {currentUser?.bio ? "✏️" : "+"}
+                    {currentUser?.bio ? <UiIcon name="edit" size={14} /> : "+"}
                   </button>
                 )}
               </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { Chat } from "../../types";
+import UiIcon from "../UiIcon";
 
 export default function ChatManagement() {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -54,7 +55,7 @@ export default function ChatManagement() {
                 onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat); }}
                 className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded transition shrink-0"
               >
-                ❌
+                <UiIcon name="trash" size={14} />
               </button>
             </div>
           </div>

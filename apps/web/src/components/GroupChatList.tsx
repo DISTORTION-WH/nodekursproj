@@ -60,13 +60,31 @@ export default function GroupChatList({ onOpenGroupChat }: GroupChatListProps) {
 
   const createGroupChat = async () => {
     const name = prompt(t.chat.create_room);
-    if (!name?.trim()) return;
+    
+    // Если пользователь нажал "Отмена", выходим
+    if (name === null) return;
+
+    const trimmedName = name.trim();
+
+    // Проверка на пустое имя
+    if (trimmedName === "") {
+      alert("Название комнаты не может быть пустым");
+      return;
+    }
+
+    // Проверка на максимальную длину (100 символов)
+    if (trimmedName.length > 100) {
+      alert("Название комнаты неможет быть длиннее 100 символов");
+      return;
+    }
+
     try {
-      const res = await api.post<Chat>("/chats/group", { name });
+      const res = await api.post<Chat>("/chats/group", { name: trimmedName });
       setGroupChats((prev) => [...prev, res.data]);
       onOpenGroupChat(res.data);
     } catch (err: any) {
       console.error(err);
+      // Отображаем ошибку от сервера, если она есть
       alert(err.response?.data?.message || t.common.error);
     }
   };

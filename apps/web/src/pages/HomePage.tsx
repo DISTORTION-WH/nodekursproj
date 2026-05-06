@@ -5,6 +5,7 @@ import ChatWindow from "../components/ChatWindow";
 import { useChat } from "../context/ChatContext";
 import { User } from "../types";
 import { useI18n } from "../i18n";
+import UiIcon from "../components/UiIcon";
 
 interface HomePageProps {
   currentUser: User | null;
@@ -62,7 +63,7 @@ export default function HomePage({ currentUser }: HomePageProps) {
               className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
               style={{ background: "rgba(88,101,242,0.12)", border: "1px solid rgba(88,101,242,0.2)" }}
             >
-              💬
+              <UiIcon name="message" size={30} />
             </div>
             <p
               className="text-base font-semibold"

@@ -1,53 +1,91 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { secret } from "../config";
-import client from "../databasepg"; 
+import client from "../databasepg";
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    role: string;
-    [key: string]: any;
-  };
+export interface AuthUser {
+  id: number;
+  role: string;
+  username?: string;
 }
 
-export default async function authMiddleware(req: Request, res: Response, next: NextFunction) {
+export interface AuthRequest extends Request {
+  user?: AuthUser;
+}
+
+interface DecodedToken extends JwtPayload {
+  id: number;
+  role: string;
+}
+
+export default async function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   if (req.method === "OPTIONS") {
-    return next();
+    next();
+    return;
   }
 
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      return res.status(401).json({ message: "Пользователь не авторизован" });
+      res.status(401).json({ message: "Пользователь не авторизован" });
+      return;
     }
 
     const token = authHeader.split(" ")[1];
     if (!token) {
-      return res.status(401).json({ message: "Пользователь не авторизован" });
+      res.status(401).json({ message: "Пользователь не авторизован" });
+      return;
     }
 
-    const decoded = jwt.verify(token, secret) as any;
-    
-    (req as AuthRequest).user = decoded;
+    let decoded: DecodedToken;
+    try {
+      decoded = jwt.verify(token, secret) as DecodedToken;
+    } catch (jwtErr: unknown) {
+      const err = jwtErr as Error;
+      if (err.name === "TokenExpiredError") {
+        res.status(401).json({ message: "Токен истёк" });
+      } else {
+        res.status(401).json({ message: "Пользователь не авторизован" });
+      }
+      return;
+    }
+
+    if (typeof decoded.id !== "number") {
+      res.status(401).json({ message: "Некорректный токен" });
+      return;
+    }
+
+    (req as AuthRequest).user = { id: decoded.id, role: decoded.role };
 
     try {
-      const userRes = await client.query("SELECT is_banned FROM users WHERE id = $1", [decoded.id]);
+      const userRes = await client.query<{ is_banned: boolean }>(
+        "SELECT is_banned FROM users WHERE id = $1",
+        [decoded.id]
+      );
       if (userRes.rows.length === 0) {
-        return res.status(401).json({ message: "Пользователь не найден" });
+        res.status(401).json({ message: "Пользователь не найден" });
+        return;
       }
       if (userRes.rows[0].is_banned) {
-          console.warn(`Blocked request from BANNED user: ${decoded.id}`);
-          return res.status(403).json({ message: "Ваш аккаунт заблокирован" });
+        console.warn(`Blocked request from BANNED user: ${decoded.id}`);
+        res.status(403).json({ message: "Ваш аккаунт заблокирован" });
+        return;
       }
-    } catch (dbErr) {
-      console.error("AuthMiddleware DB Error:", dbErr);
-      return res.status(503).json({ message: "Сервис временно недоступен" });
+    } catch (dbErr: unknown) {
+      const err = dbErr as Error;
+      console.error("AuthMiddleware DB Error:", err.message);
+      res.status(503).json({ message: "Сервис временно недоступен" });
+      return;
     }
 
     next();
-  } catch (e) {
-    console.error(e);
-    return res.status(401).json({ message: "Пользователь не авторизован" });
+  } catch (e: unknown) {
+    const err = e as Error;
+    console.error("AuthMiddleware unexpected error:", err.message);
+    res.status(401).json({ message: "Пользователь не авторизован" });
   }
 }

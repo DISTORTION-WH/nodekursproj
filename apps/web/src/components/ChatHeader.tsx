@@ -6,6 +6,7 @@ import { getImageUrl } from "../utils/imageUrl";
 import { searchMessagesInChat, getMediaGallery, exportChat, getScheduledMessages, deleteScheduledMessage } from "../services/api";
 import { Message, MediaItem, ScheduledMessage } from "../types";
 import { useI18n } from "../i18n";
+import UiIcon from "./UiIcon";
 
 interface ChatHeaderProps {
   isMobile: boolean;
@@ -326,7 +327,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
               className={`relative p-1.5 rounded hover:bg-discord-input transition text-base ${showPinned ? "text-discord-warn" : "text-discord-text-muted hover:text-discord-text-primary"}`}
               title={t.chat.pinned_messages}
             >
-              📌
+              <UiIcon name="pin" size={20} />
               <span className="absolute -top-0.5 -right-0.5 bg-discord-danger text-white text-[9px] rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 font-bold">
                 {pinnedMessages.length}
               </span>
@@ -419,7 +420,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
       {showMedia && (
         <div className="border-t bg-discord-secondary" style={{ borderColor: "var(--color-tertiary)" }}>
           <div className="px-4 py-2 flex items-center justify-between">
-            <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">🖼️ {t.chat.media_gallery}</span>
+            <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide inline-flex items-center gap-1.5"><UiIcon name="image" size={14} /> {t.chat.media_gallery}</span>
             <button onClick={() => setShowMedia(false)} className="text-discord-text-muted hover:text-discord-text-primary text-xs transition">✕</button>
           </div>
           {mediaItems.length === 0 ? (
@@ -436,11 +437,11 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
                     {isImg ? (
                       <img src={url} alt="" className="w-full h-full object-cover" />
                     ) : isVid ? (
-                      <span className="text-2xl">🎬</span>
+                      <UiIcon name="video" size={24} />
                     ) : isAud ? (
-                      <span className="text-2xl">🎵</span>
+                      <UiIcon name="mic" size={24} />
                     ) : (
-                      <span className="text-2xl">📎</span>
+                      <UiIcon name="file" size={24} />
                     )}
                   </a>
                 );
@@ -454,7 +455,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
       {showScheduledPanel && (
         <div className="border-t bg-discord-secondary max-h-48 overflow-y-auto" style={{ borderColor: "var(--color-tertiary)" }}>
           <div className="px-4 py-2 flex items-center justify-between">
-            <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">🕐 {t.chat.scheduled_messages}</span>
+            <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide inline-flex items-center gap-1.5"><UiIcon name="clock" size={14} /> {t.chat.scheduled_messages}</span>
             <button onClick={() => setShowScheduledPanel(false)} className="text-discord-text-muted hover:text-discord-text-primary text-xs transition">✕</button>
           </div>
           {scheduledItems.length === 0 ? (
@@ -462,7 +463,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
           ) : scheduledItems.map(msg => (
             <div key={msg.id} className="px-4 py-2 border-t hover:bg-discord-input/40 transition flex items-start justify-between gap-2" style={{ borderColor: "var(--color-tertiary)" }}>
               <div className="min-w-0">
-                <div className="text-discord-text-muted text-xs mb-0.5">🕐 {new Date(msg.send_at).toLocaleString()}</div>
+                <div className="text-discord-text-muted text-xs mb-0.5 inline-flex items-center gap-1.5"><UiIcon name="clock" size={13} /> {new Date(msg.send_at).toLocaleString()}</div>
                 <div className="text-discord-text-primary text-sm line-clamp-2">{msg.text}</div>
               </div>
               <button onClick={() => handleDeleteScheduled(msg.id)} className="text-discord-danger text-xs shrink-0 hover:opacity-80 transition">✕</button>
@@ -476,7 +477,7 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
         <div className="border-t bg-discord-secondary max-h-48 overflow-y-auto" style={{ borderColor: "var(--color-tertiary)" }}>
           <div className="px-4 py-2 flex items-center justify-between">
             <span className="text-discord-text-muted text-xs uppercase font-semibold tracking-wide">
-              📌 {t.chat.pinned_messages} ({pinnedMessages.length})
+              <UiIcon name="pin" size={14} /> {t.chat.pinned_messages} ({pinnedMessages.length})
             </span>
             <button
               onClick={() => setShowPinned(false)}

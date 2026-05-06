@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
@@ -12,7 +13,7 @@ import client from "../databasepg";
 
 interface CustomError extends Error {
   status?: number;
-  errors?: any[];
+  errors?: unknown[];
 }
 
 interface TokenPayload {
@@ -65,7 +66,7 @@ class AuthController {
 
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = crypto.randomInt(100000, 1000000).toString();
       
       let avatarUrl = null;
       if (avatarFile) {
@@ -102,8 +103,9 @@ class AuthController {
       await emailService.sendVerificationEmail(email, code);
 
       res.json({ message: "Код подтверждения отправлен на email" });
-    } catch (e: any) {
-      console.error("!!! ОШИБКА В PRE-REGISTER:", e.message, e.stack);
+    } catch (e: unknown) {
+      const _e = e as any;
+      console.error("!!! ОШИБКА В PRE-REGISTER:", _e.message, _e.stack);
       next(e);
     }
   }
@@ -134,7 +136,7 @@ class AuthController {
 
       const newUser = await userService.createUser(
         tempData.username,
-        tempData.password, 
+        tempData.password ?? "", 
         role.id,
         tempData.avatar_url,
         tempData.email
@@ -180,16 +182,17 @@ class AuthController {
           role: role.value,
         },
       });
-    } catch (e: any) {
-      console.error("!!! ОШИБКА В CONFIRM-REGISTRATION:", e.message, e.stack);
+    } catch (e: unknown) {
+      const _e = e as any;
+      console.error("!!! ОШИБКА В CONFIRM-REGISTRATION:", _e.message, _e.stack);
       // Уникальное ограничение на email или username
-      if (e.code === "23505") {
-        if (e.constraint?.includes("email")) {
+      if (_e.code === "23505") {
+        if (_e.constraint?.includes("email")) {
           const err = new Error("Пользователь с таким email уже зарегистрирован") as CustomError;
           err.status = 400;
           return next(err);
         }
-        if (e.constraint?.includes("username")) {
+        if (_e.constraint?.includes("username")) {
           const err = new Error("Пользователь с таким именем уже существует") as CustomError;
           err.status = 400;
           return next(err);
@@ -249,8 +252,9 @@ class AuthController {
           role: roleValue,
         },
       });
-    } catch (e: any) {
-      console.error("!!! ОШИБКА В LOGIN:", e.message, e.stack);
+    } catch (e: unknown) {
+      const _e = e as any;
+      console.error("!!! ОШИБКА В LOGIN:", _e.message, _e.stack);
       next(e);
     }
   }
@@ -280,8 +284,9 @@ class AuthController {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       });
-    } catch (e: any) {
-      console.error("!!! ОШИБКА В REFRESH:", e.message, e.stack);
+    } catch (e: unknown) {
+      const _e = e as any;
+      console.error("!!! ОШИБКА В REFRESH:", _e.message, _e.stack);
       const err = new Error("Refresh токен недействителен или истёк") as CustomError;
       err.status = 403;
       next(err);
@@ -304,7 +309,7 @@ class AuthController {
         return;
       }
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = crypto.randomInt(100000, 1000000).toString();
       await client.query(
         `INSERT INTO password_reset_codes (email, code, created_at)
          VALUES ($1, $2, NOW())
@@ -314,7 +319,7 @@ class AuthController {
 
       await emailService.sendVerificationEmail(email, code);
       res.json({ message: "Код восстановления отправлен на email" });
-    } catch (e: any) {
+    } catch (e: unknown) {
       next(e);
     }
   }
@@ -359,7 +364,7 @@ class AuthController {
       await client.query("DELETE FROM password_reset_codes WHERE email = $1", [email]);
 
       res.json({ message: "Пароль успешно изменён" });
-    } catch (e: any) {
+    } catch (e: unknown) {
       next(e);
     }
   }
@@ -368,8 +373,9 @@ class AuthController {
     try {
       const users = await userService.getAllUsers();
       res.json(users);
-    } catch (e: any) {
-      console.error("!!! ОШИБКА В GETUSERS:", e.message, e.stack);
+    } catch (e: unknown) {
+      const _e = e as any;
+      console.error("!!! ОШИБКА В GETUSERS:", _e.message, _e.stack);
       next(e);
     }
   }
