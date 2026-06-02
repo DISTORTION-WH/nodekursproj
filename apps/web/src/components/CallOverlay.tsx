@@ -131,8 +131,14 @@ function ParticipantTile({
   const [, setMediaVersion] = useState(0);
   const { t } = useI18n();
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
+  const trackSignature = participant.stream
+    ? participant.stream
+        .getTracks()
+        .map((track) => `${track.id}:${track.kind}:${track.readyState}:${track.muted}`)
+        .join("|")
+    : "no-stream";
   const hasVideo = participant.stream
-    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.readyState === "live" && !t.muted)
+    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.readyState === "live")
     : false;
 
   useEffect(() => {
@@ -166,6 +172,8 @@ function ParticipantTile({
     }
 
     const bumpMediaVersion = () => setMediaVersion((version) => version + 1);
+    stream?.addEventListener("addtrack", bumpMediaVersion);
+    stream?.addEventListener("removetrack", bumpMediaVersion);
     stream?.getTracks().forEach((track) => {
       track.addEventListener("mute", bumpMediaVersion);
       track.addEventListener("unmute", bumpMediaVersion);
@@ -178,13 +186,15 @@ function ParticipantTile({
         document.removeEventListener("pointerdown", retry);
         document.removeEventListener("keydown", retry);
       });
+      stream?.removeEventListener("addtrack", bumpMediaVersion);
+      stream?.removeEventListener("removetrack", bumpMediaVersion);
       stream?.getTracks().forEach((track) => {
         track.removeEventListener("mute", bumpMediaVersion);
         track.removeEventListener("unmute", bumpMediaVersion);
         track.removeEventListener("ended", bumpMediaVersion);
       });
     };
-  }, [participant.stream, isLocal]);
+  }, [participant.stream, trackSignature, isLocal]);
 
   return (
     <div
@@ -202,21 +212,25 @@ function ParticipantTile({
       }}
     >
       {!isLocal && <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />}
-      {hasVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: isLocal ? "scaleX(-1)" : "none",
-          }}
-        />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          transform: isLocal ? "scaleX(-1)" : "none",
+          opacity: hasVideo ? 1 : 0,
+          transition: "opacity 120ms ease",
+          zIndex: 0,
+        }}
+      />
+      {!hasVideo && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
           <div
             style={{
               width: 64,
@@ -254,6 +268,7 @@ function ParticipantTile({
           alignItems: "center",
           gap: 6,
           border: "1px solid rgba(255,255,255,0.08)",
+          zIndex: 2,
         }}
       >
         {isLocal ? t.call.you : participant.username}
