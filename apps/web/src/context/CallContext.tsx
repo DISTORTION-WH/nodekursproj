@@ -38,10 +38,13 @@ interface CallContextType {
   groupCallParticipants: GroupCallParticipant[];
   groupLocalStream: MediaStream | null;
   groupCallIsVideo: boolean;
+  isGroupScreenSharing: boolean;
   joinGroupCall: (chatId: number, isVideo: boolean) => Promise<void>;
   leaveGroupCall: () => void;
   muteGroupAudio: () => void;
   muteGroupVideo: () => void;
+  startGroupScreenShare: () => Promise<void>;
+  stopGroupScreenShare: () => void;
   isGroupAudioMuted: boolean;
   isGroupVideoMuted: boolean;
   incomingGroupCall: { chatId: number; startedBy: { userId: number; username: string }; isVideo?: boolean } | null;
@@ -138,6 +141,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const [groupCallParticipants, setGroupCallParticipants] = useState<GroupCallParticipant[]>([]);
   const [groupLocalStream, setGroupLocalStream] = useState<MediaStream | null>(null);
   const [groupCallIsVideo, setGroupCallIsVideo] = useState(false);
+  const [isGroupScreenSharing, setIsGroupScreenSharing] = useState(false);
   const [isGroupAudioMuted, setIsGroupAudioMuted] = useState(false);
   const [isGroupVideoMuted, setIsGroupVideoMuted] = useState(false);
   const [incomingGroupCall, setIncomingGroupCall] = useState<{
@@ -184,6 +188,13 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       liveKitRoom.disconnect();
     }
     groupCallProviderRef.current = null;
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => {
+        track.onended = null;
+        track.stop();
+      });
+      screenStreamRef.current = null;
+    }
     groupLocalStreamRef.current?.getTracks().forEach((t) => t.stop());
     groupLocalStreamRef.current = null;
     setGroupLocalStream(null);
@@ -204,6 +215,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setGroupCallChatId(null);
     setGroupCallParticipants([]);
     setGroupCallIsVideo(false);
+    setIsGroupScreenSharing(false);
     setIsGroupAudioMuted(false);
     setIsGroupVideoMuted(false);
   }, []);
@@ -399,6 +411,16 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateParticipantsScreenStream = (userId: number, screenStream: MediaStream | null) => {
+    setGroupCallParticipants((prev) =>
+      prev.map((p) =>
+        p.userId === userId
+          ? { ...p, screenStream, isScreenSharing: Boolean(screenStream) }
+          : p
+      )
+    );
+  };
+
   const addOrUpdateGroupParticipant = (userId: number, username: string, stream: MediaStream | null = null) => {
     setGroupCallParticipants((prev) => {
       const existing = prev.find((p) => p.userId === userId);
@@ -448,30 +470,49 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     const userId = getLiveKitUserId(participant);
     if (userId === null) return;
 
-    const key = `livekit_${userId}`;
+    const isScreenTrack =
+      publication.source === Track.Source.ScreenShare ||
+      publication.source === Track.Source.ScreenShareAudio;
+    const key = isScreenTrack ? `livekit_screen_${userId}` : `livekit_${userId}`;
     const stream = remoteStreamsRef.current.get(key)?.stream ?? new MediaStream();
     if (!stream.getTracks().some((t) => t.id === track.mediaStreamTrack.id)) {
       stream.addTrack(track.mediaStreamTrack);
     }
     remoteStreamsRef.current.set(key, { userId, stream });
+    if (isScreenTrack) {
+      addOrUpdateGroupParticipant(userId, getLiveKitUsername(participant));
+      updateParticipantsScreenStream(userId, stream);
+      return;
+    }
     addOrUpdateGroupParticipant(userId, getLiveKitUsername(participant), stream);
     updateLiveKitParticipantMuteState(userId, publication);
   };
 
   const removeLiveKitRemoteTrack = (
     track: RemoteTrack,
-    _publication: RemoteTrackPublication,
+    publication: RemoteTrackPublication,
     participant: RemoteParticipant
   ) => {
     const userId = getLiveKitUserId(participant);
     if (userId === null) return;
-    const key = `livekit_${userId}`;
+    const isScreenTrack =
+      publication.source === Track.Source.ScreenShare ||
+      publication.source === Track.Source.ScreenShareAudio;
+    const key = isScreenTrack ? `livekit_screen_${userId}` : `livekit_${userId}`;
     const stream = remoteStreamsRef.current.get(key)?.stream;
     if (!stream) return;
     stream.removeTrack(track.mediaStreamTrack);
     if (stream.getTracks().length === 0) {
       remoteStreamsRef.current.delete(key);
+      if (isScreenTrack) {
+        updateParticipantsScreenStream(userId, null);
+        return;
+      }
       updateParticipantsStream(userId, null);
+      return;
+    }
+    if (isScreenTrack) {
+      updateParticipantsScreenStream(userId, stream);
       return;
     }
     updateParticipantsStream(userId, stream);
@@ -500,9 +541,17 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     const pc = new RTCPeerConnection(iceConfig);
     groupPeerConnectionsRef.current.set(peerUserId, pc);
 
-    groupLocalStreamRef.current?.getTracks().forEach((track) => {
-      pc.addTrack(track, groupLocalStreamRef.current!);
-    });
+    const baseStream = groupLocalStreamRef.current;
+    if (baseStream) {
+      const videoTracks = screenStreamRef.current?.getVideoTracks().length
+        ? screenStreamRef.current.getVideoTracks()
+        : baseStream.getVideoTracks();
+      const publishTracks = [...baseStream.getAudioTracks(), ...videoTracks];
+      const publishStream = new MediaStream(publishTracks);
+      publishTracks.forEach((track) => {
+        pc.addTrack(track, publishStream);
+      });
+    }
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
@@ -636,6 +685,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       if (userId === null) return;
       const key = `livekit_${userId}`;
       remoteStreamsRef.current.delete(key);
+      remoteStreamsRef.current.delete(`livekit_screen_${userId}`);
       setGroupCallParticipants((prev) => prev.filter((p) => p.userId !== userId));
     });
 
@@ -1224,6 +1274,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         const remote = remoteStreamsRef.current.get(String(data.userId));
         remote?.stream.getTracks().forEach((track) => track.stop());
         remoteStreamsRef.current.delete(String(data.userId));
+        remoteStreamsRef.current.delete(`livekit_screen_${data.userId}`);
         groupPeerConnectionsRef.current.get(data.userId)?.close();
         groupPeerConnectionsRef.current.delete(data.userId);
         groupIceQueuesRef.current.delete(data.userId);
@@ -1359,6 +1410,135 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const stopScreenShare = useCallback(() => {
+    const pc = peerConnection.current;
+    const screenStream = screenStreamRef.current;
+    if (!screenStream) return;
+
+    const screenVideoTrack = screenStream.getVideoTracks()[0] ?? null;
+    screenStreamRef.current = null;
+    screenStream.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+
+    const camTrack = localStreamRef.current?.getVideoTracks()[0] ?? null;
+    const sender = pc?.getSenders().find((s) =>
+      s.track?.kind === "video" || (screenVideoTrack !== null && s.track?.id === screenVideoTrack.id)
+    );
+    if (sender) sender.replaceTrack(camTrack).catch(console.error);
+    setLocalStream(localStreamRef.current);
+    setIsScreenSharing(false);
+  }, []);
+
+  const startScreenShare = useCallback(async () => {
+    const pc = peerConnection.current;
+    if (!pc || !localStreamRef.current || !isVideoCall) return;
+
+    const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+    if (!sender) {
+      console.warn("[SCREEN] Cannot start screen share: no negotiated video sender");
+      return;
+    }
+
+    try {
+      if (screenStreamRef.current) stopScreenShare();
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const videoTrack = screenStream.getVideoTracks()[0];
+      if (!videoTrack) {
+        screenStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      await sender.replaceTrack(videoTrack);
+      screenStreamRef.current = screenStream;
+      setLocalStream(new MediaStream([
+        ...localStreamRef.current.getAudioTracks(),
+        videoTrack,
+      ]));
+      setIsScreenSharing(true);
+      videoTrack.onended = () => stopScreenShare();
+    } catch (e) {
+      console.error("[SCREEN] Share error:", e);
+      stopScreenShare();
+    }
+  }, [isVideoCall, stopScreenShare]);
+
+  const stopGroupScreenShare = useCallback(() => {
+    const screenStream = screenStreamRef.current;
+    if (!screenStream) return;
+
+    const screenVideoTrack = screenStream.getVideoTracks()[0] ?? null;
+    screenStreamRef.current = null;
+    screenStream.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+
+    if (groupCallProviderRef.current === "livekit") {
+      liveKitRoomRef.current?.localParticipant.setScreenShareEnabled(false).catch(console.error);
+    } else {
+      const camTrack = groupLocalStreamRef.current?.getVideoTracks()[0] ?? null;
+      groupPeerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) =>
+          s.track?.kind === "video" || (screenVideoTrack !== null && s.track?.id === screenVideoTrack.id)
+        );
+        if (sender) sender.replaceTrack(camTrack).catch(console.error);
+      });
+    }
+
+    setGroupLocalStream(groupLocalStreamRef.current);
+    setIsGroupScreenSharing(false);
+  }, []);
+
+  const startGroupScreenShare = useCallback(async () => {
+    if (groupCallStateRef.current !== "active" || !groupCallIsVideo || !groupLocalStreamRef.current) return;
+
+    try {
+      if (screenStreamRef.current) stopGroupScreenShare();
+
+      if (groupCallProviderRef.current === "livekit") {
+        const publication = await liveKitRoomRef.current?.localParticipant.setScreenShareEnabled(true, {
+          audio: false,
+        });
+        const videoTrack = publication?.track?.mediaStreamTrack;
+        if (!videoTrack) return;
+
+        const screenStream = new MediaStream([videoTrack]);
+        screenStreamRef.current = screenStream;
+        setGroupLocalStream(new MediaStream([
+          ...groupLocalStreamRef.current.getAudioTracks(),
+          videoTrack,
+        ]));
+        setIsGroupScreenSharing(true);
+        videoTrack.onended = () => stopGroupScreenShare();
+        return;
+      }
+
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const videoTrack = screenStream.getVideoTracks()[0];
+      if (!videoTrack) {
+        screenStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      screenStreamRef.current = screenStream;
+      groupPeerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(videoTrack).catch(console.error);
+      });
+      setGroupLocalStream(new MediaStream([
+        ...groupLocalStreamRef.current.getAudioTracks(),
+        videoTrack,
+      ]));
+      setIsGroupScreenSharing(true);
+      videoTrack.onended = () => stopGroupScreenShare();
+    } catch (e) {
+      console.error("[GROUP-SCREEN] Share error:", e);
+      stopGroupScreenShare();
+    }
+  }, [groupCallIsVideo, stopGroupScreenShare]);
+
   return (
     <CallContext.Provider
       value={{
@@ -1389,45 +1569,11 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         dismissGroupCallBanner,
         p2pPeerConnection: p2pPcState,
         isScreenSharing,
-        startScreenShare: async () => {
-          const pc = peerConnection.current;
-          if (!pc || !localStreamRef.current) return;
-          try {
-            const screenStream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true });
-            screenStreamRef.current = screenStream;
-            const videoTrack = screenStream.getVideoTracks()[0];
-            const sender = pc.getSenders().find(s => s.track?.kind === "video");
-            if (sender) await sender.replaceTrack(videoTrack);
-            // Update local stream to show screen
-            const newStream = new MediaStream([
-              ...localStreamRef.current.getAudioTracks(),
-              videoTrack,
-            ]);
-            setLocalStream(newStream);
-            setIsScreenSharing(true);
-            videoTrack.onended = () => {
-              // Auto-stop when user clicks "Stop sharing" in browser
-              const camTrack = localStreamRef.current?.getVideoTracks()[0];
-              if (sender && camTrack) sender.replaceTrack(camTrack).catch(console.error);
-              setLocalStream(localStreamRef.current);
-              setIsScreenSharing(false);
-              screenStreamRef.current = null;
-            };
-          } catch (e) {
-            console.error("[SCREEN] Share error:", e);
-          }
-        },
-        stopScreenShare: () => {
-          const pc = peerConnection.current;
-          if (!screenStreamRef.current) return;
-          screenStreamRef.current.getTracks().forEach(t => t.stop());
-          const camTrack = localStreamRef.current?.getVideoTracks()[0];
-          const sender = pc?.getSenders().find(s => s.track?.kind === "video");
-          if (sender && camTrack) sender.replaceTrack(camTrack).catch(console.error);
-          setLocalStream(localStreamRef.current);
-          setIsScreenSharing(false);
-          screenStreamRef.current = null;
-        },
+        startScreenShare,
+        stopScreenShare,
+        isGroupScreenSharing,
+        startGroupScreenShare,
+        stopGroupScreenShare,
       }}
     >
       {children}

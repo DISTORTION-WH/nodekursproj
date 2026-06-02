@@ -177,8 +177,10 @@ export interface GroupCallParticipant {
   userId: number;
   username: string;
   stream: MediaStream | null;
+  screenStream?: MediaStream | null;
   audioMuted: boolean;
   videoMuted: boolean;
+  isScreenSharing?: boolean;
 }
 
 export interface Report {

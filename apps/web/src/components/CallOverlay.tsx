@@ -131,18 +131,23 @@ function ParticipantTile({
   const [, setMediaVersion] = useState(0);
   const { t } = useI18n();
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
-  const trackSignature = participant.stream
-    ? participant.stream
+  const displayStream = participant.isScreenSharing && participant.screenStream
+    ? participant.screenStream
+    : participant.stream;
+  const audioStream = participant.stream;
+  const trackSignature = displayStream
+    ? displayStream
         .getTracks()
         .map((track) => `${track.id}:${track.kind}:${track.readyState}:${track.muted}`)
         .join("|")
     : "no-stream";
-  const hasVideo = participant.stream
-    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.readyState === "live")
+  const displayVideoMuted = participant.isScreenSharing ? false : participant.videoMuted;
+  const hasVideo = displayStream
+    ? !displayVideoMuted && displayStream.getVideoTracks().some((t) => t.readyState === "live")
     : false;
 
   useEffect(() => {
-    const stream = participant.stream;
+    const stream = displayStream;
     const retryHandlers: Array<() => void> = [];
 
     if (videoRef.current) {
@@ -156,10 +161,10 @@ function ParticipantTile({
     }
 
     if (!isLocal && audioRef.current) {
-      audioRef.current.srcObject = stream;
+      audioRef.current.srcObject = audioStream;
       audioRef.current.muted = false;
       audioRef.current.volume = 1;
-      if (stream) {
+      if (audioStream) {
         audioRef.current.play().catch((err) => {
           console.warn("[GROUP-CALL-UI] Audio play blocked:", err.message);
           const retry = () => { audioRef.current?.play().catch(console.error); };
@@ -194,7 +199,7 @@ function ParticipantTile({
         track.removeEventListener("ended", bumpMediaVersion);
       });
     };
-  }, [participant.stream, trackSignature, isLocal]);
+  }, [displayStream, audioStream, trackSignature, isLocal]);
 
   return (
     <div
@@ -223,7 +228,7 @@ function ParticipantTile({
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          transform: isLocal ? "scaleX(-1)" : "none",
+          transform: isLocal && !participant.isScreenSharing ? "scaleX(-1)" : "none",
           opacity: hasVideo ? 1 : 0,
           transition: "opacity 120ms ease",
           zIndex: 0,
@@ -463,6 +468,7 @@ function CallOverlayContent() {
     isScreenSharing, startScreenShare, stopScreenShare,
     groupCallState, groupCallParticipants, groupLocalStream, groupCallIsVideo,
     leaveGroupCall, muteGroupAudio, muteGroupVideo, isGroupAudioMuted, isGroupVideoMuted,
+    isGroupScreenSharing, startGroupScreenShare, stopGroupScreenShare,
     incomingGroupCall, dismissGroupCallBanner, joinGroupCall,
   } = useCall();
 
@@ -872,6 +878,7 @@ function CallOverlayContent() {
                 stream: groupLocalStream,
                 audioMuted: isGroupAudioMuted,
                 videoMuted: isGroupVideoMuted,
+                isScreenSharing: isGroupScreenSharing,
               };
               const allParticipants = [localParticipant, ...groupCallParticipants];
               const cols = Math.min(allParticipants.length, 3);
@@ -908,6 +915,15 @@ function CallOverlayContent() {
             {groupCallIsVideo && (
               <ControlBtn onClick={muteGroupVideo} active={isGroupVideoMuted} title={t.call.camera}>
                 <UiIcon name={isGroupVideoMuted ? "videoOff" : "camera"} size={22} />
+              </ControlBtn>
+            )}
+            {groupCallIsVideo && (
+              <ControlBtn
+                onClick={isGroupScreenSharing ? stopGroupScreenShare : startGroupScreenShare}
+                active={isGroupScreenSharing}
+                title={isGroupScreenSharing ? t.call.stop_screen_share : t.call.screen_share}
+              >
+                <UiIcon name="monitor" size={22} />
               </ControlBtn>
             )}
             {/* Subtitles */}
@@ -1279,7 +1295,7 @@ function CallOverlayContent() {
                           width: "100%",
                           height: "100%",
                           objectFit: "cover",
-                          transform: "scaleX(-1)",
+                          transform: isScreenSharing ? "none" : "scaleX(-1)",
                         }}
                       />
                     ) : (
@@ -1380,13 +1396,15 @@ function CallOverlayContent() {
                     <UiIcon name={isVideoMuted ? "videoOff" : "camera"} size={22} />
                   </ControlBtn>
                 )}
-                <ControlBtn
-                  onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-                  active={isScreenSharing}
-                  title={isScreenSharing ? t.call.stop_screen_share : t.call.screen_share}
-                >
-                  <UiIcon name="monitor" size={22} />
-                </ControlBtn>
+                {isVideoCall && (localStream?.getVideoTracks().length ?? 0) > 0 && (
+                  <ControlBtn
+                    onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                    active={isScreenSharing}
+                    title={isScreenSharing ? t.call.stop_screen_share : t.call.screen_share}
+                  >
+                    <UiIcon name="monitor" size={22} />
+                  </ControlBtn>
+                )}
                 <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
                   <CCButton active={subtitlesEnabled} onToggle={toggleSubtitles} />
                   {subtitlesEnabled && (
