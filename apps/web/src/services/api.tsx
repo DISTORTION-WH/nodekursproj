@@ -166,6 +166,9 @@ export const getReports = () => api.get<Report[]>('/moderator/reports');
 export const dismissReport = (reportId: number) => 
     api.post('/moderator/reports/dismiss', { reportId });
 
+export const resolveReport = (reportId: number) =>
+    api.post('/moderator/reports/resolve', { reportId });
+
 export const deleteMessageByMod = (messageId: number, reportId?: number) => 
     api.post('/moderator/delete-message', { messageId, reportId });
 

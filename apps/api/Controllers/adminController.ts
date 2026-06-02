@@ -3,6 +3,8 @@ import client from "../databasepg";
 import chatService from "../Services/chatService";
 import userService from "../Services/userService";
 import logService from "../Services/logService";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 class AdminController {
   async getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -129,7 +131,18 @@ class AdminController {
         return;
       }
 
-      const systemUser = await userService.findUserByUsername("LumeOfficial");
+      let systemUser = await userService.findUserByUsername("LumeOfficial");
+      if (!systemUser) {
+        const systemPassword = process.env.SYSTEM_USER_PASSWORD || crypto.randomBytes(24).toString("hex");
+        const hashedPassword = await bcrypt.hash(systemPassword, 10);
+        await client.query(
+          `INSERT INTO users (username, password, role_id, email, avatar_url, is_banned)
+           VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), $3, NULL, false)
+           ON CONFLICT (username) DO UPDATE SET is_banned = false`,
+          ["LumeOfficial", hashedPassword, "system@lume.app"]
+        );
+        systemUser = await userService.findUserByUsername("LumeOfficial");
+      }
       if (!systemUser) {
         res.status(500).json({ message: "Системный пользователь не найден" });
         return;
@@ -155,7 +168,7 @@ class AdminController {
               chatId: chat.id,
               lastMessage: savedMessage,
             });
-            io.to(`chat_${chat.id}`).emit("receive_message", savedMessage);
+            io.to(`chat_${chat.id}`).to(`user_${user.id}`).emit("new_message", savedMessage);
           }
           count++;
         } catch (err) {

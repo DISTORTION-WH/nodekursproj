@@ -155,6 +155,31 @@ class ChatService {
             ) FILTER (WHERE u.id IS NOT NULL),
             '[]'
           ) AS participants
+          , COALESCE(
+            (
+              SELECT json_agg(message_row.message ORDER BY (message_row.message->>'created_at')::timestamptz)
+              FROM (
+                SELECT jsonb_build_object(
+                  'id', m.id,
+                  'chat_id', m.chat_id,
+                  'sender_id', m.sender_id,
+                  'text', m.text,
+                  'created_at', m.created_at,
+                  'edited_at', m.edited_at,
+                  'sender', jsonb_build_object(
+                    'id', sender.id,
+                    'username', sender.username
+                  )
+                ) AS message
+                FROM messages m
+                JOIN users sender ON sender.id = m.sender_id
+                WHERE m.chat_id = c.id
+                ORDER BY m.created_at DESC
+                LIMIT 100
+              ) message_row
+            ),
+            '[]'
+          ) AS messages
         FROM chats c
         LEFT JOIN chat_users cu ON cu.chat_id = c.id
         LEFT JOIN users u ON u.id = cu.user_id

@@ -246,9 +246,6 @@ export function useLiveSubtitles({
     if (to) payload.to = to;
     else if (chatId) payload.chatId = chatId;
 
-    console.log("[SUBTITLES] → subtitle_audio_start", payload);
-    sock.emit("subtitle_audio_start", payload);
-
     try {
       const audioCtx = new AudioContext({ sampleRate: 48000 });
       await audioCtx.audioWorklet.addModule(getWorkletUrl());
@@ -271,6 +268,8 @@ export function useLiveSubtitles({
       silentGain.connect(audioCtx.destination);
 
       pipeline.current = { audioCtx, worklet, source, silentGain, active: true };
+      console.log("[SUBTITLES] → subtitle_audio_start", payload);
+      sock.emit("subtitle_audio_start", payload);
       setIsListening(true);
       setError(null);
       console.log("[SUBTITLES] pipeline started, lang:", lang);
@@ -284,14 +283,14 @@ export function useLiveSubtitles({
 
   // ─── Master effect: start/stop when call active/inactive ─────────────────
   useEffect(() => {
-    if (callActive && localStream && socket) {
+    if (shouldShow && callActive && localStream && socket) {
       start(localStream, socket);
     } else {
       stop();
     }
     return () => { stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callActive, localStream, socket]);
+  }, [shouldShow, callActive, localStream, socket]);
 
   // ─── Restart when recognition language (displayLang) changes ─────────────
   // Only restart if already streaming
@@ -385,15 +384,22 @@ export function useLiveSubtitles({
       }
     };
 
+    const onError = (data?: { message?: string }) => {
+      setError(data?.message || "Subtitles are unavailable");
+      teardown();
+    };
+
     socket.on("subtitle_received", onReceived);
+    socket.on("subtitle_error", onError);
     return () => {
       socket.off("subtitle_received", onReceived);
+      socket.off("subtitle_error", onError);
       if (interimTimerRef.current) {
         clearTimeout(interimTimerRef.current);
         interimTimerRef.current = null;
       }
     };
-  }, [socket, upsertSubtitle]);
+  }, [socket, upsertSubtitle, teardown]);
 
   // ─── Clear subtitles when disabled ───────────────────────────────────────
   useEffect(() => {

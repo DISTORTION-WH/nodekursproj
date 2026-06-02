@@ -142,6 +142,29 @@ class ModeratorController {
     }
   }
 
+  async resolveReport(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { reportId } = req.body as { reportId?: number };
+      if (!reportId) {
+        res.status(400).json({ message: "Report id is required" });
+        return;
+      }
+
+      const result = await client.query(
+        "UPDATE reports SET status = 'resolved' WHERE id = $1 RETURNING id",
+        [reportId]
+      );
+      if (result.rows.length === 0) {
+        res.status(404).json({ message: "Report not found" });
+        return;
+      }
+
+      res.json({ message: "Report resolved" });
+    } catch (e: unknown) {
+      next(e);
+    }
+  }
+
   async deleteMessage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { messageId, reportId } = req.body as { messageId?: number; reportId?: number };

@@ -771,20 +771,35 @@ class ChatController {
       const chatId = req.params.id;
       const userId = authReq.user?.id;
       const { question, options, expires_in_seconds } = req.body as { question: string; options: string[]; expires_in_seconds?: number };
+      const normalizedChatId = Number(chatId);
+      const trimmedQuestion = typeof question === "string" ? question.trim().slice(0, 300) : "";
+      const trimmedOptions = Array.isArray(options)
+        ? options.map((o) => String(o).trim().slice(0, 100)).filter(Boolean)
+        : [];
       if (!userId) { res.status(401).json({ message: "Не авторизован" }); return; }
-      if (!question?.trim() || !Array.isArray(options) || options.length < 2 || options.length > 10) {
+      if (!Number.isInteger(normalizedChatId) || normalizedChatId <= 0 || !trimmedQuestion || trimmedOptions.length < 2 || trimmedOptions.length > 10) {
         res.status(400).json({ message: "Некорректные данные опроса" }); return;
       }
-      const trimmedOptions = options.map((o) => String(o).slice(0, 100));
-      const expiresAt = expires_in_seconds ? new Date(Date.now() + expires_in_seconds * 1000) : null;
+      const memberRes = await client.query(
+        "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [normalizedChatId, userId]
+      );
+      if (memberRes.rows.length === 0) {
+        res.status(403).json({ message: "No access to chat" });
+        return;
+      }
+
+      const expiresAt = Number.isFinite(expires_in_seconds) && Number(expires_in_seconds) > 0
+        ? new Date(Date.now() + Number(expires_in_seconds) * 1000)
+        : null;
       const msgRes = await client.query(
         `INSERT INTO messages (chat_id, sender_id, text, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
-        [chatId, userId, `📊 ${question}`, expiresAt]
+        [normalizedChatId, userId, `Poll: ${trimmedQuestion}`, expiresAt]
       );
       const msg = msgRes.rows[0];
       const pollRes = await client.query(
         `INSERT INTO polls (chat_id, creator_id, question, message_id) VALUES ($1, $2, $3, $4) RETURNING id`,
-        [chatId, userId, question.trim(), msg.id]
+        [normalizedChatId, userId, trimmedQuestion, msg.id]
       );
       const pollId = pollRes.rows[0].id;
       for (let i = 0; i < trimmedOptions.length; i++) {
@@ -796,11 +811,11 @@ class ChatController {
       const io = req.app.get("io");
       const senderRes = await client.query("SELECT username, avatar_url FROM users WHERE id = $1", [userId]);
       const sender = senderRes.rows[0];
-      io.to(`chat_${chatId}`).emit("new_message", {
-        id: msg.id, chat_id: Number(chatId), sender_id: userId,
+      io.to(`chat_${normalizedChatId}`).emit("new_message", {
+        id: msg.id, chat_id: normalizedChatId, sender_id: userId,
         sender_name: sender?.username, sender_avatar: sender?.avatar_url,
-        text: `📊 ${question}`, created_at: msg.created_at,
-        poll: { id: pollId, question, options: trimmedOptions, votes: {}, closed: false },
+        text: `Poll: ${trimmedQuestion}`, created_at: msg.created_at,
+        poll: { id: pollId, question: trimmedQuestion, options: trimmedOptions, votes: {}, closed: false },
         reactions: [],
       });
       res.json({ pollId, messageId: msg.id });
@@ -906,8 +921,8 @@ class ChatController {
       }
 
       await client.query(
-        "INSERT INTO reports (reporter_id, message_id, reason) VALUES ($1, $2, $3)",
-        [reporterId, messageId, reason.trim()]
+        "INSERT INTO reports (reporter_id, reported_user_id, message_id, reason) VALUES ($1, $2, $3, $4)",
+        [reporterId, sender_id, messageId, reason.trim()]
       );
 
       res.json({ message: "Жалоба отправлена" });

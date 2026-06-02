@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   searchUsers, getAllUsers, banUser, unbanUser, warnUser,
-  getReports, dismissReport, deleteMessageByMod,
+  getReports, dismissReport, resolveReport, deleteMessageByMod,
 } from "../services/api";
 import { User, Report } from "../types";
 import { getImageUrl } from "../utils/imageUrl";
@@ -61,6 +61,18 @@ const ModeratorPage: React.FC = () => {
     }
   };
 
+  const handleBanFromReport = async (rep: Report) => {
+    if (!window.confirm("Ban " + rep.sender_name + "?")) return;
+    try {
+      await banUser(rep.sender_id);
+      await resolveReport(rep.id);
+      setReports((prev) => prev.filter((item) => item.id !== rep.id));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "Ban failed";
+      alert(errorMessage);
+    }
+  };
+
   const handleUnban = async (user: User) => {
     try { await unbanUser(user.id); refresh(); } catch { alert("Ошибка разблокировки"); }
   };
@@ -73,7 +85,7 @@ const ModeratorPage: React.FC = () => {
     if (!warningUser || !warnReason) return;
     try {
       await warnUser(warningUser.id, warnReason);
-      if (linkedReportId) await dismissReport(linkedReportId);
+      if (linkedReportId) await resolveReport(linkedReportId);
       handleCancelWarn(); refresh();
     } catch { alert("Ошибка отправки"); }
   };
@@ -199,7 +211,7 @@ const ModeratorPage: React.FC = () => {
                     <div className="flex gap-2 flex-wrap">
                       <button onClick={() => handleDeleteMessage(rep.message_id, rep.id)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Удалить сообщение</button>
                       <button onClick={() => handleStartWarn({ id: rep.sender_id, username: rep.sender_name } as User, rep.id)} className="bg-yellow-500/20 hover:bg-yellow-500 text-yellow-400 hover:text-black text-xs px-2 py-1 rounded">Warn</button>
-                      <button onClick={() => handleBan({ id: rep.sender_id, username: rep.sender_name } as User)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Ban</button>
+                      <button onClick={() => handleBanFromReport(rep)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Ban</button>
                       <button onClick={() => handleDismissReport(rep.id)} className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-xs px-2 py-1 rounded">Отклонить</button>
                     </div>
                   </div>

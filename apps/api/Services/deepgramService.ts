@@ -30,6 +30,10 @@ interface ActiveSession {
 // userId → active Deepgram session
 const sessions = new Map<number, ActiveSession>();
 
+export function isConfigured(): boolean {
+  return Boolean(DEEPGRAM_API_KEY);
+}
+
 /**
  * Start a Deepgram live transcription session for a user.
  */

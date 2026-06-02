@@ -765,6 +765,10 @@ io.on("connection", async (socket: Socket) => {
   socket.on("subtitle_audio_start", (data: { lang: string; to?: number; chatId?: number; username?: string }) => {
     const userId = authSocket.userId;
     if (!userId) return;
+    if (!deepgramService.isConfigured()) {
+      socket.emit("subtitle_error", { message: "Subtitles are not configured on the server" });
+      return;
+    }
 
     subtitleRoute.speakerId = String(userId);
     subtitleRoute.lang = data.lang || "en-US";
@@ -820,9 +824,19 @@ io.on("connection", async (socket: Socket) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
+      const pollId = Number(data.pollId);
+      const optionIndex = Number(data.optionIndex);
+      if (!Number.isInteger(pollId) || !Number.isInteger(optionIndex) || optionIndex < 0) {
+        if (ack) ack({ error: "Invalid vote data" });
+        return;
+      }
+
       const pollRes = await client.query(
-        "SELECT id, chat_id, closed FROM polls WHERE id = $1",
-        [data.pollId]
+        `SELECT p.id, p.chat_id, p.closed
+         FROM polls p
+         JOIN chat_users cu ON cu.chat_id = p.chat_id AND cu.user_id = $2
+         WHERE p.id = $1`,
+        [pollId, userId]
       );
       if (pollRes.rows.length === 0) { if (ack) ack({ error: "Poll not found" }); return; }
       const poll = pollRes.rows[0];
@@ -830,7 +844,7 @@ io.on("connection", async (socket: Socket) => {
 
       const optRes = await client.query(
         "SELECT 1 FROM poll_options WHERE poll_id = $1 AND option_index = $2",
-        [data.pollId, data.optionIndex]
+        [pollId, optionIndex]
       );
       if (optRes.rows.length === 0) { if (ack) ack({ error: "Invalid option" }); return; }
 
@@ -839,26 +853,23 @@ io.on("connection", async (socket: Socket) => {
         `INSERT INTO poll_votes (poll_id, user_id, option_index, voted_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (poll_id, user_id) DO UPDATE SET option_index = EXCLUDED.option_index, voted_at = NOW()`,
-        [data.pollId, userId, data.optionIndex]
+        [pollId, userId, optionIndex]
       );
 
-      // Отправляем только счётчики, не массив user_ids — защита от роста пакета
-      const voteCountRes = await client.query<{ option_index: number; count: string }>(
-        "SELECT option_index, COUNT(user_id)::text AS count FROM poll_votes WHERE poll_id = $1 GROUP BY option_index",
-        [data.pollId]
+      // Keep the socket payload shape aligned with the PollData type used by the web client.
+      const voteRes = await client.query<{ option_index: number; user_ids: number[] }>(
+        `SELECT option_index, array_agg(user_id ORDER BY user_id) AS user_ids
+         FROM poll_votes
+         WHERE poll_id = $1
+         GROUP BY option_index`,
+        [pollId]
       );
-      // Собственный голос текущего пользователя
-      const myVoteRes = await client.query<{ option_index: number }>(
-        "SELECT option_index FROM poll_votes WHERE poll_id = $1 AND user_id = $2",
-        [data.pollId, userId]
-      );
-      const votes: Record<string, number> = {};
-      for (const row of voteCountRes.rows) {
-        votes[String(row.option_index)] = Number(row.count);
+      const votes: Record<string, number[]> = {};
+      for (const row of voteRes.rows) {
+        votes[String(row.option_index)] = row.user_ids.map(Number);
       }
-      const myVote = myVoteRes.rows[0]?.option_index ?? null;
 
-      io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId: data.pollId, votes, myVote });
+      io.to(`chat_${poll.chat_id}`).emit("poll_updated", { pollId, votes });
       if (ack) ack({ ok: true, votes });
     } catch (e) {
       console.error("poll_vote error:", e);

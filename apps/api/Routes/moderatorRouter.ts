@@ -13,5 +13,6 @@ router.post("/ban", moderatorController.banUser);
 router.post("/unban", moderatorController.unbanUser);
 router.get("/reports", authMiddleware, roleMiddleware(["MODERATOR", "ADMIN"]), moderatorController.getReports);
 router.post("/reports/dismiss", authMiddleware, roleMiddleware(["MODERATOR", "ADMIN"]), moderatorController.dismissReport);
+router.post("/reports/resolve", authMiddleware, roleMiddleware(["MODERATOR", "ADMIN"]), moderatorController.resolveReport);
 router.post("/delete-message", authMiddleware, roleMiddleware(["MODERATOR", "ADMIN"]), moderatorController.deleteMessage);
 export default router;
