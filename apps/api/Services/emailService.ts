@@ -1,9 +1,14 @@
 class EmailService {
   async sendVerificationEmail(to: string, code: string): Promise<void> {
+    const recipient = to.trim().toLowerCase();
     const serviceId = process.env.EMAILJS_SERVICE_ID;
     const templateId = process.env.EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.EMAILJS_PUBLIC_KEY;
     const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+    if (!recipient) {
+      throw new Error("Email recipient is empty");
+    }
 
     if (!serviceId || !templateId || !publicKey || !privateKey) {
       console.error("EmailJS is not configured");
@@ -16,7 +21,10 @@ class EmailService {
       user_id: publicKey,
       accessToken: privateKey,
       template_params: {
-        to_email: to,
+        to_email: recipient,
+        email: recipient,
+        user_email: recipient,
+        recipient_email: recipient,
         code,
       },
     };
@@ -31,7 +39,7 @@ class EmailService {
       });
 
       if (response.ok) {
-        console.log(`Verification email was sent to ${to}`);
+        console.log(`Verification email was sent to ${recipient}`);
         return;
       }
 
