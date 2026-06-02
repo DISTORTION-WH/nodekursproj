@@ -26,6 +26,8 @@ export default function MessageInput() {
   const [showScheduled, setShowScheduled] = useState(false);
   const [scheduledTime, setScheduledTime] = useState("");
   const [ephemeralSecs, setEphemeralSecs] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat, chatMembers, currentUser } = useChat();
   const { t } = useI18n();
@@ -71,22 +73,30 @@ export default function MessageInput() {
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (blockedUser) return;
+    if (sendingRef.current) return;
     if (!newMessage.trim() || !activeChat?.id) return;
+    sendingRef.current = true;
+    setSending(true);
     sendStopTyping();
     let sent = false;
 
-    if (showScheduled && scheduledTime) {
-      // Send as scheduled message
-      try {
-        await createScheduledMessage(activeChat.id, newMessage, scheduledTime);
-        setScheduledTime("");
-        setShowScheduled(false);
-        sent = true;
-      } catch (err) {
-        console.error(err);
+    try {
+      if (showScheduled && scheduledTime) {
+        // Send as scheduled message
+        try {
+          await createScheduledMessage(activeChat.id, newMessage, scheduledTime);
+          setScheduledTime("");
+          setShowScheduled(false);
+          sent = true;
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        sent = await sendMessage(newMessage, replyingTo?.id ?? null, ephemeralSecs);
       }
-    } else {
-      sent = await sendMessage(newMessage, replyingTo?.id ?? null, ephemeralSecs);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
 
     if (!sent) return;
@@ -131,7 +141,10 @@ export default function MessageInput() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) handleSend();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
     if (e.key === "Escape" && replyingTo) setReplyingTo(null);
   };
 
@@ -367,7 +380,7 @@ export default function MessageInput() {
             setShowVoiceRecorder(false);
           }}
           title="Emoji & Stickers"
-          disabled={!!blockedUser}
+          disabled={!!blockedUser || sending}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -405,7 +418,7 @@ export default function MessageInput() {
             setShowMediaPicker(false);
           }}
           title={t.chat.voice_message}
-          disabled={!!blockedUser}
+          disabled={!!blockedUser || sending}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
@@ -426,7 +439,7 @@ export default function MessageInput() {
             setShowMediaPicker(false);
           }}
           title={t.chat.video_message}
-          disabled={!!blockedUser}
+          disabled={!!blockedUser || sending}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="23 7 16 12 23 17 23 7"/>
@@ -488,12 +501,12 @@ export default function MessageInput() {
           placeholder={blockedUser ? t.chat.user_blocked : replyingTo ? `${t.chat.reply_prefix} ${replyingTo.sender_name}...` : t.chat.message_placeholder}
           onKeyDown={handleKeyDown}
           onClick={() => setShowMediaPicker(false)}
-          disabled={!!blockedUser}
+          disabled={!!blockedUser || sending}
           className="flex-1 bg-transparent text-discord-text-primary text-sm outline-none placeholder-discord-text-muted min-w-0 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
-          disabled={!!blockedUser}
+          disabled={!!blockedUser || sending}
           className="text-white px-3 py-1.5 rounded transition shrink-0 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)", boxShadow: "0 2px 8px rgba(88,101,242,0.3)" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}

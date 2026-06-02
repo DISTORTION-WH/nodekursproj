@@ -61,6 +61,7 @@ process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) =>
 const PORT = process.env.PORT || 5000;
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Allowed CORS origins — configure via env vars, no hardcoded domains
 const parseCsvEnv = (value?: string): string[] =>

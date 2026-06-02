@@ -228,7 +228,11 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     const handleNewMessage = (msg: Message) => {
       const currentActiveChatId = activeChatRef.current?.id;
       if (Number(msg.chat_id) === Number(currentActiveChatId)) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => (
+          prev.some((existing) => String(existing.id) === String(msg.id))
+            ? prev
+            : [...prev, msg]
+        ));
         // Mark as read since we're looking at this chat
         markChatAsRead(Number(currentActiveChatId)).catch(console.error);
       } else {

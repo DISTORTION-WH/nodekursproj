@@ -129,6 +129,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const pendingOffer = useRef<any>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const outgoingCallTimerRef = useRef<number | null>(null);
 
   // ─── Group call state ────────────────────────────────────────────────────
@@ -231,6 +232,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setPeerConnection(null);
     setLocalStream(null);
     setRemoteStream(null);
+    remoteStreamRef.current = null;
     setCallState("idle");
     setCallerData(null);
     otherUserId.current = null;
@@ -268,15 +270,25 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     };
     pc.ontrack = (event) => {
       console.log("[CALL] ontrack received:", event.track.kind, "readyState:", event.track.readyState);
-      const incomingTrack = event.track;
-      const incomingStream = event.streams[0];
-      setRemoteStream((prev) => {
-        if (incomingStream) return new MediaStream(incomingStream.getTracks());
-        const newStream = new MediaStream();
-        if (prev) prev.getTracks().forEach((t) => newStream.addTrack(t));
-        newStream.addTrack(incomingTrack);
-        return newStream;
+      const remote = remoteStreamRef.current ?? new MediaStream();
+      const tracks = event.streams[0]?.getTracks().length
+        ? event.streams[0].getTracks()
+        : [event.track];
+
+      tracks.forEach((track) => {
+        if (!remote.getTracks().some((existing) => existing.id === track.id)) {
+          remote.addTrack(track);
+          track.onended = () => {
+            remote.removeTrack(track);
+            setRemoteStream(new MediaStream(remote.getTracks()));
+          };
+          track.onmute = () => setRemoteStream(new MediaStream(remote.getTracks()));
+          track.onunmute = () => setRemoteStream(new MediaStream(remote.getTracks()));
+        }
       });
+
+      remoteStreamRef.current = remote;
+      setRemoteStream(new MediaStream(remote.getTracks()));
     };
     pc.oniceconnectionstatechange = () => {
       console.log("[CALL] ICE connection state:", pc.iceConnectionState);

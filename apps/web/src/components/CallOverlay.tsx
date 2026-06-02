@@ -127,17 +127,64 @@ function ParticipantTile({
   isLocal = false,
 }: ParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [, setMediaVersion] = useState(0);
   const { t } = useI18n();
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
   const hasVideo = participant.stream
-    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.readyState === "live" && !t.muted)
     : false;
 
   useEffect(() => {
-    if (videoRef.current && participant.stream) {
-      videoRef.current.srcObject = participant.stream;
+    const stream = participant.stream;
+    const retryHandlers: Array<() => void> = [];
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.muted = true;
+      if (stream) {
+        videoRef.current.play().catch((err) => {
+          console.warn("[GROUP-CALL-UI] Video play blocked:", err.message);
+        });
+      }
     }
-  }, [participant.stream]);
+
+    if (!isLocal && audioRef.current) {
+      audioRef.current.srcObject = stream;
+      audioRef.current.muted = false;
+      audioRef.current.volume = 1;
+      if (stream) {
+        audioRef.current.play().catch((err) => {
+          console.warn("[GROUP-CALL-UI] Audio play blocked:", err.message);
+          const retry = () => { audioRef.current?.play().catch(console.error); };
+          retryHandlers.push(retry);
+          document.addEventListener("click", retry, { once: true });
+          document.addEventListener("pointerdown", retry, { once: true });
+          document.addEventListener("keydown", retry, { once: true });
+        });
+      }
+    }
+
+    const bumpMediaVersion = () => setMediaVersion((version) => version + 1);
+    stream?.getTracks().forEach((track) => {
+      track.addEventListener("mute", bumpMediaVersion);
+      track.addEventListener("unmute", bumpMediaVersion);
+      track.addEventListener("ended", bumpMediaVersion);
+    });
+
+    return () => {
+      retryHandlers.forEach((retry) => {
+        document.removeEventListener("click", retry);
+        document.removeEventListener("pointerdown", retry);
+        document.removeEventListener("keydown", retry);
+      });
+      stream?.getTracks().forEach((track) => {
+        track.removeEventListener("mute", bumpMediaVersion);
+        track.removeEventListener("unmute", bumpMediaVersion);
+        track.removeEventListener("ended", bumpMediaVersion);
+      });
+    };
+  }, [participant.stream, isLocal]);
 
   return (
     <div
@@ -154,12 +201,13 @@ function ParticipantTile({
         boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       }}
     >
+      {!isLocal && <audio ref={audioRef} autoPlay playsInline style={{ display: "none" }} />}
       {hasVideo ? (
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          muted={isLocal}
+          muted
           style={{
             width: "100%",
             height: "100%",
@@ -461,29 +509,40 @@ function CallOverlayContent() {
 
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.muted = true;
         remoteVideoRef.current.play().catch((err) => {
           if (cancelled) return;
           console.warn("[CALL-UI] Video play blocked:", err.message);
           const retry = () => { remoteVideoRef.current?.play().catch(console.error); };
           retryHandlers.push(retry);
           document.addEventListener("click", retry, { once: true });
+          document.addEventListener("pointerdown", retry, { once: true });
+          document.addEventListener("keydown", retry, { once: true });
         });
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1;
         remoteAudioRef.current.play().catch((err) => {
           if (cancelled) return;
           console.warn("[CALL-UI] Audio play blocked:", err.message);
           const retry = () => { remoteAudioRef.current?.play().catch(console.error); };
           retryHandlers.push(retry);
           document.addEventListener("click", retry, { once: true });
+          document.addEventListener("pointerdown", retry, { once: true });
+          document.addEventListener("keydown", retry, { once: true });
         });
       }
     }
 
     return () => {
       cancelled = true;
-      retryHandlers.forEach((retry) => document.removeEventListener("click", retry));
+      retryHandlers.forEach((retry) => {
+        document.removeEventListener("click", retry);
+        document.removeEventListener("pointerdown", retry);
+        document.removeEventListener("keydown", retry);
+      });
     };
   }, [remoteStream, isVideoCall, callState]);
 
@@ -502,7 +561,7 @@ function CallOverlayContent() {
   // Avatar components
   const remoteAvatarSrc = getImageUrl(remoteAvatarUrl);
   const myAvatarSrc = getImageUrl(currentUser?.avatar_url ?? null);
-  const remoteHasVideo = remoteStream?.getVideoTracks().some((track) => track.readyState === "live") ?? false;
+  const remoteHasVideo = remoteStream?.getVideoTracks().some((track) => track.readyState === "live" && !track.muted) ?? false;
   const localHasVideo = localStream?.getVideoTracks().some((track) => track.readyState === "live" && track.enabled) ?? false;
 
   const CallAvatar = ({ src, initial, size = 80, isSpeaking = false }: { src: string; initial: string; size?: number; isSpeaking?: boolean }) => {
@@ -1143,6 +1202,7 @@ function CallOverlayContent() {
                     <video
                       ref={remoteVideoRef}
                       autoPlay
+                      muted
                       playsInline
                       style={{
                         width: "100%",

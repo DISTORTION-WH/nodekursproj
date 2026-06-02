@@ -116,7 +116,8 @@ router.post("/accept", authMiddleware, async (req: AuthRequest, res: Response, n
     }
 
     const io: Server = req.app.get("io");
-    io.to(`user_${targetId}`).emit("friend_request_accepted");
+    io.to(`user_${targetId}`).emit("friend_request_accepted", { friendId: userId });
+    io.to(`user_${userId}`).emit("friend_request_accepted", { friendId: targetId });
 
     res.json({ message: "Запрос принят" });
   } catch (e: unknown) {
@@ -150,6 +151,7 @@ router.post("/remove", authMiddleware, async (req: AuthRequest, res: Response, n
 
     const io: Server = req.app.get("io");
     io.to(`user_${targetId}`).emit("friend_removed", { byUserId: userId });
+    io.to(`user_${userId}`).emit("friend_removed", { byUserId: userId, friendId: targetId });
 
     res.json({ message: "Друг удалён" });
   } catch (err: unknown) {
