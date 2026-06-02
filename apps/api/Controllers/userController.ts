@@ -76,6 +76,18 @@ class UserController {
           .json({ message: "oldPassword и newPassword обязательны" });
       }
 
+      if (typeof oldPassword !== "string" || typeof newPassword !== "string") {
+        return res.status(400).json({ message: "Пароль должен быть строкой" });
+      }
+
+      if (newPassword.trim().length < 6 || newPassword.length > 128) {
+        return res.status(400).json({ message: "Новый пароль должен быть от 6 до 128 символов" });
+      }
+
+      if (oldPassword === newPassword) {
+        return res.status(400).json({ message: "Новый пароль должен отличаться от старого" });
+      }
+
       await userService.changeUserPassword(
         authReq.user.id,
         oldPassword,

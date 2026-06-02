@@ -59,9 +59,9 @@ services:
       - EMAILJS_TEMPLATE_ID=${EMAILJS_TEMPLATE_ID:-}
       - EMAILJS_PUBLIC_KEY=${EMAILJS_PUBLIC_KEY:-}
       - EMAILJS_PRIVATE_KEY=${EMAILJS_PRIVATE_KEY:-}
-      # Mediasoup (WebRTC SFU)
-      - MEDIASOUP_LISTEN_IP=${MEDIASOUP_LISTEN_IP:-0.0.0.0}
-      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
+      # TURN credentials for WebRTC calls
+      - METERED_APP_NAME=${METERED_APP_NAME:-}
+      - METERED_API_KEY=${METERED_API_KEY:-}
     networks:
       - app-network
 

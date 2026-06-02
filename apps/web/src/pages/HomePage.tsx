@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import FriendsList from "../components/FriendsList";
 import ChatWindow from "../components/ChatWindow";
 import { useChat } from "../context/ChatContext";
@@ -15,7 +15,9 @@ export default function HomePage({ currentUser }: HomePageProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const { activeChat, selectChat, closeChat } = useChat();
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useI18n();
+  const handledOpenChatId = useRef<number | null>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -24,17 +26,27 @@ export default function HomePage({ currentUser }: HomePageProps) {
   }, []);
 
   useEffect(() => {
-    if (location.state?.openChatId) {
+    const openChatId = Number(location.state?.openChatId);
+    if (openChatId && handledOpenChatId.current !== openChatId) {
+      handledOpenChatId.current = openChatId;
       selectChat({
-        id: location.state.openChatId,
+        id: openChatId,
         username: location.state.friend?.username,
         avatar_url: location.state.friend?.avatar_url,
         is_group: false,
         name: null,
+        participants: location.state.friend?.id
+          ? [{
+              id: location.state.friend.id,
+              username: location.state.friend.username,
+              avatar_url: location.state.friend.avatar_url,
+              is_banned: location.state.friend.is_banned,
+            }]
+          : undefined,
       });
-      window.history.replaceState({}, document.title);
+      navigate(".", { replace: true, state: null });
     }
-  }, [location.state, selectChat]);
+  }, [location.state, navigate, selectChat]);
 
   return (
     <div className="flex flex-1 overflow-hidden w-full">

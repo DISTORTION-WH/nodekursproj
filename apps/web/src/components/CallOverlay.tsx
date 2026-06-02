@@ -130,7 +130,7 @@ function ParticipantTile({
   const { t } = useI18n();
   const initial = participant.username ? participant.username[0].toUpperCase() : "?";
   const hasVideo = participant.stream
-    ? participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+    ? !participant.videoMuted && participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
     : false;
 
   useEffect(() => {
@@ -398,7 +398,7 @@ function CallOverlayContent() {
     callState, isVideoCall, localStream, remoteStream, callerData,
     answerCall, endCall, muteAudio, muteVideo, isAudioMuted, isVideoMuted,
     isScreenSharing, startScreenShare, stopScreenShare,
-    groupCallState, groupCallParticipants, groupCallIsVideo,
+    groupCallState, groupCallParticipants, groupLocalStream, groupCallIsVideo,
     leaveGroupCall, muteGroupAudio, muteGroupVideo, isGroupAudioMuted, isGroupVideoMuted,
     incomingGroupCall, dismissGroupCallBanner, joinGroupCall,
   } = useCall();
@@ -502,6 +502,8 @@ function CallOverlayContent() {
   // Avatar components
   const remoteAvatarSrc = getImageUrl(remoteAvatarUrl);
   const myAvatarSrc = getImageUrl(currentUser?.avatar_url ?? null);
+  const remoteHasVideo = remoteStream?.getVideoTracks().some((track) => track.readyState === "live") ?? false;
+  const localHasVideo = localStream?.getVideoTracks().some((track) => track.readyState === "live" && track.enabled) ?? false;
 
   const CallAvatar = ({ src, initial, size = 80, isSpeaking = false }: { src: string; initial: string; size?: number; isSpeaking?: boolean }) => {
     const [imgLoaded, setImgLoaded] = useState(false);
@@ -659,7 +661,7 @@ function CallOverlayContent() {
 
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button
-              onClick={() => joinGroupCall(incomingGroupCall!.chatId, false)}
+              onClick={() => joinGroupCall(incomingGroupCall!.chatId, Boolean(incomingGroupCall!.isVideo))}
               style={{
                 background: "linear-gradient(135deg, #57f287, #3ba55d)",
                 border: "none",
@@ -793,7 +795,7 @@ function CallOverlayContent() {
               const localParticipant: GroupCallParticipant = {
                 userId: currentUser?.id ?? 0,
                 username: currentUser?.username ?? t.call.you,
-                stream: localStream,
+                stream: groupLocalStream,
                 audioMuted: isGroupAudioMuted,
                 videoMuted: isGroupVideoMuted,
               };
@@ -863,7 +865,7 @@ function CallOverlayContent() {
 
           {/* Subtitles overlay */}
           <SubtitlesOverlay
-            localStream={localStream}
+            localStream={groupLocalStream}
             callActive
             bottomOffset={88}
           />
@@ -1137,16 +1139,28 @@ function CallOverlayContent() {
                 /* ─── VIDEO CALL: remote fills screen, local PiP ─── */
                 <div style={{ position: "relative", flex: 1, background: "#0a0a14", minHeight: 0 }}>
                   {/* Remote video — full area */}
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    style={{
+                  {remoteHasVideo ? (
+                    <video
+                      ref={remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      <CallAvatar src={remoteAvatarSrc} initial={callerInitial} size={112} />
+                    </div>
+                  )}
                   {/* Remote name label */}
                   <div
                     style={{
@@ -1180,18 +1194,30 @@ function CallOverlayContent() {
                       background: "#111",
                     }}
                   >
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      style={{
+                    {localHasVideo ? (
+                      <video
+                        ref={localVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transform: "scaleX(-1)",
+                        }}
+                      />
+                    ) : (
+                      <div style={{
                         width: "100%",
                         height: "100%",
-                        objectFit: "cover",
-                        transform: "scaleX(-1)",
-                      }}
-                    />
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        <CallAvatar src={myAvatarSrc} initial={myInitial} size={52} />
+                      </div>
+                    )}
                     <div
                       style={{
                         position: "absolute",

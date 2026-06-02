@@ -27,11 +27,17 @@ export default function MessageInput() {
   const [scheduledTime, setScheduledTime] = useState("");
   const [ephemeralSecs, setEphemeralSecs] = useState<number | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat } = useChat();
+  const { sendMessage, replyingTo, setReplyingTo, sendTyping, sendStopTyping, activeChat, chatMembers, currentUser } = useChat();
   const { t } = useI18n();
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const blockedUser =
+    !activeChat?.is_group
+      ? [...(activeChat?.participants || []), ...chatMembers].find(
+          (p) => Number(p.id) !== Number(currentUser?.id) && p.is_banned
+        )
+      : undefined;
 
   useEffect(() => {
     return () => {
@@ -64,8 +70,10 @@ export default function MessageInput() {
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (blockedUser) return;
     if (!newMessage.trim() || !activeChat?.id) return;
     sendStopTyping();
+    let sent = false;
 
     if (showScheduled && scheduledTime) {
       // Send as scheduled message
@@ -73,12 +81,15 @@ export default function MessageInput() {
         await createScheduledMessage(activeChat.id, newMessage, scheduledTime);
         setScheduledTime("");
         setShowScheduled(false);
+        sent = true;
       } catch (err) {
         console.error(err);
       }
     } else {
-      sendMessage(newMessage, replyingTo?.id ?? null, ephemeralSecs);
+      sent = await sendMessage(newMessage, replyingTo?.id ?? null, ephemeralSecs);
     }
+
+    if (!sent) return;
 
     setNewMessage("");
     setShowMediaPicker(false);
@@ -90,6 +101,7 @@ export default function MessageInput() {
   };
 
   const handleCreatePoll = async () => {
+    if (blockedUser) return;
     if (!activeChat?.id || !pollQuestion.trim()) return;
     const opts = pollOptions.filter(o => o.trim());
     if (opts.length < 2) return;
@@ -104,6 +116,7 @@ export default function MessageInput() {
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (blockedUser) return;
     setNewMessage(e.target.value);
     sendTyping();
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
@@ -123,6 +136,7 @@ export default function MessageInput() {
   };
 
   const handleStickerSelect = (stickerUrl: string) => {
+    if (blockedUser) return;
     sendMessage(stickerUrl, replyingTo?.id ?? null);
     setReplyingTo(null);
     setShowMediaPicker(false);
@@ -130,6 +144,10 @@ export default function MessageInput() {
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (blockedUser) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (!file || !activeChat?.id) return;
 
     // Проверка размера файла (5 МБ)
@@ -341,13 +359,15 @@ export default function MessageInput() {
         {/* Emoji+Sticker combined button */}
         <button
           type="button"
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showMediaPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${showMediaPicker ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={(e) => {
+            if (blockedUser) return;
             e.stopPropagation();
             setShowMediaPicker(!showMediaPicker);
             setShowVoiceRecorder(false);
           }}
           title="Emoji & Stickers"
+          disabled={!!blockedUser}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -360,10 +380,10 @@ export default function MessageInput() {
         {/* File attach button */}
         <button
           type="button"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary transition-all duration-150 shrink-0"
-          onClick={() => !uploading && fileInputRef.current?.click()}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary transition-all duration-150 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => !blockedUser && !uploading && fileInputRef.current?.click()}
           title={t.chat.attach_file}
-          disabled={uploading}
+          disabled={uploading || !!blockedUser}
         >
           {uploading ? (
             <span className="inline-block w-4 h-4 border-2 border-discord-text-muted border-t-transparent rounded-full animate-spin" />
@@ -377,13 +397,15 @@ export default function MessageInput() {
         {/* Voice recorder toggle */}
         <button
           type="button"
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showVoiceRecorder ? "text-discord-danger bg-discord-danger/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${showVoiceRecorder ? "text-discord-danger bg-discord-danger/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={() => {
+            if (blockedUser) return;
             setShowVoiceRecorder(!showVoiceRecorder);
             setShowVideoNote(false);
             setShowMediaPicker(false);
           }}
           title={t.chat.voice_message}
+          disabled={!!blockedUser}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
@@ -396,13 +418,15 @@ export default function MessageInput() {
         {/* Video note toggle */}
         <button
           type="button"
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 ${showVideoNote ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${showVideoNote ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
           onClick={() => {
+            if (blockedUser) return;
             setShowVideoNote(!showVideoNote);
             setShowVoiceRecorder(false);
             setShowMediaPicker(false);
           }}
           title={t.chat.video_message}
+          disabled={!!blockedUser}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="23 7 16 12 23 17 23 7"/>
@@ -414,9 +438,10 @@ export default function MessageInput() {
         <div className="relative shrink-0" ref={moreMenuRef}>
           <button
             type="button"
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 ${showMoreMenu ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${showMoreMenu ? "text-discord-accent bg-discord-accent/10" : "text-discord-text-muted hover:text-discord-text-primary hover:bg-discord-tertiary"}`}
+            onClick={() => !blockedUser && setShowMoreMenu(!showMoreMenu)}
             title={t.chat.more_options}
+            disabled={!!blockedUser}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
@@ -460,14 +485,16 @@ export default function MessageInput() {
         <input
           value={newMessage}
           onChange={handleChange}
-          placeholder={replyingTo ? `${t.chat.reply_prefix} ${replyingTo.sender_name}...` : t.chat.message_placeholder}
+          placeholder={blockedUser ? t.chat.user_blocked : replyingTo ? `${t.chat.reply_prefix} ${replyingTo.sender_name}...` : t.chat.message_placeholder}
           onKeyDown={handleKeyDown}
           onClick={() => setShowMediaPicker(false)}
-          className="flex-1 bg-transparent text-discord-text-primary text-sm outline-none placeholder-discord-text-muted min-w-0"
+          disabled={!!blockedUser}
+          className="flex-1 bg-transparent text-discord-text-primary text-sm outline-none placeholder-discord-text-muted min-w-0 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
-          className="text-white px-3 py-1.5 rounded transition shrink-0 flex items-center justify-center"
+          disabled={!!blockedUser}
+          className="text-white px-3 py-1.5 rounded transition shrink-0 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg, #5865f2, #7b68ee)", boxShadow: "0 2px 8px rgba(88,101,242,0.3)" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}

@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: lume-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: CALL_RING_TIMEOUT_MS
+        value: 45000
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SYSTEM_USER_PASSWORD
+        sync: false
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET_NAME
+        sync: false
+      - key: MINIO_PUBLIC_URL
+        sync: false
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_PUBLIC_KEY
+        sync: false
+      - key: EMAILJS_PRIVATE_KEY
+        sync: false
+      - key: METERED_APP_NAME
+        sync: false
+      - key: METERED_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false

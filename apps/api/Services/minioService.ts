@@ -12,16 +12,17 @@ const BUCKET_NAME = process.env.MINIO_BUCKET_NAME || "node-kurs";
 const PUBLIC_URL_PREFIX = process.env.MINIO_PUBLIC_URL || "";
 
 // Проверка на наличие ключей, чтобы не падать с ошибкой "пустой host"
-if (!ENDPOINT || !ACCESS_KEY || !SECRET_KEY) {
+const storageConfigured = Boolean(ENDPOINT && ACCESS_KEY && SECRET_KEY && PUBLIC_URL_PREFIX);
+if (!storageConfigured) {
   console.warn("⚠️ Внимание: Не заданы настройки MINIO (R2) в .env. Загрузка файлов не будет работать.");
 }
 
-const minioClient = new Minio.Client({
+const minioClient = storageConfigured ? new Minio.Client({
   endPoint: ENDPOINT,
   accessKey: ACCESS_KEY,
   secretKey: SECRET_KEY,
   useSSL: true, // Для R2 всегда true
-});
+}) : null;
 
 class MinioService {
   constructor() {
@@ -45,6 +46,10 @@ class MinioService {
   }
 
   async uploadFile(file: Express.Multer.File): Promise<string> {
+    if (!minioClient) {
+      throw new Error("File storage is not configured");
+    }
+
     const timestamp = Date.now();
     // path.basename strips any directory traversal attempts; replace spaces and non-safe chars
     const safeName = path.basename(file.originalname).replace(/[^\w.\-]/g, "_");

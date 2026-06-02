@@ -139,12 +139,23 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     setShowDeleteOptions(false);
   };
 
+  const blockedPrivateUser =
+    !activeChat.is_group
+      ? [...(activeChat.participants || []), ...chatMembers].find(
+          (p) => Number(p.id) !== Number(currentUser.id) && p.is_banned
+        )
+      : undefined;
+
   const handleCall = (video: boolean) => {
+    if (blockedPrivateUser) {
+      alert(t.chat.user_blocked);
+      return;
+    }
     if (activeChat.is_group) {
       joinGroupCall(activeChat.id, video);
       return;
     }
-    const friend = activeChat.participants?.find((p) => Number(p.id) !== Number(currentUser.id));
+    const friend = [...(activeChat.participants || []), ...chatMembers].find((p) => Number(p.id) !== Number(currentUser.id));
     if (!friend?.id) {
       alert(t.common.error);
       return;
@@ -166,12 +177,19 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
     return (
       <>
         {text.slice(0, idx)}
-        <mark className="bg-discord-warn/40 text-discord-text-primary rounded-sm">
+        <mark className="bg-discord-accent text-white rounded-sm px-0.5">
           {text.slice(idx, idx + query.length)}
         </mark>
         {text.slice(idx + query.length)}
       </>
     );
+  };
+
+  const handleSearchResultClick = (msg: Message) => {
+    window.dispatchEvent(
+      new CustomEvent("chat:scroll-to-message", { detail: { messageId: msg.id } })
+    );
+    setShowSearch(false);
   };
 
   const btnBase = "px-3 py-1 rounded text-sm font-medium transition border border-transparent";
@@ -227,12 +245,18 @@ export default function ChatHeader({ isMobile, onCloseChat }: ChatHeaderProps) {
                   <div className="px-3 py-2 text-discord-text-muted text-sm">{t.chat.search_no_results}</div>
                 )}
                 {searchResults.map((msg) => (
-                  <div key={msg.id} className="px-3 py-2 hover:bg-discord-input transition border-b last:border-0" style={{ borderColor: "var(--color-tertiary)" }}>
+                  <button
+                    key={msg.id}
+                    type="button"
+                    onClick={() => handleSearchResultClick(msg)}
+                    className="block w-full text-left px-3 py-2 hover:bg-discord-input transition border-b last:border-0"
+                    style={{ borderColor: "var(--color-tertiary)" }}
+                  >
                     <div className="text-discord-text-muted text-xs mb-0.5">{msg.sender_name}</div>
                     <div className="text-discord-text-primary text-sm line-clamp-2">
                       {highlight(msg.text, searchQuery)}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

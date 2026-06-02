@@ -43,6 +43,8 @@ const en: Translations = {
   },
   profile: {
     my_profile: "My Profile",
+    user_blocked: "User is blocked",
+    user_blocked_profile_notice: "This user is blocked. They cannot sign in or send messages.",
     status: "Status",
     online: "Online",
     away: "Away",
@@ -169,6 +171,9 @@ const en: Translations = {
   },
   chat: {
     message_placeholder: "Write a message...",
+    user_blocked: "User is blocked",
+    user_blocked_chat_notice: "This user is blocked. Chat history is available, but messages, files, and calls are disabled.",
+    remove_blocked_friend: "Remove from friends",
     reply_to: "Reply",
     cancel: "Cancel",
     attach_file: "Attach file",

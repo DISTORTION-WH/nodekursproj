@@ -7,7 +7,33 @@ import userService from "../Services/userService";
 const router = Router();
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const ALLOWED_AVATAR_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_AVATAR_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error(`Недопустимый тип аватара: ${file.mimetype}`));
+  },
+});
+
+const normalizeString = (value: unknown, maxLength: number): string => {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+};
+
+const isSafeHttpUrl = (value: string): boolean => {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
 router.get("/", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -112,10 +138,10 @@ router.patch("/me/frame", authMiddleware, async (req: AuthRequest, res: Response
 router.patch("/me/bio", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = (req.user as any).id;
-    const { bio } = req.body;
+    const bio = normalizeString(req.body?.bio, 200);
     const client = require("../databasepg").default;
-    await client.query("UPDATE users SET bio = $1 WHERE id = $2", [bio ?? "", userId]);
-    res.json({ bio: bio ?? "" });
+    await client.query("UPDATE users SET bio = $1 WHERE id = $2", [bio, userId]);
+    res.json({ bio });
   } catch (e: any) {
     next(e);
   }
@@ -124,10 +150,10 @@ router.patch("/me/bio", authMiddleware, async (req: AuthRequest, res: Response, 
 router.patch("/me/country", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = (req.user as any).id;
-    const { country } = req.body;
+    const country = normalizeString(req.body?.country, 4).toUpperCase();
     const client = require("../databasepg").default;
-    await client.query("UPDATE users SET country = $1 WHERE id = $2", [country ?? "", userId]);
-    res.json({ country: country ?? "" });
+    await client.query("UPDATE users SET country = $1 WHERE id = $2", [country, userId]);
+    res.json({ country });
   } catch (e: any) {
     next(e);
   }
@@ -166,9 +192,9 @@ router.patch("/me/username", authMiddleware, async (req: AuthRequest, res: Respo
 router.patch("/me/profile-bg", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = (req.user as any).id;
-    const { profile_bg } = req.body;
-    await userService.updateProfileBg(userId, profile_bg ?? "");
-    res.json({ profile_bg: profile_bg ?? "" });
+    const profileBg = normalizeString(req.body?.profile_bg, 500000);
+    await userService.updateProfileBg(userId, profileBg);
+    res.json({ profile_bg: profileBg });
   } catch (e: any) {
     next(e);
   }
@@ -177,14 +203,15 @@ router.patch("/me/profile-bg", authMiddleware, async (req: AuthRequest, res: Res
 router.patch("/me/username-style", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = (req.user as any).id;
-    const { username_color, username_anim } = req.body;
+    const usernameColor = normalizeString(req.body?.username_color, 32);
+    const usernameAnim = normalizeString(req.body?.username_anim, 30);
     const allowedAnims = ["", "rainbow", "pulse", "glitch", "shimmer", "fire"];
-    if (username_anim !== undefined && !allowedAnims.includes(username_anim)) {
+    if (!allowedAnims.includes(usernameAnim)) {
       res.status(400).json({ message: "Недопустимая анимация" });
       return;
     }
-    await userService.updateUsernameStyle(userId, username_color ?? "", username_anim ?? "");
-    res.json({ username_color: username_color ?? "", username_anim: username_anim ?? "" });
+    await userService.updateUsernameStyle(userId, usernameColor, usernameAnim);
+    res.json({ username_color: usernameColor, username_anim: usernameAnim });
   } catch (e: any) {
     next(e);
   }
@@ -193,15 +220,27 @@ router.patch("/me/username-style", authMiddleware, async (req: AuthRequest, res:
 router.patch("/me/profile-extras", authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = (req.user as any).id;
-    const { profile_badge, bubble_color, social_link, accent_color } = req.body;
+    const profileBadge = normalizeString(req.body?.profile_badge, 10);
+    const bubbleColor = normalizeString(req.body?.bubble_color, 64);
+    const socialLink = normalizeString(req.body?.social_link, 200);
+    const accentColor = normalizeString(req.body?.accent_color, 64);
+    if (!isSafeHttpUrl(socialLink)) {
+      res.status(400).json({ message: "Недопустимая ссылка" });
+      return;
+    }
     await userService.updateProfileExtras(
       userId,
-      (profile_badge ?? "").slice(0, 10),
-      bubble_color ?? "",
-      (social_link ?? "").slice(0, 200),
-      accent_color ?? ""
+      profileBadge,
+      bubbleColor,
+      socialLink,
+      accentColor
     );
-    res.json({ profile_badge, bubble_color, social_link, accent_color });
+    res.json({
+      profile_badge: profileBadge,
+      bubble_color: bubbleColor,
+      social_link: socialLink,
+      accent_color: accentColor,
+    });
   } catch (e: any) {
     next(e);
   }

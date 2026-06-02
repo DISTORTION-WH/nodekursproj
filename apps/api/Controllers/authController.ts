@@ -44,8 +44,28 @@ class AuthController {
         return next(err);
       }
 
-      const { username, password, email } = req.body;
+      const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+      const password = typeof req.body?.password === "string" ? req.body.password : "";
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
       const avatarFile = req.file;
+
+      if (!username || username.length < 3 || username.length > 32) {
+        const err = new Error("Имя пользователя должно быть от 3 до 32 символов") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      if (!email) {
+        const err = new Error("Email обязателен") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      if (password.length < 6 || password.length > 128) {
+        const err = new Error("Пароль должен быть от 6 до 128 символов") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
 
       const candidate = await userService.findUserByUsername(username);
       if (candidate) {
@@ -112,7 +132,13 @@ class AuthController {
 
   async confirmRegistration(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, code } = req.body;
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+      const code = typeof req.body?.code === "string" ? req.body.code.trim() : String(req.body?.code ?? "").trim();
+      if (!email || !code) {
+        const err = new Error("Email и код обязательны") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
       const tempData = await userService.getRegistrationCode(email);
 
       if (!tempData) {
@@ -204,7 +230,13 @@ class AuthController {
 
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { username, password } = req.body;
+      const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+      const password = typeof req.body?.password === "string" ? req.body.password : "";
+      if (!username || !password) {
+        const err = new Error("Имя пользователя и пароль обязательны") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
       const user = await userService.findUserByUsername(username);
       if (!user) {
         const err = new Error("Пользователь с таким именем не найден") as CustomError;
@@ -261,7 +293,7 @@ class AuthController {
 
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken : "";
       if (!refreshToken) {
         const err = new Error("Refresh токен не предоставлен") as CustomError;
         err.status = 401;
@@ -271,6 +303,11 @@ class AuthController {
       const userData = jwt.verify(refreshToken, secret) as TokenPayload;
       
       const user = await userService.getUserById(userData.id);
+      if (!user) {
+        const err = new Error("Пользователь не найден") as CustomError;
+        err.status = 404;
+        return next(err);
+      }
       if (user && user.is_banned) {
          const err = new Error("Ваш аккаунт заблокирован.") as CustomError;
          err.status = 403;
@@ -295,7 +332,7 @@ class AuthController {
 
   async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email } = req.body;
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
       if (!email) {
         const err = new Error("Email обязателен") as CustomError;
         err.status = 400;
@@ -326,7 +363,9 @@ class AuthController {
 
   async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, code, newPassword } = req.body;
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+      const code = typeof req.body?.code === "string" ? req.body.code.trim() : String(req.body?.code ?? "").trim();
+      const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
       if (!email || !code || !newPassword) {
         const err = new Error("Все поля обязательны") as CustomError;
         err.status = 400;
@@ -355,6 +394,12 @@ class AuthController {
 
       if (String(row.code).trim() !== String(code).trim()) {
         const err = new Error("Неверный код") as CustomError;
+        err.status = 400;
+        return next(err);
+      }
+
+      if (newPassword.length < 6 || newPassword.length > 128) {
+        const err = new Error("Новый пароль должен быть от 6 до 128 символов") as CustomError;
         err.status = 400;
         return next(err);
       }

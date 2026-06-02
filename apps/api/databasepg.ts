@@ -1,4 +1,4 @@
-import { Client, ClientConfig } from "pg";
+import { Pool, PoolConfig } from "pg";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -17,7 +17,7 @@ if (!connectionString) {
 
 const isProduction = !!connectionString && !connectionString.includes("localhost");
 
-const clientConfig: ClientConfig = {
+const clientConfig: PoolConfig = {
   connectionString: connectionString ?? undefined,
 
   host: process.env.DB_HOST ?? "localhost",
@@ -33,18 +33,23 @@ const clientConfig: ClientConfig = {
     : false,
 };
 
-const client = new Client(clientConfig);
+const client = new Pool({
+  ...clientConfig,
+  max: Number(process.env.DB_POOL_MAX) || 10,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+});
 
 client.on("error", (err: Error) => {
   console.error("❗️ НЕОЖИДАННАЯ ОШИБКА КЛИЕНТА POSTGRESQL:", err.message);
 });
 
-client.on("end", () => {
+client.on("remove", () => {
   console.log("ℹ️ Клиент PostgreSQL отключился.");
 });
 
 client
-  .connect()
+  .query("SELECT 1")
   .then(() => console.log("✅ Успешно подключено к PostgreSQL"))
   .catch((err: Error) => {
     console.error("❗️ КРИТИЧЕСКАЯ ОШИБКА подключения к PostgreSQL:", err.message);

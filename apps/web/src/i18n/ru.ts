@@ -44,6 +44,8 @@ const ru = {
   // ── Profile ──
   profile: {
     my_profile: "Мой профиль",
+    user_blocked: "Пользователь заблокирован",
+    user_blocked_profile_notice: "Этот пользователь заблокирован. Он не может входить в аккаунт и писать сообщения.",
     status: "Статус",
     online: "В сети",
     away: "Отошёл",
@@ -171,6 +173,9 @@ const ru = {
   // ── Chat ──
   chat: {
     message_placeholder: "Написать сообщение...",
+    user_blocked: "Пользователь заблокирован",
+    user_blocked_chat_notice: "Этот пользователь заблокирован. История чата доступна, но отправка сообщений, файлов и звонки недоступны.",
+    remove_blocked_friend: "Удалить из друзей",
     reply_to: "Ответить",
     cancel: "Отмена",
     attach_file: "Прикрепить файл",

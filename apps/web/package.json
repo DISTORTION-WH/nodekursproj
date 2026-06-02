@@ -11,6 +11,7 @@
     "axios": "^1.12.2",
     "emoji-picker-react": "^4.15.0",
     "jwt-decode": "^4.0.0",
+    "livekit-client": "^2.19.1",
     "mediasoup-client": "^3.18.7",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

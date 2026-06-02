@@ -16,6 +16,7 @@ type IconName =
   | "fileSpreadsheet"
   | "fileText"
   | "flag"
+  | "forward"
   | "globe"
   | "image"
   | "link"
@@ -168,6 +169,12 @@ export default function UiIcon({
         <>
           <path d="M4 22V4" />
           <path d="M4 5c4-2 6 2 10 0 2-.9 4-.8 6 0v10c-2-.8-4-.9-6 0-4 2-6-2-10 0" />
+        </>
+      )}
+      {name === "forward" && (
+        <>
+          <path d="M15 17l5-5-5-5" />
+          <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
         </>
       )}
       {name === "globe" && (

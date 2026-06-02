@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import ChatModals from "./ChatModals";
 import ForwardModal from "./ForwardModal";
 import { useChat } from "../context/ChatContext";
-import { uploadFile } from "../services/api";
+import { removeFriend, uploadFile } from "../services/api";
 import { useI18n } from "../i18n";
 import UiIcon from "./UiIcon";
 
@@ -19,10 +19,17 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
   const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
 
+  const blockedUser =
+    !activeChat?.is_group
+      ? [...(activeChat?.participants || []), ...chatMembers].find(
+          (p) => Number(p.id) !== Number(currentUser?.id) && p.is_banned
+        )
+      : undefined;
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
-  }, []);
+    if (!blockedUser) setIsDragging(true);
+  }, [blockedUser]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -32,7 +39,7 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (!activeChat) return;
+    if (!activeChat || blockedUser) return;
     const file = e.dataTransfer.files[0];
     if (!file) return;
     try {
@@ -41,7 +48,7 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
       console.error("File upload error:", err);
       alert(t.chat.file_upload_error);
     }
-  }, [activeChat, t]);
+  }, [activeChat, blockedUser, t]);
 
   if (!activeChat) return null;
 
@@ -50,6 +57,16 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
     .filter((id) => id !== currentUser?.id)
     .map((id) => chatMembers.find((m) => m.id === id)?.username || t.chat.someone)
     .slice(0, 3);
+
+  const handleRemoveBlockedFriend = async () => {
+    if (!blockedUser?.id) return;
+    try {
+      await removeFriend(Number(blockedUser.id));
+      onCloseChat();
+    } catch (err: any) {
+      alert(err.response?.data?.message || t.common.error);
+    }
+  };
 
   return (
     <div
@@ -70,6 +87,24 @@ export default function ChatWindow({ isMobile, onCloseChat }: ChatWindowProps) {
       )}
 
       <ChatHeader isMobile={isMobile} onCloseChat={onCloseChat} />
+      {blockedUser && (
+        <div className="mx-4 mt-3 rounded-lg border border-discord-danger/40 bg-discord-danger/10 px-4 py-3 shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="text-discord-danger mt-0.5"><UiIcon name="warning" size={18} /></div>
+            <div className="min-w-0 flex-1">
+              <div className="text-discord-danger text-sm font-semibold">{t.chat.user_blocked}</div>
+              <div className="text-discord-text-secondary text-xs mt-0.5">{t.chat.user_blocked_chat_notice}</div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveBlockedFriend}
+              className="shrink-0 bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs font-semibold px-3 py-1.5 rounded transition"
+            >
+              {t.chat.remove_blocked_friend}
+            </button>
+          </div>
+        </div>
+      )}
       <MessageList />
 
       {/* Typing indicator */}

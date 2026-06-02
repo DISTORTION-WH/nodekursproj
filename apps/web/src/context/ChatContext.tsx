@@ -50,7 +50,7 @@ interface ChatContextType {
 
   selectChat: (chat: Chat) => void;
   closeChat: () => void;
-  sendMessage: (text: string, replyToId?: number | null, expiresInSeconds?: number | null) => void;
+  sendMessage: (text: string, replyToId?: number | null, expiresInSeconds?: number | null) => Promise<boolean>;
   deleteMessages: (allForEveryone: boolean) => Promise<void>;
   openInviteModal: () => void;
   openMembersModal: () => void;
@@ -218,7 +218,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         }
       });
 
-    if (activeChat.is_group) fetchChatMembers(activeChat.id);
+    fetchChatMembers(activeChat.id);
     fetchPinnedMessages(activeChat.id);
 
     if (!socket) return;
@@ -425,11 +425,16 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     setReplyingTo(null);
   };
 
-  const sendMessage = (text: string, replyToId?: number | null, expiresInSeconds?: number | null) => {
-    if (!text.trim() || !activeChat?.id) return;
-    api
-      .post(`/chats/${activeChat.id}/messages`, { text, reply_to_id: replyToId ?? null, expires_in_seconds: expiresInSeconds ?? null })
-      .catch(console.error);
+  const sendMessage = async (text: string, replyToId?: number | null, expiresInSeconds?: number | null): Promise<boolean> => {
+    if (!text.trim() || !activeChat?.id) return false;
+    try {
+      await api.post(`/chats/${activeChat.id}/messages`, { text, reply_to_id: replyToId ?? null, expires_in_seconds: expiresInSeconds ?? null });
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || t.common.error);
+      return false;
+    }
   };
 
   const votePoll = (pollId: number, optionIndex: number) => {
@@ -511,7 +516,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
 
   const handleForward = async (targetChatId: number, msg: Message) => {
     try {
-      await forwardMessage(targetChatId, msg.text, msg.id);
+      await forwardMessage(targetChatId, msg.text, msg.forwarded_from_id ?? msg.id);
       setForwardingMessage(null);
     } catch (err) { console.error(err); }
   };

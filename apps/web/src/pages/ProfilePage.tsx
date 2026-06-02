@@ -53,6 +53,10 @@ const ANIM_OPTIONS = ["", "rainbow", "pulse", "glitch", "shimmer", "fire"] as co
 
 interface CropState { x: number; y: number; w: number; h: number }
 
+const PROFILE_BG_W = 900;
+const PROFILE_BG_H = 300;
+const PROFILE_BG_QUALITY = 0.82;
+
 function ImageCropper({
   src,
   naturalW,
@@ -137,9 +141,8 @@ function ImageCropper({
 
   const applyCrop = () => {
     const canvas = document.createElement("canvas");
-    // output 1500x500
-    canvas.width = 1500;
-    canvas.height = 500;
+    canvas.width = PROFILE_BG_W;
+    canvas.height = PROFILE_BG_H;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const img = new Image();
@@ -149,8 +152,8 @@ function ImageCropper({
       const sy = (crop.y / DISPLAY_H) * naturalH;
       const sw = (crop.w / displayW) * naturalW;
       const sh = (crop.h / DISPLAY_H) * naturalH;
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 1500, 500);
-      onApply(canvas.toDataURL("image/jpeg", 0.92));
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, PROFILE_BG_W, PROFILE_BG_H);
+      onApply(canvas.toDataURL("image/jpeg", PROFILE_BG_QUALITY));
     };
     img.src = src;
   };
@@ -488,7 +491,29 @@ export default function ProfilePage() {
       setCropNatW(img.naturalWidth);
       setCropNatH(img.naturalHeight);
       setCropSrc(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = PROFILE_BG_W;
+      canvas.height = PROFILE_BG_H;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const sourceRatio = img.naturalWidth / img.naturalHeight;
+        const targetRatio = PROFILE_BG_W / PROFILE_BG_H;
+        let sx = 0;
+        let sy = 0;
+        let sw = img.naturalWidth;
+        let sh = img.naturalHeight;
+        if (sourceRatio > targetRatio) {
+          sw = img.naturalHeight * targetRatio;
+          sx = (img.naturalWidth - sw) / 2;
+        } else {
+          sh = img.naturalWidth / targetRatio;
+          sy = (img.naturalHeight - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, PROFILE_BG_W, PROFILE_BG_H);
+        setBgValue(canvas.toDataURL("image/jpeg", PROFILE_BG_QUALITY));
+      }
     };
+    img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
     // reset input so same file can be re-selected
     e.target.value = "";
@@ -496,6 +521,7 @@ export default function ProfilePage() {
 
   const handleCropApply = (dataUrl: string) => {
     setBgValue(dataUrl);
+    if (cropSrc?.startsWith("blob:")) URL.revokeObjectURL(cropSrc);
     setCropSrc(null);
     setBadRatio(false);
   };
@@ -723,7 +749,11 @@ export default function ProfilePage() {
                       naturalW={cropNatW}
                       naturalH={cropNatH}
                       onApply={handleCropApply}
-                      onCancel={() => { setCropSrc(null); setBadRatio(false); }}
+                      onCancel={() => {
+                        if (cropSrc?.startsWith("blob:")) URL.revokeObjectURL(cropSrc);
+                        setCropSrc(null);
+                        setBadRatio(false);
+                      }}
                     />
                   )}
                 </div>

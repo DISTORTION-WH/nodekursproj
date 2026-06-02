@@ -220,17 +220,24 @@ describe('ChatService.deleteChatAndData', () => {
 
 describe('ChatService.findOrCreatePrivateChat', () => {
   it('returns existing private chat when found', async () => {
+    dbReturns([{ id: 2 }]); // friend exists
+    dbReturns([{ username: 'alice' }]); // requester is not official
+    dbReturns([{ username: 'bob' }]); // friend is not official
+    dbReturns([{ '?column?': 1 }]); // accepted friendship exists
     dbReturns([{ id: 20, is_group: false }]); // existing
     const result = await chatService.findOrCreatePrivateChat(1, 2);
     expect(result.id).toBe(20);
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(5);
   });
 
   it('creates a new private chat when not found', async () => {
+    dbReturns([{ id: 2 }]); // friend exists
+    dbReturns([{ username: 'alice' }]); // requester is not official
+    dbReturns([{ username: 'bob' }]); // friend is not official
+    dbReturns([{ '?column?': 1 }]); // accepted friendship exists
     dbReturns([]); // no existing chat
     dbReturns([{ id: 21, is_group: false }]); // INSERT chats
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT chat_users user1
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT chat_users user2
+    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 2 }); // INSERT chat_users
     const result = await chatService.findOrCreatePrivateChat(1, 2);
     expect(result.id).toBe(21);
   });

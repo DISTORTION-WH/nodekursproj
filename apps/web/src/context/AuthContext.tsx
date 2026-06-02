@@ -38,6 +38,33 @@ interface JwtPayload {
   exp: number;
 }
 
+const isHexColor = (value?: string | null): value is string =>
+  typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+
+const shadeHex = (hex: string, amount: number) => {
+  const raw = hex.replace("#", "");
+  return `#${[0, 2, 4]
+    .map((i) => parseInt(raw.slice(i, i + 2), 16))
+    .map((channel) =>
+      Math.max(0, Math.min(255, Math.round(channel + amount)))
+        .toString(16)
+        .padStart(2, "0")
+    )
+    .join("")}`;
+};
+
+const applyAccentColor = (accentColor?: string | null) => {
+  if (!isHexColor(accentColor)) {
+    document.body.style.removeProperty("--color-accent");
+    document.body.style.removeProperty("--color-accent-hover");
+    return;
+  }
+
+  const accent = accentColor.trim();
+  document.body.style.setProperty("--color-accent", accent);
+  document.body.style.setProperty("--color-accent-hover", shadeHex(accent, -28));
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuth, setIsAuth] = useState<boolean>(false);
   const [role, setRole] = useState<string | null>(null);
@@ -55,6 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
+    applyAccentColor(null);
     setIsAuth(false);
     setRole(null);
     setCurrentUser(null);
@@ -81,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (res.data) {
             setCurrentUser(res.data);
             applyTheme(res.data.theme);
+            applyAccentColor(res.data.accent_color);
           } else {
             logout();
           }
@@ -100,6 +129,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   }, [logout]);
+
+  useEffect(() => {
+    applyAccentColor(currentUser?.accent_color);
+  }, [currentUser?.accent_color]);
 
   useEffect(() => {
     const handleAuthError = () => {
@@ -127,6 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const resUser = await api.get<User>("/users/me");
       setCurrentUser(resUser.data);
       applyTheme(resUser.data.theme);
+      applyAccentColor(resUser.data.accent_color);
 
       navigate("/");
     } catch (err: unknown) {
@@ -151,6 +185,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       const res = await api.get<User>("/users/me");
       setCurrentUser(res.data);
+      applyAccentColor(res.data.accent_color);
     } catch (err) {
       console.error("Ошибка обновления аватара:", err);
     }

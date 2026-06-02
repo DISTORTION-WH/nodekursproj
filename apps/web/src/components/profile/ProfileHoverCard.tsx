@@ -13,6 +13,7 @@ import UsernameDisplay from "./UsernameDisplay";
 
 const CARD_W = 280;
 const CARD_H = 220;
+type FriendStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
 function calcPosition(rect: DOMRect): { top: number; left: number } {
   const vw = window.innerWidth;
@@ -30,6 +31,8 @@ export default function ProfileHoverCard() {
   const { target, hideCard, showCard } = useHoverCard();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<FriendStatus>("none");
+  const [friendLoading, setFriendLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -39,6 +42,8 @@ export default function ProfileHoverCard() {
   useEffect(() => {
     if (!target) {
       setUser(null);
+      setFriendStatus("none");
+      prevUserId.current = null;
       return;
     }
     if (target.userId === prevUserId.current) return;
@@ -51,10 +56,54 @@ export default function ProfileHoverCard() {
       .finally(() => setLoading(false));
   }, [target]);
 
+  useEffect(() => {
+    if (!target || Number(currentUser?.id) === Number(target.userId)) {
+      setFriendStatus("none");
+      return;
+    }
+    api
+      .get<{ status: FriendStatus }>(`/friends/status/${target.userId}`)
+      .then((res) => setFriendStatus(res.data.status))
+      .catch(() => setFriendStatus("none"));
+  }, [target, currentUser?.id]);
+
   if (!target) return null;
 
   const pos = calcPosition(target.anchorRect);
   const isMe = currentUser && user && Number(currentUser.id) === Number(user.id);
+
+  const startChat = async () => {
+    if (!user || friendStatus !== "accepted") return;
+    hideCard();
+    try {
+      const res = await api.post<{ id: number }>("/chats/private", {
+        friendId: target.userId,
+      });
+      if (res.data?.id) {
+        navigate("/", {
+          state: {
+            openChatId: res.data.id,
+            friend: { id: user.id, username: user.username, avatar_url: user.avatar_url, is_banned: user.is_banned },
+          },
+        });
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || t.common.error);
+    }
+  };
+
+  const addFriend = async () => {
+    if (!user || friendLoading) return;
+    setFriendLoading(true);
+    try {
+      await api.post("/friends/request", { friendId: user.id });
+      setFriendStatus("pending_sent");
+    } catch (err: any) {
+      alert(err.response?.data?.message || t.common.error);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
 
   const card = (
     <div
@@ -130,31 +179,31 @@ export default function ProfileHoverCard() {
             style={user?.accent_color ? { background: user.accent_color } : undefined}
             className="flex-1 bg-discord-accent hover:bg-discord-accent-hover text-white text-xs font-semibold py-1.5 rounded transition"
           >
-            {t.profile.my_profile}
+            {isMe ? t.profile.my_profile : t.profile.tab_view}
           </button>
-          {!isMe && (
+          {!isMe && friendStatus === "accepted" && (
             <button
-              onClick={async () => {
-                hideCard();
-                try {
-                  const res = await api.post<{ id: number }>("/chats/private", {
-                    friendId: target.userId,
-                  });
-                  if (res.data?.id) {
-                    navigate("/", {
-                      state: {
-                        openChatId: res.data.id,
-                        friend: { username: user?.username, avatar_url: user?.avatar_url },
-                      },
-                    });
-                  }
-                } catch {
-                  // silently ignore
-                }
-              }}
+              onClick={startChat}
               className="flex-1 bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary text-xs font-semibold py-1.5 rounded transition"
             >
               {t.profile.start_chat}
+            </button>
+          )}
+          {!isMe && friendStatus === "none" && (
+            <button
+              onClick={addFriend}
+              disabled={friendLoading}
+              className="flex-1 bg-discord-success/20 hover:bg-discord-success text-discord-success hover:text-white text-xs font-semibold py-1.5 rounded transition disabled:opacity-50"
+            >
+              {friendLoading ? "..." : t.profile.add_friend}
+            </button>
+          )}
+          {!isMe && (friendStatus === "pending_sent" || friendStatus === "pending_received") && (
+            <button
+              disabled
+              className="flex-1 bg-discord-input text-discord-text-muted text-xs font-semibold py-1.5 rounded cursor-not-allowed opacity-70"
+            >
+              {t.profile.friend_request_pending}
             </button>
           )}
         </div>

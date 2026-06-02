@@ -102,6 +102,9 @@ export interface Message {
   reactions?: ReactionGroup[];
   edited_at?: string | null;
   forwarded_from_id?: number | null;
+  forwarded_sender_id?: number | null;
+  forwarded_sender_name?: string | null;
+  forwarded_sender_avatar?: string | null;
   expires_at?: string | null;
   poll?: PollData | null;
   reads?: number[];
@@ -123,6 +126,7 @@ export interface ChatParticipant {
   id: number;
   username: string;
   avatar_url?: string | null;
+  is_banned?: boolean;
   invited_by_user_id?: number;
   chat_role?: ChatRole;
 }

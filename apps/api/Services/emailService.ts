@@ -6,18 +6,18 @@ class EmailService {
     const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
     if (!serviceId || !templateId || !publicKey || !privateKey) {
-      console.error("⚠️ EmailJS не настроен (проверь .env)");
-      return;
+      console.error("EmailJS is not configured");
+      throw new Error("Email service is not configured");
     }
 
     const data = {
       service_id: serviceId,
       template_id: templateId,
       user_id: publicKey,
-      accessToken: privateKey, 
+      accessToken: privateKey,
       template_params: {
-        to_email: to,  
-        code: code,   
+        to_email: to,
+        code,
       },
     };
 
@@ -31,13 +31,16 @@ class EmailService {
       });
 
       if (response.ok) {
-        console.log(`📧 Письмо отправлено на ${to}`);
-      } else {
-        const errorText = await response.text();
-        console.error("❌ Ошибка EmailJS:", errorText);
+        console.log(`Verification email was sent to ${to}`);
+        return;
       }
+
+      const errorText = await response.text();
+      console.error("EmailJS error:", errorText);
+      throw new Error(`Email service rejected the request: ${errorText}`);
     } catch (error) {
-      console.error("❌ Ошибка сети при отправке письма:", error);
+      console.error("Network error while sending email:", error);
+      throw error;
     }
   }
 }

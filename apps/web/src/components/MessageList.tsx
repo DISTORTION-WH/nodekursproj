@@ -658,6 +658,40 @@ export default function MessageList() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    const onScrollToMessage = (event: Event) => {
+      const detail = (event as CustomEvent<{ messageId?: number; attempt?: number }>).detail;
+      const messageId = detail?.messageId;
+      if (!messageId) return;
+
+      const el = document.getElementById(`message-${messageId}`);
+      if (!el) {
+        const attempt = detail?.attempt ?? 0;
+        if (hasMore && !loadingMore && attempt < 8) {
+          void loadMoreMessages().then(() => {
+            window.setTimeout(() => {
+              window.dispatchEvent(
+                new CustomEvent("chat:scroll-to-message", {
+                  detail: { messageId, attempt: attempt + 1 },
+                })
+              );
+            }, 80);
+          });
+        }
+        return;
+      }
+
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-discord-accent", "ring-offset-2", "ring-offset-discord-bg");
+      window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-discord-accent", "ring-offset-2", "ring-offset-discord-bg");
+      }, 1400);
+    };
+
+    window.addEventListener("chat:scroll-to-message", onScrollToMessage);
+    return () => window.removeEventListener("chat:scroll-to-message", onScrollToMessage);
+  }, [hasMore, loadingMore, loadMoreMessages]);
+
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -804,6 +838,7 @@ export default function MessageList() {
 
         return (
           <div
+            id={`message-${msg.id}`}
             key={msg.id}
             className={`flex max-w-[75%] group animate-message-pop ${
               isMine ? "self-end" : "self-start"
@@ -838,10 +873,25 @@ export default function MessageList() {
             {/* Forwarded label */}
             {msg.forwarded_from_id && (
               <div className={`flex items-center gap-1 mb-0.5 px-2 text-xs text-discord-text-muted italic ${isMine ? "self-end" : "self-start"}`}>
-                ↪ {t.messages.forwarded}
+                <UiIcon name="forward" size={12} />
+                <span>{t.messages.forwarded}</span>
+                {msg.forwarded_sender_id && (
+                  <button
+                    type="button"
+                    className="text-discord-accent hover:underline not-italic font-medium"
+                    onMouseEnter={(e) =>
+                      showCard(
+                        Number(msg.forwarded_sender_id),
+                        (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      )
+                    }
+                    onMouseLeave={hideCard}
+                  >
+                    {msg.forwarded_sender_name || `#${msg.forwarded_sender_id}`}
+                  </button>
+                )}
               </div>
             )}
-
             {/* Reply quote above bubble */}
             {msg.reply_to && (
               <div

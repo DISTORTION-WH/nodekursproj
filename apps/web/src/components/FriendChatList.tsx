@@ -67,7 +67,7 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
         avatar_url: friend.avatar_url || undefined,
         is_group: false,
         name: null,
-        participants: [{ id: friend.id, username: friend.username }] as any,
+        participants: [{ id: friend.id, username: friend.username, avatar_url: friend.avatar_url, is_banned: friend.is_banned }] as any,
       });
     } catch (err: any) {
       console.error(err);

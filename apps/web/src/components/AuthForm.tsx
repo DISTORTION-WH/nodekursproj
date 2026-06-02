@@ -16,6 +16,9 @@ export default function AuthForm({ type }: Props) {
   const [showForgot, setShowForgot] = useState(false);
   const { login } = useAuth();
   const { t } = useI18n();
+  const loginLabel = t.auth.login || (t.auth as any).login_button || "Log in";
+  const loggingInLabel = t.auth.logging_in || "Signing in...";
+  const registerLabel = t.auth.register || (t.auth as any).register_button || "Register";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +162,7 @@ export default function AuthForm({ type }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 text-sm animate-fade-in-up">
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 text-sm animate-fade-in-up">
               {error}
             </div>
           )}
@@ -217,8 +220,9 @@ export default function AuthForm({ type }: Props) {
               disabled={isButtonDisabled}
               className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all duration-200 mt-1"
               style={{
-                background: isButtonDisabled
-                  ? "rgba(88,101,242,0.5)"
+                backgroundColor: isButtonDisabled ? "rgba(88,101,242,0.5)" : undefined,
+                backgroundImage: isButtonDisabled
+                  ? "none"
                   : "linear-gradient(135deg, #5865f2 0%, #7b68ee 50%, #eb459e 100%)",
                 backgroundSize: "200% auto",
                 boxShadow: isButtonDisabled ? "none" : "0 4px 20px rgba(88,101,242,0.4)",
@@ -241,9 +245,9 @@ export default function AuthForm({ type }: Props) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                   </svg>
-                  {t.auth.logging_in}
+                  {loggingInLabel}
                 </span>
-              ) : t.auth.login}
+              ) : loginLabel}
             </button>
           </form>
 
@@ -257,7 +261,7 @@ export default function AuthForm({ type }: Props) {
               onMouseEnter={e => (e.currentTarget.style.color = "#eb459e")}
               onMouseLeave={e => (e.currentTarget.style.color = "#a8b4ff")}
             >
-              {t.auth.register}
+              {registerLabel}
             </Link>
           </p>
         </div>

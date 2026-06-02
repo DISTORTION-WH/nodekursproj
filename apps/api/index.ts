@@ -13,6 +13,7 @@ import client from "./databasepg";
 import bcrypt from "bcryptjs"; 
 import jwt from "jsonwebtoken"; 
 import { secret } from "./config"; 
+import { AccessToken } from "livekit-server-sdk";
 
 import authRouter from "./Routes/authRouter";
 import chatRouter from "./Routes/chatRouter";
@@ -20,10 +21,27 @@ import usersRouter from "./Routes/usersRouter";
 import friendsRouter from "./Routes/friendsRouter";
 import adminRouter from "./Routes/adminRouter";
 import moderatorRouter from "./Routes/moderatorRouter";
+import authMiddleware from "./middleware/authMiddleware";
 import logger from "./Services/logService";
-import * as mediasoupService from "./Services/mediasoupService";
 import * as deepgramService from "./Services/deepgramService";
 import { translateText as deeplTranslate } from "./Services/deeplService";
+
+const mediasoupService = {
+  isRoomActive: (_chatId: number) => false,
+  joinRoom: async (_chatId: number, _userId: number, _socketId: string, _username: string) => undefined,
+  getParticipants: (_chatId: number) => [],
+  getRtpCapabilities: (_chatId: number) => null,
+  createWebRtcTransport: async (_chatId: number, _userId: number, _direction: "send" | "recv"): Promise<any> => {
+    throw new Error("Legacy mediasoup transport is disabled on this deployment");
+  },
+  connectTransport: async (_chatId: number, _userId: number, _transportId: string, _dtlsParameters: object) => undefined,
+  produce: async (_chatId: number, _userId: number, _kind: "audio" | "video", _rtpParameters: object): Promise<any> => {
+    throw new Error("Legacy mediasoup producer is disabled on this deployment");
+  },
+  consume: async (_chatId: number, _userId: number, _producerId: string, _rtpCapabilities: object): Promise<any> => null,
+  resumeConsumer: async (_chatId: number, _userId: number, _consumerId: string) => undefined,
+  leaveRoom: (_chatId: number, _userId: number) => [] as string[],
+};
 
 const AUTO_MODERATOR_NAME = "USER2"; 
 
@@ -45,26 +63,46 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 // Allowed CORS origins — configure via env vars, no hardcoded domains
-const allowedOrigins = [
+const parseCsvEnv = (value?: string): string[] =>
+  (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  process.env.FRONTEND_URL,  // Primary production frontend URL
-  process.env.CLIENT_URL,    // Alias used in docker-compose
-].filter(Boolean) as string[];
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  ...parseCsvEnv(process.env.ALLOWED_ORIGINS),
+].filter(Boolean) as string[]));
+
+const vercelPreviewSuffix = process.env.VERCEL_PREVIEW_SUFFIX || "";
+const isAllowedOrigin = (origin?: string): boolean => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (!vercelPreviewSuffix) return false;
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === "https:" && hostname.endsWith(vercelPreviewSuffix);
+  } catch {
+    return false;
+  }
+};
+
+const corsOrigin = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void
+) => {
+  if (isAllowedOrigin(origin)) return callback(null, true);
+  console.log(`CORS blocked: ${origin}`);
+  return callback(new Error("Not allowed by CORS"));
+};
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: corsOrigin,
       // Разрешаем запросы без origin (например, мобильные приложения или curl)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log(`CORS blocked: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
     credentials: true,
   })
 );
@@ -72,7 +110,7 @@ app.use(
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: corsOrigin,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -125,6 +163,127 @@ io.use(async (socket, next) => {
 
 // Track users currently in a 1-on-1 call (userId → otherUserId)
 const usersInCall = new Map<number, number>();
+const callTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
+const CALL_RING_TIMEOUT_MS = Number(process.env.CALL_RING_TIMEOUT_MS) || 45_000;
+
+interface GroupCallParticipant {
+  userId: number;
+  socketId: string;
+  username: string;
+  audioMuted: boolean;
+  videoMuted: boolean;
+  isVideo: boolean;
+}
+
+interface GroupCallRoom {
+  chatId: number;
+  participants: Map<number, GroupCallParticipant>;
+}
+
+const groupCallRooms = new Map<number, GroupCallRoom>();
+
+function getGroupCallRoom(chatId: number): GroupCallRoom {
+  let room = groupCallRooms.get(chatId);
+  if (!room) {
+    room = { chatId, participants: new Map() };
+    groupCallRooms.set(chatId, room);
+  }
+  return room;
+}
+
+function getGroupCallParticipants(chatId: number): GroupCallParticipant[] {
+  return Array.from(groupCallRooms.get(chatId)?.participants.values() ?? []);
+}
+
+function isGroupCallParticipant(chatId: number, userId: number): boolean {
+  return groupCallRooms.get(chatId)?.participants.has(userId) ?? false;
+}
+
+function getUserGroupCallChatIds(userId: number): number[] {
+  const chatIds: number[] = [];
+  for (const [chatId, room] of groupCallRooms.entries()) {
+    if (room.participants.has(userId)) chatIds.push(chatId);
+  }
+  return chatIds;
+}
+
+function isUserInGroupCall(userId: number): boolean {
+  return getUserGroupCallChatIds(userId).length > 0;
+}
+
+function hasActiveSocket(userId: number): boolean {
+  return (io.sockets.adapter.rooms.get(`user_${userId}`)?.size ?? 0) > 0;
+}
+
+function isP2PPair(userId: number, otherUserId: number): boolean {
+  return usersInCall.get(userId) === otherUserId && usersInCall.get(otherUserId) === userId;
+}
+
+function clearCallTimeout(userId: number) {
+  const timeout = callTimeouts.get(userId);
+  if (timeout) clearTimeout(timeout);
+  callTimeouts.delete(userId);
+}
+
+function clearP2PCall(userId: number, otherUserId?: number) {
+  const peerId = otherUserId ?? usersInCall.get(userId);
+  clearCallTimeout(userId);
+  usersInCall.delete(userId);
+  if (peerId !== undefined) {
+    clearCallTimeout(peerId);
+    usersInCall.delete(peerId);
+  }
+}
+
+function scheduleRingTimeout(callerId: number, targetId: number) {
+  const timeout = setTimeout(() => {
+    if (!isP2PPair(callerId, targetId)) return;
+    clearP2PCall(callerId, targetId);
+    io.to(`user_${callerId}`).emit("call_missed", { to: targetId, reason: "timeout" });
+    io.to(`user_${targetId}`).emit("call_ended", { reason: "timeout" });
+  }, CALL_RING_TIMEOUT_MS);
+  callTimeouts.set(callerId, timeout);
+  callTimeouts.set(targetId, timeout);
+}
+
+function joinGroupCallRoom(chatId: number, participant: GroupCallParticipant): {
+  existingParticipants: GroupCallParticipant[];
+  isFirstParticipant: boolean;
+} {
+  const room = getGroupCallRoom(chatId);
+  const existingParticipants = Array.from(room.participants.values()).filter(
+    (p) => p.userId !== participant.userId
+  );
+  room.participants.set(participant.userId, participant);
+  return {
+    existingParticipants,
+    isFirstParticipant: existingParticipants.length === 0,
+  };
+}
+
+function leaveGroupCallRoom(chatId: number, userId: number): boolean {
+  const room = groupCallRooms.get(chatId);
+  if (!room) return false;
+  const removed = room.participants.delete(userId);
+  if (room.participants.size === 0) {
+    groupCallRooms.delete(chatId);
+  }
+  return removed;
+}
+
+function leaveAllGroupCallRooms(userId: number): number[] {
+  const affectedChatIds: number[] = [];
+  for (const [chatId, room] of groupCallRooms.entries()) {
+    if (room.participants.has(userId)) {
+      room.participants.delete(userId);
+      affectedChatIds.push(chatId);
+      if (room.participants.size === 0) {
+        groupCallRooms.delete(chatId);
+      }
+    }
+  }
+  return affectedChatIds;
+}
 
 // Rate limiting: call_user — max 5 attempts per user per 60s
 const callRateLimit = new Map<number, { count: number; resetAt: number }>();
@@ -202,7 +361,7 @@ io.on("connection", async (socket: Socket) => {
     socket.leave(`chat_${chatId}`);
   });
 
-  socket.on("call_user", (data: { userToCall: number; signalData: RTCSessionDescriptionInit; from: number; name: string; isVideo: boolean }) => {
+  socket.on("call_user", async (data: { userToCall: number; signalData: RTCSessionDescriptionInit; from: number; name: string; isVideo: boolean }) => {
     const callerUserId = authSocket.userId;
     const targetId = Number(data.userToCall);
     const fromId = Number(data.from);
@@ -221,8 +380,38 @@ io.on("connection", async (socket: Socket) => {
 
     console.log(`[CALL] call_user: from=${fromId} (socket userId=${callerUserId}) → to=${targetId}`);
 
-    // If target is already in a call, notify caller that they're busy
-    if (usersInCall.has(targetId)) {
+    if (!Number.isFinite(targetId) || targetId === callerUserId) {
+      socket.emit("call_error", { message: "Invalid call target" });
+      return;
+    }
+
+    try {
+      const targetRes = await client.query<{ is_banned: boolean }>(
+        "SELECT is_banned FROM users WHERE id = $1",
+        [targetId]
+      );
+      if (targetRes.rows.length === 0 || targetRes.rows[0].is_banned) {
+        socket.emit("call_error", { message: "User is unavailable" });
+        return;
+      }
+    } catch (e) {
+      console.error("[CALL] target lookup failed:", e);
+      socket.emit("call_error", { message: "Call failed" });
+      return;
+    }
+
+    if (!hasActiveSocket(targetId)) {
+      socket.emit("call_missed", { to: targetId, reason: "offline" });
+      return;
+    }
+
+    // If either side is already in a 1-on-1 or group call, notify caller.
+    if (
+      usersInCall.has(callerUserId) ||
+      usersInCall.has(targetId) ||
+      isUserInGroupCall(callerUserId) ||
+      isUserInGroupCall(targetId)
+    ) {
       console.log(`[CALL] User ${targetId} is busy, usersInCall:`, [...usersInCall.entries()]);
       socket.emit("call_busy", { userId: targetId });
       return;
@@ -230,6 +419,7 @@ io.on("connection", async (socket: Socket) => {
     // Mark both users as in a call
     usersInCall.set(fromId, targetId);
     usersInCall.set(targetId, fromId);
+    scheduleRingTimeout(fromId, targetId);
 
     const targetRoom = `user_${targetId}`;
     const roomSockets = io.sockets.adapter.rooms.get(targetRoom);
@@ -244,33 +434,164 @@ io.on("connection", async (socket: Socket) => {
   });
 
   socket.on("answer_call", (data: { to: number; signal: RTCSessionDescriptionInit }) => {
-    io.to(`user_${data.to}`).emit("call_accepted", data.signal);
+    const userId = authSocket.userId;
+    const callerId = Number(data.to);
+    if (!userId || !Number.isFinite(callerId) || !isP2PPair(userId, callerId)) return;
+    clearCallTimeout(userId);
+    clearCallTimeout(callerId);
+    io.to(`user_${callerId}`).emit("call_accepted", data.signal);
   });
 
   socket.on("send_ice_candidate", (data: { to: number; candidate: RTCIceCandidateInit }) => {
-    io.to(`user_${data.to}`).emit("receive_ice_candidate", { candidate: data.candidate });
+    const userId = authSocket.userId;
+    const targetId = Number(data.to);
+    if (!userId || !Number.isFinite(targetId) || !isP2PPair(userId, targetId)) return;
+    io.to(`user_${targetId}`).emit("receive_ice_candidate", { candidate: data.candidate });
   });
 
   socket.on("end_call", (data: { to: number }) => {
     const userId = authSocket.userId;
+    const targetId = Number(data.to);
+    if (!userId || !Number.isFinite(targetId) || !isP2PPair(userId, targetId)) return;
     // Clean up busy tracking
-    if (userId) usersInCall.delete(userId);
-    usersInCall.delete(data.to);
-    io.to(`user_${data.to}`).emit("call_ended");
+    clearP2PCall(userId, targetId);
+    io.to(`user_${targetId}`).emit("call_ended");
   });
 
   socket.on("call_declined", (data: { to: number }) => {
     const userId = authSocket.userId;
+    const targetId = Number(data.to);
+    if (!userId || !Number.isFinite(targetId) || !isP2PPair(userId, targetId)) return;
     // Clean up busy tracking
-    if (userId) usersInCall.delete(userId);
-    usersInCall.delete(data.to);
+    clearP2PCall(userId, targetId);
     // Notify caller that the call was declined (missed call)
-    io.to(`user_${data.to}`).emit("call_missed", { from: userId });
+    io.to(`user_${targetId}`).emit("call_missed", { from: userId, reason: "declined" });
+  });
+
+  socket.on("group_call_join", async (data: { chatId: number; username: string; isVideo?: boolean }, ack) => {
+    const userId = authSocket.userId;
+    const chatId = Number(data.chatId);
+    if (!userId || !Number.isFinite(chatId)) return;
+    try {
+      if (usersInCall.has(userId)) {
+        if (ack) ack({ error: "User is busy with another call" });
+        return;
+      }
+
+      const otherGroupCalls = getUserGroupCallChatIds(userId).filter((id) => id !== chatId);
+      if (otherGroupCalls.length > 0) {
+        if (ack) ack({ error: "User is already in another group call" });
+        return;
+      }
+
+      const memberCheck = await client.query(
+        "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+        [chatId, userId]
+      );
+      if (memberCheck.rows.length === 0) {
+        if (ack) ack({ error: "Нет доступа к чату" });
+        return;
+      }
+
+      const username = String(data.username || `User ${userId}`).slice(0, 80);
+      const { existingParticipants, isFirstParticipant } = joinGroupCallRoom(chatId, {
+        userId,
+        socketId: socket.id,
+        username,
+        audioMuted: false,
+        videoMuted: false,
+        isVideo: Boolean(data.isVideo),
+      });
+      socket.join(`call_${chatId}`);
+
+      if (isFirstParticipant) {
+        socket.to(`chat_${chatId}`).emit("group_call_started", {
+          chatId,
+          startedBy: { userId, username },
+          isVideo: Boolean(data.isVideo),
+        });
+      } else {
+        socket.to(`call_${chatId}`).emit("group_call_participant_joined", {
+          chatId,
+          userId,
+          username,
+          audioMuted: false,
+          videoMuted: false,
+        });
+      }
+
+      if (ack) ack({ participants: existingParticipants });
+    } catch (e) {
+      console.error("group_call_join error:", e);
+      if (ack) ack({ error: "Ошибка входа в звонок" });
+    }
+  });
+
+  socket.on("group_call_offer", (data: { chatId: number; to: number; signal: RTCSessionDescriptionInit }) => {
+    const from = authSocket.userId;
+    const chatId = Number(data.chatId);
+    const to = Number(data.to);
+    if (!from || !isGroupCallParticipant(chatId, from) || !isGroupCallParticipant(chatId, to)) return;
+    const fromParticipant = groupCallRooms.get(chatId)?.participants.get(from);
+    io.to(`user_${to}`).emit("group_call_offer", {
+      chatId,
+      from,
+      username: fromParticipant?.username,
+      signal: data.signal,
+    });
+  });
+
+  socket.on("group_call_answer", (data: { chatId: number; to: number; signal: RTCSessionDescriptionInit }) => {
+    const from = authSocket.userId;
+    const chatId = Number(data.chatId);
+    const to = Number(data.to);
+    if (!from || !isGroupCallParticipant(chatId, from) || !isGroupCallParticipant(chatId, to)) return;
+    io.to(`user_${to}`).emit("group_call_answer", { chatId, from, signal: data.signal });
+  });
+
+  socket.on("group_call_ice_candidate", (data: { chatId: number; to: number; candidate: RTCIceCandidateInit }) => {
+    const from = authSocket.userId;
+    const chatId = Number(data.chatId);
+    const to = Number(data.to);
+    if (!from || !isGroupCallParticipant(chatId, from) || !isGroupCallParticipant(chatId, to)) return;
+    io.to(`user_${to}`).emit("group_call_ice_candidate", { chatId, from, candidate: data.candidate });
+  });
+
+  socket.on("group_call_media_state", (data: { chatId: number; audioMuted: boolean; videoMuted: boolean }) => {
+    const userId = authSocket.userId;
+    const chatId = Number(data.chatId);
+    if (!userId || !isGroupCallParticipant(chatId, userId)) return;
+    const participant = groupCallRooms.get(chatId)?.participants.get(userId);
+    if (participant) {
+      participant.audioMuted = Boolean(data.audioMuted);
+      participant.videoMuted = Boolean(data.videoMuted);
+    }
+    socket.to(`call_${chatId}`).emit("group_call_media_state", {
+      chatId,
+      userId,
+      audioMuted: Boolean(data.audioMuted),
+      videoMuted: Boolean(data.videoMuted),
+    });
+  });
+
+  socket.on("group_call_leave", (data: { chatId: number }) => {
+    const userId = authSocket.userId;
+    const chatId = Number(data.chatId);
+    if (!userId || !Number.isFinite(chatId)) return;
+    const removed = leaveGroupCallRoom(chatId, userId);
+    socket.leave(`call_${chatId}`);
+    if (!removed) return;
+
+    if (getGroupCallParticipants(chatId).length > 0) {
+      io.to(`call_${chatId}`).emit("group_call_participant_left", { chatId, userId });
+    } else {
+      io.to(`chat_${chatId}`).emit("group_call_ended", { chatId });
+    }
   });
 
   // ─── Group Call (mediasoup SFU) ───────────────────────────────────────────
 
-  socket.on("group_call_join", async (data: { chatId: number; username: string }, ack) => {
+  socket.on("legacy_mediasoup_group_call_join", async (data: { chatId: number; username: string }, ack) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
@@ -310,12 +631,12 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  socket.on("get_rtp_capabilities", (data: { chatId: number }, ack) => {
+  socket.on("legacy_mediasoup_get_rtp_capabilities", (data: { chatId: number }, ack) => {
     const caps = mediasoupService.getRtpCapabilities(data.chatId);
     if (ack) ack({ rtpCapabilities: caps });
   });
 
-  socket.on("create_transport", async (data: { chatId: number; direction: "send" | "recv" }, ack) => {
+  socket.on("legacy_mediasoup_create_transport", async (data: { chatId: number; direction: "send" | "recv" }, ack) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
@@ -327,7 +648,7 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  socket.on("connect_transport", async (data: { chatId: number; transportId: string; dtlsParameters: object }, ack) => {
+  socket.on("legacy_mediasoup_connect_transport", async (data: { chatId: number; transportId: string; dtlsParameters: object }, ack) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
@@ -339,7 +660,7 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  socket.on("produce", async (data: { chatId: number; kind: "audio" | "video"; rtpParameters: object }, ack) => {
+  socket.on("legacy_mediasoup_produce", async (data: { chatId: number; kind: "audio" | "video"; rtpParameters: object }, ack) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
@@ -357,7 +678,7 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  socket.on("consume", async (data: { chatId: number; producerId: string; rtpCapabilities: object }, ack) => {
+  socket.on("legacy_mediasoup_consume", async (data: { chatId: number; producerId: string; rtpCapabilities: object }, ack) => {
     const userId = authSocket.userId;
     if (!userId) return;
     try {
@@ -373,13 +694,13 @@ io.on("connection", async (socket: Socket) => {
     }
   });
 
-  socket.on("consumer_resume", async (data: { chatId: number; consumerId: string }) => {
+  socket.on("legacy_mediasoup_consumer_resume", async (data: { chatId: number; consumerId: string }) => {
     const userId = authSocket.userId;
     if (!userId) return;
     await mediasoupService.resumeConsumer(data.chatId, userId, data.consumerId).catch(console.error);
   });
 
-  socket.on("group_call_leave", (data: { chatId: number }) => {
+  socket.on("legacy_mediasoup_group_call_leave", (data: { chatId: number }) => {
     const userId = authSocket.userId;
     if (!userId) return;
     const closedProducerIds = mediasoupService.leaveRoom(data.chatId, userId);
@@ -580,10 +901,19 @@ io.on("connection", async (socket: Socket) => {
       // Clean up 1-on-1 call busy state on disconnect
       if (usersInCall.has(userId)) {
         const otherId = usersInCall.get(userId);
-        usersInCall.delete(userId);
         if (otherId !== undefined) {
-          usersInCall.delete(otherId);
+          clearP2PCall(userId, otherId);
           io.to(`user_${otherId}`).emit("call_ended");
+        } else {
+          clearP2PCall(userId);
+        }
+      }
+
+      for (const chatId of leaveAllGroupCallRooms(userId)) {
+        if (getGroupCallParticipants(chatId).length > 0) {
+          io.to(`call_${chatId}`).emit("group_call_participant_left", { chatId, userId });
+        } else {
+          io.to(`chat_${chatId}`).emit("group_call_ended", { chatId });
         }
       }
       try {
@@ -637,6 +967,9 @@ io.on("connection", async (socket: Socket) => {
 });
 
 app.use(express.json());
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok" });
+});
 app.use("/stickers", express.static(require("path").join(process.cwd(), "public/stickers")));
 app.use("/auth", authRouter);
 app.use("/chats", chatRouter);
@@ -644,11 +977,69 @@ app.use("/friends", friendsRouter);
 app.use("/users", usersRouter);
 app.use("/admin", adminRouter);
 app.use("/moderator", moderatorRouter);
+app.get("/api/livekit-token", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const chatId = Number(req.query.chatId);
+    if (!Number.isFinite(chatId)) {
+      return res.status(400).json({ error: "Invalid chatId" });
+    }
+
+    const user = (req as Request & { user?: { id: number; username?: string } }).user;
+    if (!user?.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const livekitUrl = process.env.LIVEKIT_URL;
+    const livekitApiKey = process.env.LIVEKIT_API_KEY;
+    const livekitApiSecret = process.env.LIVEKIT_API_SECRET;
+    if (!livekitUrl || !livekitApiKey || !livekitApiSecret) {
+      return res.status(501).json({ enabled: false, error: "LiveKit is not configured" });
+    }
+
+    const memberCheck = await client.query(
+      "SELECT 1 FROM chat_users WHERE chat_id = $1 AND user_id = $2",
+      [chatId, user.id]
+    );
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "No access to chat" });
+    }
+
+    const userRes = await client.query<{ username: string }>(
+      "SELECT username FROM users WHERE id = $1",
+      [user.id]
+    );
+    const username = userRes.rows[0]?.username || user.username || `User ${user.id}`;
+    const roomName = `lume-chat-${chatId}`;
+    const token = new AccessToken(livekitApiKey, livekitApiSecret, {
+      identity: String(user.id),
+      name: username,
+      ttl: "2h",
+      metadata: JSON.stringify({ chatId, username }),
+    });
+    token.addGrant({
+      room: roomName,
+      roomJoin: true,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    return res.json({
+      enabled: true,
+      url: livekitUrl,
+      token: await token.toJwt(),
+      roomName,
+    });
+  } catch (e) {
+    console.error("[LIVEKIT] token error:", e);
+    return res.status(500).json({ error: "Failed to create LiveKit token" });
+  }
+});
 // ─── TURN credentials endpoint ─────────────────────────────────────────────
 // Fetches temporary TURN credentials from Metered.ca REST API.
 // Cached for 1 hour to avoid hitting Metered API on every call.
 // Set METERED_API_KEY env var on Render dashboard.
-interface IceServer { urls: string; username?: string; credential?: string; }
+interface IceServer { urls: string | string[]; username?: string; credential?: string; credentialType?: string; }
 let turnCache: { servers: IceServer[]; expiresAt: number } | null = null;
 const TURN_CACHE_TTL = 60 * 60 * 1000; // 1 hour (credentials valid ~24h)
 
@@ -658,7 +1049,7 @@ const STUN_FALLBACK = [
   { urls: "stun:global.stun.twilio.com:3478" },
 ];
 
-app.get("/api/turn-credentials", async (_req: Request, res: Response) => {
+app.get("/api/turn-credentials", authMiddleware, async (_req: Request, res: Response) => {
   try {
     const apiKey = process.env.METERED_API_KEY;
     if (!apiKey) {
@@ -992,22 +1383,37 @@ async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_status           ON reports(status);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_reported_user    ON reports(reported_user_id);`);
 
-    const defaultAdminPassword = await bcrypt.hash("admin", 10);
-    await client.query(
+    const bootstrapAdminUsername = process.env.ADMIN_USERNAME;
+    const bootstrapAdminPassword = process.env.ADMIN_PASSWORD;
+    if (bootstrapAdminUsername && bootstrapAdminPassword) {
+      const defaultAdminPassword = await bcrypt.hash(bootstrapAdminPassword, 10);
+      await client.query(
       `INSERT INTO users (username, password, role_id, email, avatar_url, is_banned)
        VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), NULL, NULL, false)
        ON CONFLICT (username) DO UPDATE
        SET password = EXCLUDED.password,
            role_id = (SELECT id FROM roles WHERE value = 'ADMIN'),
            is_banned = false`,
-      ["admin", defaultAdminPassword]
-    );
-    console.log("✅ Default admin user is ready: admin / admin");
+      [bootstrapAdminUsername, defaultAdminPassword]
+      );
+      console.log(`Admin bootstrap user is ready: ${bootstrapAdminUsername}`);
+    } else if (process.env.NODE_ENV !== "production") {
+      const localAdminPassword = await bcrypt.hash("admin", 10);
+      await client.query(
+        `INSERT INTO users (username, password, role_id, email, avatar_url, is_banned)
+         VALUES ($1, $2, (SELECT id FROM roles WHERE value = 'ADMIN'), NULL, NULL, false)
+         ON CONFLICT (username) DO NOTHING`,
+        ["admin", localAdminPassword]
+      );
+      console.log("Local admin bootstrap is available only outside production.");
+    }
 
     const sysUser = await client.query("SELECT id FROM users WHERE username = 'LumeOfficial'");
     if (sysUser.rows.length === 0) {
       const systemPwd = process.env.SYSTEM_USER_PASSWORD;
-      if (!systemPwd) throw new Error("FATAL: SYSTEM_USER_PASSWORD env var is not set. Cannot create system user.");
+      if (!systemPwd) {
+        console.warn("SYSTEM_USER_PASSWORD is not set; skipping LumeOfficial bootstrap user.");
+      } else {
       const hashedPassword = await bcrypt.hash(systemPwd, 10);
       await client.query(
         `INSERT INTO users (username, password, role_id, email, avatar_url) 
@@ -1015,6 +1421,8 @@ async function initializeDatabase() {
         ["LumeOfficial", hashedPassword, "system@lume.app"]
       );
       console.log("✅ System user 'LumeOfficial' created.");
+    }
+
     }
 
     if (AUTO_MODERATOR_NAME) {
@@ -1046,7 +1454,6 @@ async function initializeDatabase() {
 
 async function start() {
   await initializeDatabase();
-  await mediasoupService.createWorker();
   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
   // ─── Scheduled messages: check every 30 seconds ────────────────────────

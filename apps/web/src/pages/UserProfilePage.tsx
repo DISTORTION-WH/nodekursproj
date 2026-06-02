@@ -47,6 +47,10 @@ export default function UserProfilePage() {
 
   const startChat = async () => {
     if (!user) return;
+    if (friendStatus !== "accepted") {
+      alert(t.profile.add_friend);
+      return;
+    }
     try {
       const res = await api.post<{ id: number }>("/chats/private", { friendId: user.id });
       if (!res.data?.id) {
@@ -56,7 +60,7 @@ export default function UserProfilePage() {
       navigate("/", {
         state: {
           openChatId: res.data.id,
-          friend: { username: user.username, avatar_url: user.avatar_url },
+          friend: { id: user.id, username: user.username, avatar_url: user.avatar_url, is_banned: user.is_banned },
         },
       });
     } catch (err: any) {
@@ -143,6 +147,16 @@ export default function UserProfilePage() {
         <h2 className="text-white text-2xl font-bold">
           <UsernameDisplay username={user.username} color={user.username_color} anim={user.username_anim} badge={user.profile_badge} />
         </h2>
+
+        {user.is_banned && (
+          <div className="rounded-lg border border-discord-danger/40 bg-discord-danger/10 px-4 py-3 flex items-start gap-3">
+            <div className="text-discord-danger mt-0.5"><UiIcon name="warning" size={18} /></div>
+            <div>
+              <div className="text-discord-danger text-sm font-semibold">{t.profile.user_blocked}</div>
+              <div className="text-discord-text-secondary text-xs mt-0.5">{t.profile.user_blocked_profile_notice}</div>
+            </div>
+          </div>
+        )}
 
         {/* Profile header with banner */}
         <div className="bg-discord-secondary rounded-xl overflow-hidden">
@@ -252,13 +266,15 @@ export default function UserProfilePage() {
         {/* Actions */}
         {!isMe && (
           <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={startChat}
-              style={user.accent_color ? { background: user.accent_color } : undefined}
-              className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold px-4 py-2 rounded transition"
-            >
-              {t.profile.start_chat}
-            </button>
+            {friendStatus === "accepted" && (
+              <button
+                onClick={startChat}
+                style={user.accent_color ? { background: user.accent_color } : undefined}
+                className="bg-discord-accent hover:bg-discord-accent-hover text-white font-semibold px-4 py-2 rounded transition"
+              >
+                {t.profile.start_chat}
+              </button>
+            )}
 
             {friendStatus === "accepted" && user.username !== "LumeOfficial" && (
               <button
