@@ -172,15 +172,49 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
         .catch(console.error);
     };
 
+    const handleUpdateChatList = () => {
+      api.get<Chat[]>("/chats")
+        .then((res) => setAllChats(res.data))
+        .catch(console.error);
+    };
+
+    const handleNewMessage = (msg: Message) => {
+      const currentActiveChatId = activeChatRef.current?.id;
+      const isOwnMessage = Number(msg.sender_id) === Number(currentUser.id);
+
+      if (Number(msg.chat_id) === Number(currentActiveChatId)) {
+        setMessages((prev) => (
+          prev.some((existing) => String(existing.id) === String(msg.id))
+            ? prev
+            : [...prev, msg]
+        ));
+        markChatAsRead(Number(currentActiveChatId)).catch(console.error);
+      } else if (!isOwnMessage) {
+        playSound();
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [msg.chat_id]: (prev[msg.chat_id] || 0) + 1,
+        }));
+      }
+
+      setAllChats((prev) =>
+        prev.map((c) => Number(c.id) === Number(msg.chat_id) ? { ...c } : c)
+      );
+    };
+
     const handleMentionReceived = () => {
       setMentionCount((prev) => prev + 1);
       playSound();
     };
 
     socket.on("added_to_chat", handleAddedToChat);
+    socket.on("update_chat_list", handleUpdateChatList);
+    socket.on("new_message", handleNewMessage);
     socket.on("mention_received", handleMentionReceived);
     return () => {
       socket.off("added_to_chat", handleAddedToChat);
+      socket.off("update_chat_list", handleUpdateChatList);
+      socket.off("new_message", handleNewMessage);
       socket.off("mention_received", handleMentionReceived);
     };
   }, [socket, currentUser, playSound]);
@@ -224,31 +258,6 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     if (!socket) return;
 
     socket.emit("join_chat", activeChat.id);
-
-    const handleNewMessage = (msg: Message) => {
-      const currentActiveChatId = activeChatRef.current?.id;
-      if (Number(msg.chat_id) === Number(currentActiveChatId)) {
-        setMessages((prev) => (
-          prev.some((existing) => String(existing.id) === String(msg.id))
-            ? prev
-            : [...prev, msg]
-        ));
-        // Mark as read since we're looking at this chat
-        markChatAsRead(Number(currentActiveChatId)).catch(console.error);
-      } else {
-        // Play sound for messages in other chats
-        playSound();
-        // Increment unread
-        setUnreadCounts((prev) => ({
-          ...prev,
-          [msg.chat_id]: (prev[msg.chat_id] || 0) + 1,
-        }));
-        // Update allChats for ForwardModal refresh
-        setAllChats((prev) =>
-          prev.map((c) => c.id === msg.chat_id ? { ...c } : c)
-        );
-      }
-    };
 
     const handlePollUpdated = (data: { pollId: number; votes: Record<string, number[]> }) => {
       setMessages((prev) =>
@@ -368,7 +377,6 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
       );
     };
 
-    socket.on("new_message", handleNewMessage);
     socket.on("messages_cleared", handleMessagesCleared);
     socket.on("chat_member_updated", handleChatMemberUpdated);
     socket.on("removed_from_chat", handleRemovedFromChat);
@@ -385,7 +393,6 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
 
     return () => {
       socket.emit("leave_chat", activeChat.id);
-      socket.off("new_message", handleNewMessage);
       socket.off("messages_cleared", handleMessagesCleared);
       socket.off("chat_member_updated", handleChatMemberUpdated);
       socket.off("removed_from_chat", handleRemovedFromChat);

@@ -161,9 +161,30 @@ class AdminController {
       for (const user of allUsers) {
         try {
           const chat = await chatService.findOrCreatePrivateChat(systemUser.id, user.id);
+          await client.query(
+            `INSERT INTO friends (user_id, friend_id, status)
+             VALUES ($1, $2, 'accepted'), ($2, $1, 'accepted')
+             ON CONFLICT (user_id, friend_id) DO UPDATE SET status = 'accepted'`,
+            [systemUser.id, user.id]
+          );
           const savedMessage = await chatService.postMessage(chat.id, systemUser.id, text.trim());
 
           if (io) {
+            io.in(`user_${user.id}`).socketsJoin(`chat_${chat.id}`);
+            io.to(`user_${user.id}`).emit("official_chat_updated", {
+              chatId: chat.id,
+              friendId: systemUser.id,
+              friend: {
+                id: systemUser.id,
+                username: systemUser.username,
+                avatar_url: systemUser.avatar_url ?? null,
+                is_banned: systemUser.is_banned ?? false,
+              },
+            });
+            io.to(`user_${user.id}`).emit("friend_request_accepted", {
+              friendId: systemUser.id,
+              chatId: chat.id,
+            });
             io.to(`user_${user.id}`).emit("update_chat_list", {
               chatId: chat.id,
               lastMessage: savedMessage,

@@ -45,11 +45,26 @@ export default function FriendChatList({ onOpenProfile }: FriendChatListProps) {
 
   useEffect(() => {
     if (socket) {
-      socket.on("friend_request_accepted", fetchFriends);
+      const onFriendAccepted = (data?: { friendId?: number; chatId?: number }) => {
+        if (data?.friendId && data?.chatId) {
+          setFriendChatIds((prev) => ({ ...prev, [Number(data.friendId)]: Number(data.chatId) }));
+        }
+        fetchFriends();
+      };
+      const onOfficialChatUpdated = (data?: { friendId?: number; chatId?: number }) => {
+        if (data?.friendId && data?.chatId) {
+          setFriendChatIds((prev) => ({ ...prev, [Number(data.friendId)]: Number(data.chatId) }));
+        }
+        fetchFriends();
+      };
+
+      socket.on("friend_request_accepted", onFriendAccepted);
+      socket.on("official_chat_updated", onOfficialChatUpdated);
       socket.on("friend_removed", fetchFriends);
       socket.on("new_friend_request", fetchFriends);
       return () => {
-        socket.off("friend_request_accepted", fetchFriends);
+        socket.off("friend_request_accepted", onFriendAccepted);
+        socket.off("official_chat_updated", onOfficialChatUpdated);
         socket.off("friend_removed", fetchFriends);
         socket.off("new_friend_request", fetchFriends);
       };

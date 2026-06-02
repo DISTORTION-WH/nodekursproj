@@ -22,7 +22,14 @@ const chatSvc = chatService as jest.Mocked<typeof chatService>;
 const userSvc = userService as jest.Mocked<typeof userService>;
 const logSvc = logService as jest.Mocked<typeof logService>;
 const app = buildApp();
-(app as any).set('io', { to: jest.fn().mockReturnThis(), emit: jest.fn(), in: jest.fn().mockReturnThis(), disconnectSockets: jest.fn() });
+const ioMock = {
+  to: jest.fn().mockReturnThis(),
+  emit: jest.fn(),
+  in: jest.fn().mockReturnThis(),
+  socketsJoin: jest.fn().mockReturnThis(),
+  disconnectSockets: jest.fn(),
+};
+(app as any).set('io', ioMock);
 
 function authAs(userId: number, role: string) {
   return `Bearer ${makeAccessToken(userId, role)}`;
