@@ -203,6 +203,7 @@ export function SubtitleSettingsPopup({
 
 interface DisplayEntry {
   id: number;
+  sourceId: number;
   speakerId: string;
   speakerName: string;
   text: string;
@@ -305,6 +306,28 @@ export default function SubtitlesOverlay({
       let updated = [...entries];
 
       for (const sub of next) {
+        const sourceIdx = updated.findIndex((e) => e.sourceId === sub.id);
+        if (sourceIdx !== -1) {
+          const current = updated[sourceIdx];
+          if (
+            current.text === sub.text &&
+            current.speakerName === sub.speakerName &&
+            current.isFinal === sub.isFinal
+          ) {
+            continue;
+          }
+          updated[sourceIdx] = {
+            ...current,
+            speakerName: sub.speakerName,
+            text: sub.text,
+            isFinal: sub.isFinal,
+            timestamp: sub.timestamp,
+            finalizedAt: sub.isFinal ? (current.finalizedAt ?? Date.now()) : null,
+            fading: false,
+          };
+          continue;
+        }
+
         const existingIdx = updated.findIndex(
           (e) => e.speakerId === sub.speakerId && !e.isFinal && !e.fading
         );
@@ -312,10 +335,10 @@ export default function SubtitlesOverlay({
         if (!sub.isFinal) {
           // Interim: update existing or add new
           if (existingIdx !== -1) {
-            updated[existingIdx] = { ...updated[existingIdx], text: sub.text, speakerName: sub.speakerName, timestamp: sub.timestamp };
+            updated[existingIdx] = { ...updated[existingIdx], sourceId: sub.id, text: sub.text, speakerName: sub.speakerName, timestamp: sub.timestamp };
           } else {
             updated = [...updated, {
-              id: nextId(), speakerId: sub.speakerId, speakerName: sub.speakerName,
+              id: nextId(), sourceId: sub.id, speakerId: sub.speakerId, speakerName: sub.speakerName,
               text: sub.text, isFinal: false, timestamp: sub.timestamp, finalizedAt: null, fading: false,
             }];
           }
@@ -326,10 +349,10 @@ export default function SubtitlesOverlay({
           );
           if (existingIdx !== -1) {
             // Promote interim → final
-            updated[existingIdx] = { ...updated[existingIdx], text: sub.text, speakerName: sub.speakerName, isFinal: true, finalizedAt: Date.now() };
+            updated[existingIdx] = { ...updated[existingIdx], sourceId: sub.id, text: sub.text, speakerName: sub.speakerName, isFinal: true, finalizedAt: Date.now() };
           } else if (!alreadyShown) {
             updated = [...updated, {
-              id: nextId(), speakerId: sub.speakerId, speakerName: sub.speakerName,
+              id: nextId(), sourceId: sub.id, speakerId: sub.speakerId, speakerName: sub.speakerName,
               text: sub.text, isFinal: true, timestamp: sub.timestamp, finalizedAt: Date.now(), fading: false,
             }];
           }

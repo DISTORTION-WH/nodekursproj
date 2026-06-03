@@ -11,6 +11,11 @@
 import WebSocket from "ws";
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || "";
+const DEBUG_SUBTITLES = process.env.DEBUG_SUBTITLES === "true";
+
+const debugSubtitles = (...args: unknown[]) => {
+  if (DEBUG_SUBTITLES) console.log(...args);
+};
 
 interface ActiveSession {
   ws: WebSocket;
@@ -58,6 +63,8 @@ export function startSession(
     sample_rate: "16000",
     channels: "1",
     interim_results: "true",
+    endpointing: "500",
+    punctuate: "true",
     smart_format: "true",
     utterance_end_ms: "1500",
     vad_events: "true",
@@ -65,7 +72,7 @@ export function startSession(
 
   const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
 
-  console.log(`[DEEPGRAM] Connecting for user ${userId} (lang: ${dgLang})...`);
+  debugSubtitles(`[DEEPGRAM] Connecting for user ${userId} (lang: ${dgLang})...`);
 
   const ws = new WebSocket(url, {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` },
@@ -83,12 +90,12 @@ export function startSession(
   };
 
   ws.on("open", () => {
-    console.log(`[DEEPGRAM] Session opened for user ${userId} (lang: ${dgLang})`);
+    debugSubtitles(`[DEEPGRAM] Session opened for user ${userId} (lang: ${dgLang})`);
     session.opened = true;
 
     // Flush any buffered audio chunks
     if (session.pendingChunks.length > 0) {
-      console.log(`[DEEPGRAM] Flushing ${session.pendingChunks.length} buffered chunks`);
+      debugSubtitles(`[DEEPGRAM] Flushing ${session.pendingChunks.length} buffered chunks`);
       for (const chunk of session.pendingChunks) {
         try { ws.send(chunk); } catch { break; }
       }
@@ -114,7 +121,7 @@ export function startSession(
         const text = (alt.transcript || "").trim();
         if (!text) return;
         const isFinal = msg.is_final === true;
-        console.log(`[DEEPGRAM] user=${userId} transcript: "${text}" (final: ${isFinal})`);
+        debugSubtitles(`[DEEPGRAM] user=${userId} transcript: "${text}" (final: ${isFinal})`);
         onTranscript(text, isFinal);
       }
     } catch {
@@ -127,7 +134,7 @@ export function startSession(
   });
 
   ws.on("close", (code: number, _reason: Buffer) => {
-    console.log(`[DEEPGRAM] Session closed for user ${userId} (code: ${code})`);
+    debugSubtitles(`[DEEPGRAM] Session closed for user ${userId} (code: ${code})`);
     const s = sessions.get(userId);
     if (!s || s.ws !== ws) return;
 
@@ -137,7 +144,7 @@ export function startSession(
     const normalClose = code === 1000 || code === 1008 || code === 4000;
     if (!normalClose && s.reconnectAttempts < 3) {
       const delay = Math.pow(2, s.reconnectAttempts) * 1000; // 1s, 2s, 4s
-      console.log(`[DEEPGRAM] Reconnecting for user ${userId} in ${delay}ms (attempt ${s.reconnectAttempts + 1}/3)`);
+      debugSubtitles(`[DEEPGRAM] Reconnecting for user ${userId} in ${delay}ms (attempt ${s.reconnectAttempts + 1}/3)`);
       s.reconnectAttempts++;
       s.reconnectTimer = setTimeout(() => {
         // Only reconnect if session wasn't manually stopped
@@ -204,7 +211,7 @@ export function stopSession(userId: number): void {
   }
 
   sessions.delete(userId);
-  console.log(`[DEEPGRAM] Session stopped for user ${userId}`);
+  debugSubtitles(`[DEEPGRAM] Session stopped for user ${userId}`);
 }
 
 /**

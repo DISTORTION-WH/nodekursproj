@@ -14,6 +14,7 @@ import {
 } from "livekit-client";
 import { GroupCallParticipant } from "../types";
 import { useI18n } from "../i18n";
+import { SOUND_CHANGED_EVENT, startRingtone, type RingtoneHandle } from "../utils/sound";
 
 interface CallContextType {
   // 1-on-1 call
@@ -134,6 +135,27 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const outgoingCallTimerRef = useRef<number | null>(null);
+  const ringtoneRef = useRef<RingtoneHandle | null>(null);
+
+  const stopRingtone = useCallback(() => {
+    ringtoneRef.current?.stop();
+    ringtoneRef.current = null;
+  }, []);
+
+  const playIncomingRingtone = useCallback(() => {
+    stopRingtone();
+    ringtoneRef.current = startRingtone();
+  }, [stopRingtone]);
+
+  useEffect(() => {
+    const onSoundChanged = (event: Event) => {
+      if ((event as CustomEvent<boolean>).detail === false) {
+        stopRingtone();
+      }
+    };
+    window.addEventListener(SOUND_CHANGED_EVENT, onSoundChanged);
+    return () => window.removeEventListener(SOUND_CHANGED_EVENT, onSoundChanged);
+  }, [stopRingtone]);
 
   // ─── Group call state ────────────────────────────────────────────────────
   const [groupCallState, setGroupCallState] = useState<"idle" | "active">("idle");
@@ -182,6 +204,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const consumeProducerRef = useRef<(chatId: number, producerId: string, userId: number) => Promise<void>>(async () => {});
 
   const resetGroupCall = useCallback(() => {
+    stopRingtone();
     const liveKitRoom = liveKitRoomRef.current;
     liveKitRoomRef.current = null;
     if (liveKitRoom && liveKitRoom.state !== "disconnected") {
@@ -218,10 +241,11 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setIsGroupScreenSharing(false);
     setIsGroupAudioMuted(false);
     setIsGroupVideoMuted(false);
-  }, []);
+  }, [stopRingtone]);
 
   // ─── 1-on-1 helpers ──────────────────────────────────────────────────────
   const resetCall = useCallback(() => {
+    stopRingtone();
     if (outgoingCallTimerRef.current !== null) {
       window.clearTimeout(outgoingCallTimerRef.current);
       outgoingCallTimerRef.current = null;
@@ -253,7 +277,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     setIsAudioMuted(false);
     setIsVideoMuted(false);
     setIsScreenSharing(false);
-  }, []); // stable — reads refs, no state deps
+  }, [stopRingtone]); // stable — reads refs, no state deps
 
   // Track p2pPeerConnection as state so context consumers get updates
   const [p2pPcState, setP2pPcState] = useState<RTCPeerConnection | null>(null);
@@ -799,6 +823,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const joinGroupCall = useCallback(
     async (chatId: number, isVideo: boolean) => {
       if (!socket || !currentUser) return;
+      stopRingtone();
       const activeUser = currentUser;
       if (groupCallState === "active") return; // already in a call
       if (isJoiningGroupRef.current) return; // prevent double-join race condition
@@ -1053,7 +1078,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [socket, currentUser, groupCallState, consumeProducer, resetGroupCall]
+    [socket, currentUser, groupCallState, consumeProducer, resetGroupCall, stopRingtone]
   );
 
   const leaveGroupCall = useCallback(() => {
@@ -1098,7 +1123,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const dismissGroupCallBanner = () => setIncomingGroupCall(null);
+  const dismissGroupCallBanner = () => {
+    stopRingtone();
+    setIncomingGroupCall(null);
+  };
 
   // ─── Socket event listeners ───────────────────────────────────────────────
   useEffect(() => {
@@ -1119,6 +1147,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       setCallState("incoming");
       otherUserId.current = data.from;
       pendingOffer.current = data.signal;
+      playIncomingRingtone();
     });
 
     socket.on("call_busy", () => {
@@ -1183,6 +1212,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       // Show banner only if we're not already in a call — use ref to avoid stale closure
       if (groupCallStateRef.current === "idle" && callStateRef.current === "idle") {
         setIncomingGroupCall({ chatId: data.chatId, startedBy: data.startedBy, isVideo: data.isVideo });
+        playIncomingRingtone();
       }
     });
 
@@ -1356,6 +1386,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   const answerCall = async () => {
     if (!socket || !otherUserId.current) return;
+    stopRingtone();
     const callerId = otherUserId.current;
 
     const [stream, iceConfig] = await Promise.all([getMediaStream(isVideoCall), fetchIceServers()]);

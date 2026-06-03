@@ -26,6 +26,11 @@ import logger from "./Services/logService";
 import * as deepgramService from "./Services/deepgramService";
 import { translateText as deeplTranslate } from "./Services/deeplService";
 
+const DEBUG_SUBTITLES = process.env.DEBUG_SUBTITLES === "true";
+const debugSubtitles = (...args: unknown[]) => {
+  if (DEBUG_SUBTITLES) console.log(...args);
+};
+
 const mediasoupService = {
   isRoomActive: (_chatId: number) => false,
   joinRoom: async (_chatId: number, _userId: number, _socketId: string, _username: string) => undefined,
@@ -776,7 +781,7 @@ io.on("connection", async (socket: Socket) => {
     subtitleRoute.to = data.to;
     subtitleRoute.chatId = data.chatId;
 
-    console.log(`[SUBTITLE] audio_start user=${userId} lang=${subtitleRoute.lang} to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
+    debugSubtitles(`[SUBTITLE] audio_start user=${userId} lang=${subtitleRoute.lang} to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
 
     deepgramService.startSession(userId, subtitleRoute.lang, broadcastSubtitle);
   });
@@ -787,7 +792,7 @@ io.on("connection", async (socket: Socket) => {
     if (data.chatId !== undefined) subtitleRoute.chatId = data.chatId;
     if (data.username) subtitleRoute.username = data.username;
     if (data.lang) subtitleRoute.lang = data.lang;
-    console.log(`[SUBTITLE] session_update → to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
+    debugSubtitles(`[SUBTITLE] session_update → to=${subtitleRoute.to} chatId=${subtitleRoute.chatId}`);
   });
 
   let chunkLogCount = 0;
@@ -796,7 +801,7 @@ io.on("connection", async (socket: Socket) => {
     if (!userId) return;
     const buf = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData);
     if (chunkLogCount++ < 3) {
-      console.log(`[SUBTITLE] audio_chunk user=${userId} size=${buf.length}B`);
+      debugSubtitles(`[SUBTITLE] audio_chunk user=${userId} size=${buf.length}B`);
     }
     deepgramService.sendAudio(userId, buf);
   });

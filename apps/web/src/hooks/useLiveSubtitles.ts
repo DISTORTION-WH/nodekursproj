@@ -62,6 +62,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     this._buf = [];
     this._size = 0;
     this._target = 4096; // ~256ms at 16kHz; overridable via port message
+    this._sourceOffset = 0;
     this.port.onmessage = (e) => {
       if (e.data?.type === 'set_target') this._target = e.data.value;
     };
@@ -69,12 +70,22 @@ class PCMProcessor extends AudioWorkletProcessor {
   process(inputs) {
     const ch = inputs[0]?.[0];
     if (!ch) return true;
-    const ratio = Math.round(sampleRate / 16000) || 3;
-    const ds = new Float32Array(Math.ceil(ch.length / ratio));
-    for (let i = 0, j = 0; i < ch.length; i += ratio, j++) ds[j] = ch[i];
-    const pcm = new Int16Array(ds.length);
-    for (let i = 0; i < ds.length; i++) {
-      const s = Math.max(-1, Math.min(1, ds[i]));
+    const ratio = sampleRate / 16000;
+    const out = [];
+    let pos = this._sourceOffset;
+    while (pos < ch.length) {
+      const i = Math.floor(pos);
+      const frac = pos - i;
+      const a = ch[i] ?? 0;
+      const b = ch[Math.min(i + 1, ch.length - 1)] ?? a;
+      out.push(a + (b - a) * frac);
+      pos += ratio;
+    }
+    this._sourceOffset = pos - ch.length;
+
+    const pcm = new Int16Array(out.length);
+    for (let i = 0; i < out.length; i++) {
+      const s = Math.max(-1, Math.min(1, out[i]));
       pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
     this._buf.push(pcm);
@@ -108,8 +119,15 @@ function getWorkletUrl(): string {
 // Buffer sizes for normal and tolerance modes
 const WORKLET_TARGET_NORMAL    = 4096;  // ~256ms at 16kHz
 const WORKLET_TARGET_TOLERANCE = 8192;  // ~512ms — fewer chunks, less overhead
-const DEBOUNCE_NORMAL          = 500;   // ms — interim translation debounce
-const DEBOUNCE_TOLERANCE       = 1200;  // ms — slower polling when network is stressed
+const DEBOUNCE_NORMAL          = 900;   // ms — interim translation debounce
+const DEBOUNCE_TOLERANCE       = 1600;  // ms — slower polling when network is stressed
+const MIN_INTERIM_UPDATE_MS    = 160;
+const MIN_INTERIM_TRANSLATE_CHARS = 12;
+const DEBUG_SUBTITLES = process.env.REACT_APP_DEBUG_SUBTITLES === "true";
+
+const subtitleDebug = (...args: unknown[]) => {
+  if (DEBUG_SUBTITLES) console.log(...args);
+};
 
 export function useLiveSubtitles({
   localStream,
@@ -155,7 +173,33 @@ export function useLiveSubtitles({
     active: boolean;
   }>({ audioCtx: null, worklet: null, source: null, silentGain: null, active: false });
 
-  const interimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interimTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const translationSeqRef = useRef<Map<string, number>>(new Map());
+  const lastInterimUpdateRef = useRef<Map<string, number>>(new Map());
+  const latestInterimTextRef = useRef<Map<string, string>>(new Map());
+
+  const clearInterimTimer = useCallback((speakerId: string) => {
+    const timer = interimTimersRef.current.get(speakerId);
+    if (timer) clearTimeout(timer);
+    interimTimersRef.current.delete(speakerId);
+  }, []);
+
+  const clearAllInterimTimers = useCallback(() => {
+    interimTimersRef.current.forEach((timer) => clearTimeout(timer));
+    interimTimersRef.current.clear();
+  }, []);
+
+  const nextTranslationSeq = useCallback((speakerId: string) => {
+    const next = (translationSeqRef.current.get(speakerId) ?? 0) + 1;
+    translationSeqRef.current.set(speakerId, next);
+    return next;
+  }, []);
+
+  const invalidatePendingTranslations = useCallback(() => {
+    translationSeqRef.current.forEach((seq, speakerId) => {
+      translationSeqRef.current.set(speakerId, seq + 1);
+    });
+  }, []);
 
   // ─── Tolerance mode: adjust worklet buffer size on-the-fly ───────────────
   useEffect(() => {
@@ -163,13 +207,51 @@ export function useLiveSubtitles({
     if (!worklet) return;
     const target = toleranceMode ? WORKLET_TARGET_TOLERANCE : WORKLET_TARGET_NORMAL;
     worklet.port.postMessage({ type: "set_target", value: target });
-    console.log(`[SUBTITLES] toleranceMode=${toleranceMode} → worklet target=${target}`);
+    subtitleDebug(`[SUBTITLES] toleranceMode=${toleranceMode} → worklet target=${target}`);
   }, [toleranceMode]);
 
   // ─── Subtitle upsert ──────────────────────────────────────────────────────
   const upsertSubtitle = useCallback(
-    (speakerId: string, speakerName: string, text: string, isFinal: boolean) => {
+    (
+      speakerId: string,
+      speakerName: string,
+      text: string,
+      isFinal: boolean,
+      options?: { replaceRecentFinal?: boolean }
+    ) => {
+      const cleanText = text.trim();
+      if (!cleanText) return;
+
+      const now = Date.now();
+
+      if (!isFinal) {
+        const lastText = latestInterimTextRef.current.get(speakerId);
+        const lastAt = lastInterimUpdateRef.current.get(speakerId) ?? 0;
+        if (lastText === cleanText) return;
+        if (now - lastAt < MIN_INTERIM_UPDATE_MS && cleanText.length <= (lastText?.length ?? 0) + 4) {
+          return;
+        }
+        latestInterimTextRef.current.set(speakerId, cleanText);
+        lastInterimUpdateRef.current.set(speakerId, now);
+      } else {
+        latestInterimTextRef.current.delete(speakerId);
+        lastInterimUpdateRef.current.delete(speakerId);
+        clearInterimTimer(speakerId);
+      }
+
       setSubtitles((prev) => {
+        if (isFinal && options?.replaceRecentFinal) {
+          for (let i = prev.length - 1; i >= 0; i--) {
+            const entry = prev[i];
+            if (entry.speakerId === speakerId && entry.isFinal && now - entry.timestamp < 5000) {
+              if (entry.text === cleanText) return prev;
+              const updated = [...prev];
+              updated[i] = { ...entry, speakerName, text: cleanText, timestamp: now };
+              return updated;
+            }
+          }
+        }
+
         // Find last non-final entry for this speaker
         let interimIdx = -1;
         if (!isFinal) {
@@ -184,7 +266,7 @@ export function useLiveSubtitles({
         if (!isFinal && interimIdx !== -1) {
           // Update existing interim in place
           const updated = [...prev];
-          updated[interimIdx] = { ...updated[interimIdx], text, timestamp: Date.now() };
+          updated[interimIdx] = { ...updated[interimIdx], text: cleanText, timestamp: now };
           return updated;
         }
 
@@ -195,17 +277,19 @@ export function useLiveSubtitles({
 
         const next = [
           ...base,
-          { id: uid(), speakerId, speakerName, text, isFinal, timestamp: Date.now() },
+          { id: uid(), speakerId, speakerName, text: cleanText, isFinal, timestamp: now },
         ];
         return next.length > 30 ? next.slice(-30) : next;
       });
     },
-    []
+    [clearInterimTimer]
   );
 
   // ─── Teardown audio pipeline (no guard — always safe to call) ─────────────
   const teardown = useCallback(() => {
     const p = pipeline.current;
+    clearAllInterimTimers();
+    invalidatePendingTranslations();
     if (!p.active) return;
     p.active = false;
 
@@ -220,8 +304,8 @@ export function useLiveSubtitles({
     p.audioCtx = null;
 
     setIsListening(false);
-    console.log("[SUBTITLES] pipeline torn down");
-  }, []);
+    subtitleDebug("[SUBTITLES] pipeline torn down");
+  }, [clearAllInterimTimers, invalidatePendingTranslations]);
 
   // ─── Send subtitle_audio_stop to server ──────────────────────────────────
   const stopOnServer = useCallback(() => {
@@ -259,8 +343,10 @@ export function useLiveSubtitles({
       worklet.port.onmessage = (ev: MessageEvent) => {
         const p = pipeline.current;
         if (!p.active) return;
-        refs.current.socket?.emit("subtitle_audio_chunk", ev.data);
-        if (++chunkN <= 3) console.log(`[SUBTITLES] chunk #${chunkN} ${ev.data.byteLength}B`);
+        const activeSocket = refs.current.socket;
+        if (!activeSocket?.connected) return;
+        activeSocket.emit("subtitle_audio_chunk", ev.data);
+        if (++chunkN <= 3) subtitleDebug(`[SUBTITLES] chunk #${chunkN} ${ev.data.byteLength}B`);
       };
 
       source.connect(worklet);
@@ -268,11 +354,11 @@ export function useLiveSubtitles({
       silentGain.connect(audioCtx.destination);
 
       pipeline.current = { audioCtx, worklet, source, silentGain, active: true };
-      console.log("[SUBTITLES] → subtitle_audio_start", payload);
+      subtitleDebug("[SUBTITLES] → subtitle_audio_start", payload);
       sock.emit("subtitle_audio_start", payload);
       setIsListening(true);
       setError(null);
-      console.log("[SUBTITLES] pipeline started, lang:", lang);
+      subtitleDebug("[SUBTITLES] pipeline started, lang:", lang);
     } catch (err: any) {
       console.error("[SUBTITLES] pipeline start failed:", err);
       // Server session was already started — stop it
@@ -298,7 +384,7 @@ export function useLiveSubtitles({
     if (!pipeline.current.active) return;
     if (!localStream || !refs.current.socket) return;
 
-    console.log("[SUBTITLES] displayLang changed →", displayLang, "— restarting");
+    subtitleDebug("[SUBTITLES] displayLang changed →", displayLang, "— restarting");
     // Use a short delay to let React settle any concurrent state updates
     const t = setTimeout(() => {
       if (localStream && refs.current.socket) {
@@ -321,7 +407,7 @@ export function useLiveSubtitles({
     if (remoteUserId) payload.to = remoteUserId;
     else if (groupChatId) payload.chatId = groupChatId;
 
-    console.log("[SUBTITLES] → subtitle_session_update", payload);
+    subtitleDebug("[SUBTITLES] → subtitle_session_update", payload);
     refs.current.socket.emit("subtitle_session_update", payload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteUserId, groupChatId]);
@@ -339,7 +425,7 @@ export function useLiveSubtitles({
     }) => {
       const { shouldShow, speechLang, displayLang, localSpeakerId } = refs.current;
 
-      console.log(
+      subtitleDebug(
         `[SUBTITLES] ← subtitle_received "${data.text?.slice(0, 50)}"`,
         `final:${data.isFinal} show:${shouldShow} speaker:${data.speakerId} me:${localSpeakerId}`
       );
@@ -365,22 +451,35 @@ export function useLiveSubtitles({
       }
 
       if (data.isFinal) {
-        translateText(data.text, from, to).then((translated) =>
-          upsertSubtitle(data.speakerId, data.username, translated, true)
-        );
+        const seq = nextTranslationSeq(data.speakerId);
+        clearInterimTimer(data.speakerId);
+        upsertSubtitle(data.speakerId, data.username, data.text, true);
+        translateText(data.text, from, to).then((translated) => {
+          if (!refs.current.shouldShow) return;
+          if (translationSeqRef.current.get(data.speakerId) !== seq) return;
+          if (translated !== data.text) {
+            upsertSubtitle(data.speakerId, data.username, translated, true, { replaceRecentFinal: true });
+          }
+        });
       } else {
         // Show original instantly, replace with translation after debounce
         upsertSubtitle(data.speakerId, data.username, data.text, false);
 
-        if (interimTimerRef.current) clearTimeout(interimTimerRef.current);
+        clearInterimTimer(data.speakerId);
+        if (data.text.trim().length < MIN_INTERIM_TRANSLATE_CHARS) return;
+
         const debounceMs = refs.current.toleranceMode ? DEBOUNCE_TOLERANCE : DEBOUNCE_NORMAL;
-        interimTimerRef.current = setTimeout(() => {
+        const seq = nextTranslationSeq(data.speakerId);
+        const timer = setTimeout(() => {
           translateText(data.text, from, to).then((translated) => {
+            if (!refs.current.shouldShow) return;
+            if (translationSeqRef.current.get(data.speakerId) !== seq) return;
             if (translated !== data.text) {
               upsertSubtitle(data.speakerId, data.username, translated, false);
             }
           });
         }, debounceMs);
+        interimTimersRef.current.set(data.speakerId, timer);
       }
     };
 
@@ -394,17 +493,18 @@ export function useLiveSubtitles({
     return () => {
       socket.off("subtitle_received", onReceived);
       socket.off("subtitle_error", onError);
-      if (interimTimerRef.current) {
-        clearTimeout(interimTimerRef.current);
-        interimTimerRef.current = null;
-      }
+      clearAllInterimTimers();
     };
-  }, [socket, upsertSubtitle, teardown]);
+  }, [socket, upsertSubtitle, teardown, clearAllInterimTimers, clearInterimTimer, nextTranslationSeq]);
 
   // ─── Clear subtitles when disabled ───────────────────────────────────────
   useEffect(() => {
-    if (!shouldShow) setSubtitles([]);
-  }, [shouldShow]);
+    if (!shouldShow) {
+      clearAllInterimTimers();
+      invalidatePendingTranslations();
+      setSubtitles([]);
+    }
+  }, [shouldShow, clearAllInterimTimers, invalidatePendingTranslations]);
 
   // ─── Cleanup on unmount ───────────────────────────────────────────────────
   useEffect(() => {

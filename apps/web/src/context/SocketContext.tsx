@@ -4,6 +4,7 @@ import api from "../services/api";
 import { User, UserStatus } from "../types";
 import { useI18n } from "../i18n";
 import UiIcon from "../components/UiIcon";
+import { isAppSoundEnabled } from "../utils/sound";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -93,6 +94,7 @@ export const SocketProvider = ({ children, currentUser }: { children: ReactNode;
           const notif = new Notification(msg.sender_name || "Новое сообщение", {
             body: (msg.text?.length ?? 0) > 100 ? msg.text!.slice(0, 100) + "..." : (msg.text ?? ""),
             icon: "/favicon.ico",
+            silent: !isAppSoundEnabled(),
           });
           notif.onclick = () => window.focus();
         } catch (e) {

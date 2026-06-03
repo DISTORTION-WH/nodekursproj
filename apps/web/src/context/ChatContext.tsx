@@ -23,6 +23,7 @@ import api, {
 import { useSocket } from "./SocketContext";
 import { Chat, Message, User, ChatParticipant, ReactionGroup, UnreadCounts } from "../types";
 import { useI18n } from "../i18n";
+import { isAppSoundEnabled, playMessageTone, setAppSoundEnabled, SOUND_CHANGED_EVENT } from "../utils/sound";
 
 interface ChatContextType {
   activeChat: Chat | null;
@@ -101,31 +102,11 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [allChats, setAllChats] = useState<Chat[]>([]);
   const [mentionCount, setMentionCount] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("soundEnabled") !== "false");
-
-  // Reuse single AudioContext — browsers limit concurrent contexts
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => isAppSoundEnabled());
 
   const playSound = useCallback(() => {
     if (!soundEnabled) return;
-    try {
-      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-        audioCtxRef.current = new AudioContext();
-      }
-      const ctx = audioCtxRef.current;
-      // Resume if suspended (browser autoplay policy)
-      if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    } catch (_) {}
+    playMessageTone();
   }, [soundEnabled]);
 
   const activeChatRef = useRef<Chat | null>(null);
@@ -139,6 +120,16 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    const syncSoundEnabled = () => setSoundEnabled(isAppSoundEnabled());
+    window.addEventListener(SOUND_CHANGED_EVENT, syncSoundEnabled);
+    window.addEventListener("storage", syncSoundEnabled);
+    return () => {
+      window.removeEventListener(SOUND_CHANGED_EVENT, syncSoundEnabled);
+      window.removeEventListener("storage", syncSoundEnabled);
+    };
   }, []);
 
   // Load unread counts on mount
@@ -612,7 +603,7 @@ export const ChatProvider = ({ currentUser, children }: ChatProviderProps) => {
     soundEnabled,
     setSoundEnabled: (v: boolean) => {
       setSoundEnabled(v);
-      localStorage.setItem("soundEnabled", String(v));
+      setAppSoundEnabled(v);
     },
     votePoll,
   };
