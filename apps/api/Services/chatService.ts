@@ -52,6 +52,8 @@ export interface Chat {
   is_group: boolean;
   creator_id?: number | null;
   invite_code?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
   participants?: ChatParticipant[];
   messages?: Message[];
 }
@@ -374,8 +376,39 @@ class ChatService {
 
   async getAllUserChats(userId: string | number): Promise<Chat[]> {
     const result = await client.query<Chat>(
-      `SELECT c.id, c.name, c.is_group, c.creator_id FROM chats c
-       JOIN chat_users cu ON cu.chat_id = c.id WHERE cu.user_id = $1`,
+      `SELECT
+         c.id,
+         c.name,
+         c.is_group,
+         c.creator_id,
+         private_user.username,
+         private_user.avatar_url,
+         COALESCE(
+           json_agg(
+             DISTINCT jsonb_build_object(
+               'id', u.id,
+               'username', u.username,
+               'avatar_url', u.avatar_url,
+               'is_banned', u.is_banned,
+               'chat_role', cu_all.chat_role
+             )
+           ) FILTER (WHERE u.id IS NOT NULL),
+           '[]'
+         ) AS participants
+       FROM chats c
+       JOIN chat_users cu ON cu.chat_id = c.id AND cu.user_id = $1
+       LEFT JOIN chat_users cu_all ON cu_all.chat_id = c.id
+       LEFT JOIN users u ON u.id = cu_all.user_id
+       LEFT JOIN LATERAL (
+         SELECT u2.username, u2.avatar_url
+         FROM chat_users cu2
+         JOIN users u2 ON u2.id = cu2.user_id
+         WHERE cu2.chat_id = c.id AND cu2.user_id <> $1
+         ORDER BY u2.username
+         LIMIT 1
+       ) private_user ON true
+       GROUP BY c.id, private_user.username, private_user.avatar_url
+       ORDER BY c.id`,
       [userId]
     );
     return result.rows;

@@ -145,7 +145,6 @@ const ru = {
     profile_badge: "Значок профиля",
     profile_badge_placeholder: "Эмодзи (1–2 символа)",
     bubble_color: "Цвет пузырьков сообщений",
-    bubble_preview: "Привет! Это мои сообщения",
     social_link: "Ссылка (GitHub, сайт...)",
     social_link_placeholder: "https://github.com/...",
     accent_color: "Акцентный цвет кнопок",

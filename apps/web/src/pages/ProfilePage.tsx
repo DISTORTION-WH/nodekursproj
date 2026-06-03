@@ -652,14 +652,6 @@ export default function ProfilePage() {
                       <span className="inline-flex items-center gap-1.5"><UiIcon name="link" size={14} /> {currentUser.social_link.replace(/^https?:\/\//, "")}</span>
                     </a>
                   )}
-                  {currentUser?.bubble_color && (
-                    <div className="mt-2 flex">
-                      <span className="px-3 py-1.5 rounded-xl text-sm text-white"
-                        style={{ background: currentUser.bubble_color }}>
-                        {t.profile.bubble_preview}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -850,12 +842,6 @@ export default function ProfilePage() {
                     className="flex-1 bg-discord-input text-discord-text-primary text-sm rounded px-2 py-1 outline-none border border-discord-tertiary focus:border-discord-accent transition" />
                   {extBubble && <button onClick={() => setExtBubble("")} className="text-discord-text-muted text-xs">✕</button>}
                 </div>
-                {extBubble && (
-                  <span className="self-start px-3 py-1.5 rounded-xl text-sm text-white mt-1"
-                    style={{ background: extBubble }}>
-                    {t.profile.bubble_preview}
-                  </span>
-                )}
               </div>
 
               {/* Social link */}

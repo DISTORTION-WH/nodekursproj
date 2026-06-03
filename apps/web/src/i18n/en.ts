@@ -144,7 +144,6 @@ const en: Translations = {
     profile_badge: "Profile Badge",
     profile_badge_placeholder: "Emoji (1–2 chars)",
     bubble_color: "Message Bubble Color",
-    bubble_preview: "Hey! These are my messages",
     social_link: "Link (GitHub, website...)",
     social_link_placeholder: "https://github.com/...",
     accent_color: "Button Accent Color",

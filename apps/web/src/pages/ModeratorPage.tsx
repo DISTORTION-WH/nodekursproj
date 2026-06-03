@@ -28,6 +28,10 @@ const ModeratorPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  useEffect(() => {
     if (activeTab === "users") { if (!query) loadUsers(); } else loadReports();
     handleCancelWarn();
   }, [activeTab, query, loadUsers, loadReports, handleCancelWarn]);

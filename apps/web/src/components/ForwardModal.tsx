@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useChat } from "../context/ChatContext";
-import { Message } from "../types";
+import { findOrCreatePrivateChat, getFriends } from "../services/api";
+import { Message, User } from "../types";
 import { useI18n } from "../i18n";
 
 interface Props {
@@ -13,18 +14,69 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
   const { allChats } = useChat();
   const { t } = useI18n();
   const [search, setSearch] = useState("");
-  const [forwarding, setForwarding] = useState<number | null>(null);
+  const [friends, setFriends] = useState<User[]>([]);
+  const [forwarding, setForwarding] = useState<string | null>(null);
 
-  const filtered = allChats.filter((c) => {
-    const name = c.is_group ? c.name : c.username;
-    if (!name) return false;
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
+  const getChatName = useCallback((chat: typeof allChats[number]) => {
+    if (chat.is_group) return chat.name || `#${chat.id}`;
+    return chat.username || chat.participants?.find((p) => p.username)?.username || `Chat #${chat.id}`;
+  }, []);
 
-  const handleForward = async (chatId: number) => {
+  useEffect(() => {
+    getFriends()
+      .then((res) => setFriends(res.data))
+      .catch(console.error);
+  }, []);
+
+  const targets = useMemo(() => {
+    const privateChatFriendIds = new Set<number>();
+    const chatTargets = allChats.map((chat) => {
+      const friend = !chat.is_group
+        ? friends.find((item) =>
+            chat.username === item.username ||
+            chat.participants?.some((p) => Number(p.id) === Number(item.id))
+          )
+        : undefined;
+      if (friend) privateChatFriendIds.add(Number(friend.id));
+
+      return {
+        key: `chat-${chat.id}`,
+        chatId: Number(chat.id),
+        friendId: friend?.id,
+        name: getChatName(chat),
+        isGroup: chat.is_group,
+        avatarUrl: chat.avatar_url || friend?.avatar_url || null,
+      };
+    });
+
+    const friendTargets = friends
+      .filter((friend) => !privateChatFriendIds.has(Number(friend.id)))
+      .map((friend) => ({
+        key: `friend-${friend.id}`,
+        chatId: null,
+        friendId: Number(friend.id),
+        name: friend.username,
+        isGroup: false,
+        avatarUrl: friend.avatar_url || null,
+      }));
+
+    return [...chatTargets, ...friendTargets];
+  }, [allChats, friends, getChatName]);
+
+  const filtered = targets.filter((target) =>
+    target.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleForward = async (target: typeof targets[number]) => {
     if (forwarding !== null) return;
-    setForwarding(chatId);
+    setForwarding(target.key);
     try {
+      let chatId = target.chatId;
+      if (!chatId && target.friendId) {
+        const res = await findOrCreatePrivateChat(target.friendId);
+        chatId = Number(res.data.id);
+      }
+      if (!chatId) return;
       await onForward(chatId, message);
     } finally {
       setForwarding(null);
@@ -70,19 +122,19 @@ export default function ForwardModal({ message, onClose, onForward }: Props) {
           {filtered.length === 0 && (
             <p className="text-discord-text-muted text-sm text-center py-4">{t.chat.no_chats}</p>
           )}
-          {filtered.map((chat) => {
-            const name = chat.is_group ? chat.name : chat.username;
+          {filtered.map((target) => {
+            const name = target.name;
             return (
               <div
-                key={chat.id}
+                key={target.key}
                 className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-discord-input transition cursor-pointer"
-                onClick={() => handleForward(chat.id)}
+                onClick={() => handleForward(target)}
               >
                 <div className="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
                   {name ? name[0].toUpperCase() : "#"}
                 </div>
                 <span className="text-discord-text-secondary text-sm truncate flex-1">{name}</span>
-                {forwarding === chat.id ? (
+                {forwarding === target.key ? (
                   <span className="text-discord-text-muted text-xs">...</span>
                 ) : (
                   <button className="text-xs bg-discord-accent/20 hover:bg-discord-accent text-discord-accent hover:text-white px-2 py-0.5 rounded transition shrink-0">
