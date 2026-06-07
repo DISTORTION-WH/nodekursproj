@@ -41,7 +41,7 @@ export default function Navbar() {
       >
         <span
           style={{
-            background: "linear-gradient(135deg, #ffffff, #a8b4ff)",
+            background: "linear-gradient(135deg, #0d00ff, #a8b4ff)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
