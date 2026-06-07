@@ -147,7 +147,7 @@ export default function AuthForm({ type }: Props) {
             <span
               className="font-logo text-4xl tracking-widest"
               style={{
-                background: "linear-gradient(135deg, #ffffff 0%, #a8b4ff 50%, #eb459e 100%)",
+                background: "linear-gradient(135deg, #adadad 0%, #7082f8 50%, #eb459e 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
