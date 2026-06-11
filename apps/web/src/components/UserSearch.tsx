@@ -48,7 +48,7 @@ export default function UserSearch({ onOpenProfile }: UserSearchProps) {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           placeholder={t.profile.name}
-          className="flex-1 bg-discord-input text-white text-sm rounded px-2 py-1 outline-none focus:ring-1 focus:ring-discord-accent placeholder-discord-text-muted min-w-0"
+          className="flex-1 bg-discord-input text-gray-800 text-sm rounded px-2 py-1 outline-none focus:ring-1 focus:ring-discord-accent placeholder-discord-text-muted min-w-0"
         />
         <button
           onClick={handleSearch}
