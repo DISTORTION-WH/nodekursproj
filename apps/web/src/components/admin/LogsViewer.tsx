@@ -18,7 +18,7 @@ export default function LogsViewer() {
   const levelColor = (level: string) => {
     switch (level.toUpperCase()) {
       case "ERROR": return "bg-discord-danger/20 text-discord-danger";
-      case "WARN": case "WARNING": return "bg-yellow-500/20 text-yellow-400";
+      case "WARN": case "WARNING": return "bg-yellow-500/20 text-discord-warn";
       case "INFO": return "bg-discord-accent/20 text-discord-accent";
       default: return "bg-white/10 text-discord-text-secondary";
     }
@@ -27,10 +27,10 @@ export default function LogsViewer() {
   return (
     <div className="bg-discord-secondary rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold text-base">Системные логи (50)</h3>
+        <h3 className="text-discord-text-primary font-semibold text-base">Системные логи (50)</h3>
         <button
           onClick={fetchLogs}
-          className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white text-xs px-3 py-1.5 rounded transition"
+          className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-xs px-3 py-1.5 rounded transition"
         >
           <span className="inline-flex items-center gap-1.5"><UiIcon name="refresh" size={13} /> Обновить</span>
         </button>

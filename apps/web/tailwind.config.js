@@ -18,6 +18,7 @@ module.exports = {
           'text-primary': 'var(--color-text-primary)',
           'text-secondary': 'var(--color-text-secondary)',
           'text-muted': 'var(--color-text-muted)',
+          'text-on-accent': 'var(--color-text-on-accent)',
           input: 'var(--color-input)',
           'input-hover': 'var(--color-input-hover)',
         },

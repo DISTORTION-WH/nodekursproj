@@ -633,7 +633,7 @@ export default function ProfilePage() {
                     color={currentUser?.username_color}
                     anim={currentUser?.username_anim}
                     badge={currentUser?.profile_badge}
-                    className="text-white text-xl font-bold"
+                    className="text-discord-text-primary text-xl font-bold"
                   />
                   <span className="text-discord-text-muted text-sm">{currentUser?.role || "USER"}</span>
                 </div>

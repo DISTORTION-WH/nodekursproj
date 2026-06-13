@@ -145,7 +145,7 @@ export default function ProfileHoverCard() {
               color={user.username_color}
               anim={user.username_anim}
               badge={user.profile_badge}
-              className="font-bold text-sm text-white truncate"
+              className="font-bold text-sm text-discord-text-primary truncate"
             />
           )}
           {user && (

@@ -144,7 +144,7 @@ export default function UserProfilePage() {
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
-        <h2 className="text-white text-2xl font-bold">
+        <h2 className="text-discord-text-primary text-2xl font-bold">
           <UsernameDisplay username={user.username} color={user.username_color} anim={user.username_anim} badge={user.profile_badge} />
         </h2>
 
@@ -177,7 +177,7 @@ export default function UserProfilePage() {
                 color={user.username_color}
                 anim={user.username_anim}
                 badge={user.profile_badge}
-                className="text-white text-xl font-bold truncate"
+                className="text-discord-text-primary text-xl font-bold truncate"
               />
               {countryInfo && (
                 <p className="text-discord-text-secondary text-sm">
@@ -217,7 +217,7 @@ export default function UserProfilePage() {
           <div className="bg-discord-secondary rounded-xl p-6 flex flex-col gap-2">
             {user.bio && (
               <>
-                <h3 className="text-white font-semibold text-base mb-1">{t.profile.bio}</h3>
+                <h3 className="text-discord-text-primary font-semibold text-base mb-1">{t.profile.bio}</h3>
                 <p className="text-discord-text-secondary text-sm">{user.bio}</p>
               </>
             )}
@@ -236,7 +236,7 @@ export default function UserProfilePage() {
 
         {/* Friends */}
         <div className="bg-discord-secondary rounded-xl p-6">
-          <h3 className="text-white font-semibold text-base mb-3">{t.profile.friends}</h3>
+          <h3 className="text-discord-text-primary font-semibold text-base mb-3">{t.profile.friends}</h3>
           {friends.length === 0 ? (
             <p className="text-discord-text-muted text-sm">{t.profile.no_friends}</p>
           ) : (

@@ -6,7 +6,7 @@ import { useI18n } from "../i18n";
 import UiIcon from "./UiIcon";
 
 function getRoleBadge(member: ChatParticipant, creatorId: number | undefined): { label: React.ReactNode; className: string } | null {
-  if (member.id === creatorId) return { label: <UiIcon name="crown" size={13} />, className: "text-yellow-400" };
+  if (member.id === creatorId) return { label: <UiIcon name="crown" size={13} />, className: "text-discord-warn" };
   if (member.chat_role === "moderator") return { label: <UiIcon name="shield" size={13} />, className: "text-discord-accent" };
   if (member.chat_role === "trusted") return { label: <UiIcon name="check" size={13} />, className: "text-discord-success" };
   return null;
@@ -80,7 +80,7 @@ export default function ChatModals() {
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold text-lg">
+          <h3 className="text-discord-text-primary font-semibold text-lg">
             {isInvite ? t.chat.invite : t.chat.members}
           </h3>
           <button

@@ -102,7 +102,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-white font-medium">{currentUser?.username || "—"}</span>
+                <span className="text-discord-text-primary font-medium">{currentUser?.username || "—"}</span>
                 <button
                   onClick={startEditUsername}
                   className="text-discord-text-muted hover:text-discord-accent text-xs transition shrink-0"
@@ -125,11 +125,11 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
           </p>
           <p className="text-discord-text-secondary break-all">
             <span className="text-discord-text-muted">{t.profile.email}: </span>
-            <span className="text-white break-all">{currentUser?.email || "—"}</span>
+            <span className="text-discord-text-primary break-all">{currentUser?.email || "—"}</span>
           </p>
           <p className="text-discord-text-secondary">
             <span className="text-discord-text-muted">{t.profile.registered}: </span>
-            <span className="text-white">
+            <span className="text-discord-text-primary">
               {currentUser?.created_at
                 ? new Date(currentUser.created_at).toLocaleString()
                 : "—"}
@@ -141,7 +141,7 @@ export default function ProfileHeader({ currentUser, handleAvatarChange }: Profi
           <input
             type="file"
             accept="image/*"
-            className="text-xs text-discord-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-discord-input file:text-white hover:file:bg-discord-input-hover cursor-pointer max-w-full min-w-0"
+            className="text-xs text-discord-text-secondary file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-discord-input file:text-discord-text-primary hover:file:bg-discord-input-hover cursor-pointer max-w-full min-w-0"
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) setNewAvatar(e.target.files[0]);
               setUploadMessage("");

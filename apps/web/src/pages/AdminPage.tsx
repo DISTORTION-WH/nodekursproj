@@ -30,7 +30,7 @@ export default function AdminPage() {
   return (
     <div className="flex-1 overflow-y-auto bg-discord-bg p-6">
       <div className="max-w-5xl mx-auto">
-        <h2 className="text-white text-2xl font-bold mb-4">Админ-панель</h2>
+        <h2 className="text-discord-text-primary text-2xl font-bold mb-4">Админ-панель</h2>
 
         <div className="flex gap-2 mb-4 flex-wrap">
           {tabs.map((tab) => (
@@ -40,7 +40,7 @@ export default function AdminPage() {
               className={`px-4 py-2 rounded text-sm font-medium transition ${
                 activeTab === tab.key
                   ? "bg-discord-accent text-white"
-                  : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-white"
+                  : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-discord-text-primary"
               }`}
             >
               {tab.label}

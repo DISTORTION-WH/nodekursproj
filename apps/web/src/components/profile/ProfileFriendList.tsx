@@ -21,7 +21,7 @@ export default function ProfileFriendList() {
 
   return (
     <div className="bg-discord-secondary rounded-xl p-6">
-      <h3 className="text-white font-semibold text-base mb-3">{t.profile.friends}</h3>
+      <h3 className="text-discord-text-primary font-semibold text-base mb-3">{t.profile.friends}</h3>
 
       {friends.length === 0 ? (
         <p className="text-discord-text-muted text-sm">{t.profile.no_friends}</p>

@@ -23,13 +23,13 @@ export default function StatsDashboard() {
   const cards = [
     { label: "Пользователей", value: stats.usersCount, accent: "text-discord-accent" },
     { label: "Чатов", value: stats.chatsCount, accent: "text-discord-success" },
-    { label: "Сообщений", value: stats.messagesCount, accent: "text-blue-400" },
+    { label: "Сообщений", value: stats.messagesCount, accent: "text-discord-accent" },
     { label: "Ошибок в логах", value: stats.logsCount, accent: "text-discord-danger" },
   ];
 
   return (
     <div className="bg-discord-secondary rounded-xl p-5">
-      <h3 className="text-white font-semibold text-base mb-4">Статистика приложения</h3>
+      <h3 className="text-discord-text-primary font-semibold text-base mb-4">Статистика приложения</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {cards.map((card) => (
           <div key={card.label} className="bg-discord-tertiary rounded-xl p-4 flex flex-col gap-1">

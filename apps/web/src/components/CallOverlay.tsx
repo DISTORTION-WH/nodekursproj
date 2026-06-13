@@ -933,7 +933,7 @@ function CallOverlayContent() {
                 <button
                   onClick={() => setShowSubSettings((v) => !v)}
                   title={t.call.subtitle_settings}
-                  className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary transition text-sm"
                 >
                   <UiIcon name="settings" size={16} />
                 </button>
@@ -1411,7 +1411,7 @@ function CallOverlayContent() {
                     <button
                       onClick={() => setShowSubSettings((v) => !v)}
                       title={t.call.subtitle_settings}
-                      className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white transition text-sm"
+                      className="w-9 h-9 rounded-full flex items-center justify-center bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary transition text-sm"
                     >
                       <UiIcon name="settings" size={16} />
                     </button>

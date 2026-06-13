@@ -103,7 +103,7 @@ const ModeratorPage: React.FC = () => {
     try { await deleteMessageByMod(msgId, repId); setReports(p => p.filter(r => r.id !== repId)); } catch { alert("Ошибка удаления"); }
   };
 
-  const ic = "bg-discord-input text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-discord-accent placeholder-discord-text-muted text-sm w-full";
+  const ic = "bg-discord-input text-discord-text-primary rounded px-3 py-2 outline-none focus:ring-2 focus:ring-discord-accent placeholder-discord-text-muted text-sm w-full";
 
   const WarnForm = () => {
     if (!warningUser) return null;
@@ -121,7 +121,7 @@ const ModeratorPage: React.FC = () => {
           <button onClick={handleSubmitWarn} className="bg-discord-success hover:bg-discord-success-hover text-white text-sm px-3 py-1.5 rounded transition">
             Отправить
           </button>
-          <button onClick={handleCancelWarn} className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white text-sm px-3 py-1.5 rounded transition">
+          <button onClick={handleCancelWarn} className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-sm px-3 py-1.5 rounded transition">
             Отмена
           </button>
         </div>
@@ -136,13 +136,13 @@ const ModeratorPage: React.FC = () => {
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setActiveTab("users")}
-            className={"px-4 py-2 rounded text-sm font-medium transition " + (activeTab === "users" ? "bg-discord-accent text-white" : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-white")}
+            className={"px-4 py-2 rounded text-sm font-medium transition " + (activeTab === "users" ? "bg-discord-accent text-white" : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-discord-text-primary")}
           >
             Пользователи
           </button>
           <button
             onClick={() => setActiveTab("reports")}
-            className={"px-4 py-2 rounded text-sm font-medium transition " + (activeTab === "reports" ? "bg-discord-accent text-white" : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-white")}
+            className={"px-4 py-2 rounded text-sm font-medium transition " + (activeTab === "reports" ? "bg-discord-accent text-white" : "bg-discord-input text-discord-text-secondary hover:bg-discord-input-hover hover:text-discord-text-primary")}
           >
             {"Жалобы (" + reports.length + ")"}
           </button>
@@ -182,7 +182,7 @@ const ModeratorPage: React.FC = () => {
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex gap-1">
-                          <button onClick={() => handleStartWarn(user)} className="bg-yellow-500/20 hover:bg-yellow-500 text-yellow-400 hover:text-black text-xs px-2 py-1 rounded">warn</button>
+                          <button onClick={() => handleStartWarn(user)} className="bg-yellow-500/20 hover:bg-yellow-500 text-discord-warn hover:text-black text-xs px-2 py-1 rounded">warn</button>
                           {user.is_banned
                             ? <button onClick={() => handleUnban(user)} className="bg-discord-success/20 hover:bg-discord-success text-discord-success hover:text-white text-xs px-2 py-1 rounded">unban</button>
                             : <button onClick={() => handleBan(user)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">ban</button>
@@ -214,7 +214,7 @@ const ModeratorPage: React.FC = () => {
                     <div className="text-xs text-discord-text-muted">Причина: {rep.reason}</div>
                     <div className="flex gap-2 flex-wrap">
                       <button onClick={() => handleDeleteMessage(rep.message_id, rep.id)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Удалить сообщение</button>
-                      <button onClick={() => handleStartWarn({ id: rep.sender_id, username: rep.sender_name } as User, rep.id)} className="bg-yellow-500/20 hover:bg-yellow-500 text-yellow-400 hover:text-black text-xs px-2 py-1 rounded">Warn</button>
+                      <button onClick={() => handleStartWarn({ id: rep.sender_id, username: rep.sender_name } as User, rep.id)} className="bg-yellow-500/20 hover:bg-yellow-500 text-discord-warn hover:text-black text-xs px-2 py-1 rounded">Warn</button>
                       <button onClick={() => handleBanFromReport(rep)} className="bg-discord-danger/20 hover:bg-discord-danger text-discord-danger hover:text-white text-xs px-2 py-1 rounded">Ban</button>
                       <button onClick={() => handleDismissReport(rep.id)} className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-xs px-2 py-1 rounded">Отклонить</button>
                     </div>

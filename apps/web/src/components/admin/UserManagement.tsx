@@ -48,11 +48,11 @@ export default function UserManagement() {
     return (u.username?.toLowerCase() || "").includes(q) || (u.email?.toLowerCase() || "").includes(q);
   });
 
-  const inputClass = "bg-discord-input text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-discord-accent placeholder-discord-text-muted text-sm w-full";
+  const inputClass = "bg-discord-input text-discord-text-primary rounded px-3 py-2 outline-none focus:ring-2 focus:ring-discord-accent placeholder-discord-text-muted text-sm w-full";
 
   return (
     <div className="bg-discord-secondary rounded-xl p-5">
-      <h3 className="text-white font-semibold text-base mb-4">Пользователи</h3>
+      <h3 className="text-discord-text-primary font-semibold text-base mb-4">Пользователи</h3>
 
       <input
         type="text"
@@ -77,12 +77,12 @@ export default function UserManagement() {
             {filteredUsers.map((user) => (
               <tr key={user.id} className="border-b border-discord-tertiary hover:bg-discord-input transition">
                 <td className="py-2 px-2 text-discord-text-muted">{user.id}</td>
-                <td className="py-2 px-2 text-white">{user.username || "—"}</td>
+                <td className="py-2 px-2 text-discord-text-primary">{user.username || "—"}</td>
                 <td className="py-2 px-2">{user.email || "—"}</td>
                 <td className="py-2 px-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                     user.role === "ADMIN" ? "bg-discord-danger/20 text-discord-danger" :
-                    user.role === "MODERATOR" ? "bg-yellow-500/20 text-yellow-400" :
+                    user.role === "MODERATOR" ? "bg-yellow-500/20 text-discord-warn" :
                     "bg-white/10 text-discord-text-secondary"
                   }`}>
                     {user.role || "USER"}
@@ -112,7 +112,7 @@ export default function UserManagement() {
 
       {editingUser && (
         <div className="mt-4 bg-discord-tertiary rounded-xl p-4 flex flex-col gap-3">
-          <h4 className="text-white font-semibold text-sm">Редактировать пользователя</h4>
+          <h4 className="text-discord-text-primary font-semibold text-sm">Редактировать пользователя</h4>
           <input
             type="text"
             value={editingUser.username}
@@ -143,7 +143,7 @@ export default function UserManagement() {
             </button>
             <button
               onClick={() => setEditingUser(null)}
-              className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white text-sm px-3 py-1.5 rounded transition"
+              className="bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary text-sm px-3 py-1.5 rounded transition"
             >
               Отмена
             </button>

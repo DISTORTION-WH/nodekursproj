@@ -29,7 +29,7 @@ export default function ChatManagement() {
 
   return (
     <div className="bg-discord-secondary rounded-xl p-5">
-      <h3 className="text-white font-semibold text-base mb-4">Чаты</h3>
+      <h3 className="text-discord-text-primary font-semibold text-base mb-4">Чаты</h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         {chats.map((chat) => (
@@ -44,7 +44,7 @@ export default function ChatManagement() {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-white text-sm font-medium truncate">
+                <p className="text-discord-text-primary text-sm font-medium truncate">
                   #{chat.id} {chat.name || (chat.is_group ? "Группа" : "ЛС")}
                 </p>
                 <p className="text-discord-text-muted text-xs">
@@ -64,7 +64,7 @@ export default function ChatManagement() {
 
       {selectedChat && (
         <div className="bg-discord-tertiary rounded-xl p-4">
-          <h4 className="text-white font-semibold text-sm mb-3">
+          <h4 className="text-discord-text-primary font-semibold text-sm mb-3">
             Сообщения чата #{selectedChat.id}
           </h4>
           <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">

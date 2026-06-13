@@ -9,7 +9,7 @@ import { useHoverCard } from "../context/HoverCardContext";
 import UiIcon from "./UiIcon";
 
 // ─── Poll Widget ──────────────────────────────────────────────────────────────
-function PollWidget({ poll, messageId, currentUserId }: { poll: PollData; messageId: number; currentUserId: number | undefined }) {
+function PollWidget({ poll, messageId, currentUserId, isMine = false }: { poll: PollData; messageId: number; currentUserId: number | undefined; isMine?: boolean }) {
   const { votePoll } = useChat();
   const { t } = useI18n();
   const totalVotes = Object.values(poll.votes).reduce((s, arr) => s + arr.length, 0);
@@ -17,7 +17,7 @@ function PollWidget({ poll, messageId, currentUserId }: { poll: PollData; messag
 
   return (
     <div className="mt-1 min-w-[220px]">
-      <div className="font-semibold text-sm mb-2 text-discord-text-primary">{poll.question}</div>
+      <div className={`font-semibold text-sm mb-2 ${isMine ? "text-discord-text-on-accent" : "text-discord-text-primary"}`}>{poll.question}</div>
       <div className="flex flex-col gap-1.5">
         {poll.options.map((opt, i) => {
           const key = String(i);
@@ -47,7 +47,7 @@ function PollWidget({ poll, messageId, currentUserId }: { poll: PollData; messag
           );
         })}
       </div>
-      <div className="text-discord-text-muted text-xs mt-1.5">{totalVotes} {t.chat.participants} {poll.closed ? `· ${t.chat.poll_closed}` : ""}</div>
+      <div className={`${isMine ? "text-discord-text-on-accent opacity-80" : "text-discord-text-muted"} text-xs mt-1.5`}>{totalVotes} {t.chat.participants} {poll.closed ? `· ${t.chat.poll_closed}` : ""}</div>
     </div>
   );
 }
@@ -184,6 +184,9 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const audioTrackColor = isMine ? "rgba(255,255,255,0.28)" : "var(--color-audio-track)";
+  const audioTimeColor = isMine ? "rgba(255,255,255,0.82)" : "var(--color-audio-time)";
+  const audioThumbColor = isMine ? "var(--color-text-on-accent)" : "var(--color-audio-thumb)";
 
   // Seek to a position based on mouse/touch X relative to the bar
   const seekFromEvent = (clientX: number) => {
@@ -217,7 +220,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
       padding: "6px 10px", borderRadius: 16, minWidth: 200, maxWidth: 280,
-      background: isMine ? "rgba(128,128,128,0.15)" : "var(--color-input)",
+      background: isMine ? "rgba(255,255,255,0.16)" : "var(--color-input)",
     }}>
       <audio ref={audioRef} src={src} preload="auto" />
 
@@ -253,7 +256,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
           onMouseDown={handleBarMouseDown}
           style={{
             height: 6, borderRadius: 3, cursor: "pointer",
-            background: "rgba(128,128,128,0.2)", position: "relative",
+            background: audioTrackColor, position: "relative",
           }}
         >
           {/* Filled portion */}
@@ -270,7 +273,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
               position: "absolute", top: "50%", left: `${progress}%`,
               transform: "translate(-50%, -50%)",
               width: 12, height: 12, borderRadius: "50%",
-              background: "var(--color-text-primary)", border: "2px solid var(--color-accent)",
+              background: audioThumbColor, border: "2px solid var(--color-accent)",
               boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
               pointerEvents: "none",
             }} />
@@ -278,7 +281,7 @@ function VoicePlayer({ src, isMine }: { src: string; isMine: boolean }) {
         </div>
         <div style={{
           display: "flex", justifyContent: "space-between",
-          fontSize: 10, color: "var(--color-text-muted)", fontVariantNumeric: "tabular-nums",
+          fontSize: 10, color: audioTimeColor, fontVariantNumeric: "tabular-nums",
           userSelect: "none",
         }}>
           <span>{fmt(currentTime)}</span>
@@ -466,6 +469,8 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
   const icon = getFileIcon(ext);
   const [hovered, setHovered] = useState(false);
   const { t } = useI18n();
+  const filePrimaryColor = isMine ? "var(--color-text-on-accent)" : "var(--color-text-primary)";
+  const fileMutedColor = isMine ? "rgba(255,255,255,0.78)" : "var(--color-text-muted)";
 
   return (
     <a
@@ -479,8 +484,8 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
         display: "flex", alignItems: "center", gap: 10,
         padding: "8px 12px", borderRadius: 12, minWidth: 180, maxWidth: 300,
         background: hovered
-          ? (isMine ? "rgba(128,128,128,0.22)" : "rgba(128,128,128,0.15)")
-          : (isMine ? "rgba(128,128,128,0.15)" : "rgba(128,128,128,0.1)"),
+          ? (isMine ? "rgba(255,255,255,0.22)" : "rgba(128,128,128,0.15)")
+          : (isMine ? "rgba(255,255,255,0.16)" : "rgba(128,128,128,0.1)"),
         border: "1px solid var(--color-tertiary)",
         textDecoration: "none", color: "inherit",
         transition: "background 0.15s ease",
@@ -497,16 +502,16 @@ function FileCard({ url, isMine }: { url: string; isMine: boolean }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)",
+          fontSize: 13, fontWeight: 600, color: filePrimaryColor,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {name}
         </div>
-        <div style={{ fontSize: 11, color: "var(--color-text-muted)", textTransform: "uppercase" }}>
+        <div style={{ fontSize: 11, color: fileMutedColor, textTransform: "uppercase" }}>
           {ext} — {t.messages.download}
         </div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={fileMutedColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
         <polyline points="7 10 12 15 17 10" />
         <line x1="12" y1="15" x2="12" y2="3" />
@@ -960,7 +965,7 @@ export default function MessageList() {
                 </div>
               ) : (
                 <div
-                  className={`px-3 py-2 rounded-xl text-sm text-discord-text-primary break-words max-w-full ${
+                  className={`px-3 py-2 rounded-xl text-sm ${isMine ? "text-discord-text-on-accent" : "text-discord-text-primary"} break-words max-w-full ${
                     isMine ? "rounded-br-sm" : "rounded-bl-sm"
                   }`}
                   style={
@@ -1002,7 +1007,7 @@ export default function MessageList() {
                       )}
                       {/* Poll widget */}
                       {msg.poll && (
-                        <PollWidget poll={msg.poll} messageId={msg.id} currentUserId={currentUser?.id} />
+                        <PollWidget poll={msg.poll} messageId={msg.id} currentUserId={currentUser?.id} isMine={isMine} />
                       )}
                     </>
                   )}

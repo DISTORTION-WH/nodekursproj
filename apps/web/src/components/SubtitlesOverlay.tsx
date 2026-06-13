@@ -56,8 +56,8 @@ export function CCButton({ active, onToggle }: CCButtonProps) {
         "w-12 h-12 rounded-full flex items-center justify-center",
         "text-sm font-bold tracking-wide transition",
         active
-          ? "bg-discord-input-hover text-white"
-          : "bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-white",
+          ? "bg-discord-input-hover text-discord-text-primary"
+          : "bg-discord-input hover:bg-discord-input-hover text-discord-text-secondary hover:text-discord-text-primary",
       ].join(" ")}
     >
       CC
@@ -82,7 +82,7 @@ export function SubtitleLangSelect({ value, onChange, title }: SubtitleLangSelec
       className={[
         "h-9 rounded-lg px-2 border-0 outline-none cursor-pointer",
         "bg-discord-input hover:bg-discord-input-hover",
-        "text-discord-text-secondary hover:text-white",
+        "text-discord-text-secondary hover:text-discord-text-primary",
         "text-xs transition-colors appearance-none",
       ].join(" ")}
     >
@@ -138,7 +138,7 @@ export function SubtitleSettingsPopup({
       style={{ minWidth: 280 }}
     >
       <div className="bg-discord-secondary rounded-xl shadow-2xl border border-white/10 p-4 flex flex-col gap-4">
-        <div className="text-white text-sm font-semibold text-center">
+        <div className="text-discord-text-primary text-sm font-semibold text-center">
           {t.call.subtitle_settings}
         </div>
 
@@ -156,7 +156,7 @@ export function SubtitleSettingsPopup({
             className={[
               "h-10 rounded-lg px-3 border-0 outline-none cursor-pointer w-full",
               "bg-discord-input hover:bg-discord-input-hover",
-              "text-white text-sm transition-colors",
+              "text-discord-text-primary text-sm transition-colors",
             ].join(" ")}
           >
             {SUBTITLE_LANGUAGES.map((l) => (
@@ -179,7 +179,7 @@ export function SubtitleSettingsPopup({
             className={[
               "h-10 rounded-lg px-3 border-0 outline-none cursor-pointer w-full",
               "bg-discord-input hover:bg-discord-input-hover",
-              "text-white text-sm transition-colors",
+              "text-discord-text-primary text-sm transition-colors",
             ].join(" ")}
           >
             {SUBTITLE_LANGUAGES.map((l) => (
